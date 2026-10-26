@@ -1,0 +1,378 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../server/generated/prisma"
+  moduleFormat = "esm"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum FileKind {
+  IMAGE
+  DOCX
+}
+
+enum FileStatus {
+  PENDING
+  READY
+  DELETED
+}
+
+enum RecognitionMode {
+  HANDWRITTEN
+  PRINTED
+}
+
+enum RecognitionStatus {
+  QUEUED
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+enum VersionOrigin {
+  RECOGNITION
+  MANUAL
+  DEMO
+}
+
+enum MessageRole {
+  USER
+  ASSISTANT
+}
+
+enum MessageStatus {
+  STREAMING
+  COMPLETED
+  FAILED
+}
+
+enum UsageKind {
+  RECOGNITION
+  CHAT
+  EXPORT
+}
+
+model User {
+  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email         String   @unique @db.VarChar(320)
+  displayName   String   @db.VarChar(100)
+  emailVerified Boolean  @default(false)
+  image         String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  files         StoredFile[]
+  tasks         RecognitionTask[]
+  formulas      Formula[]
+  categories    Category[]
+  favorites     Favorite[]
+  conversations Conversation[]
+  sessions      AuthSession[]
+  accounts      AuthAccount[]
+  exports       ExportTask[]
+  chatTurns     ChatTurn[]
+  usage         DailyUsage[]
+
+  @@map("users")
+}
+
+// 认证模型独立命名，避免与业务对话 Conversation 混淆。
+model AuthSession {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @db.Uuid
+  token     String   @unique
+  expiresAt DateTime @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model AuthAccount {
+  id                    String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId                String    @db.Uuid
+  accountId             String
+  providerId            String
+  password              String?
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope                 String?
+  createdAt             DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt             DateTime  @updatedAt @db.Timestamptz(3)
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([providerId, accountId])
+  @@index([userId])
+  @@map("auth_accounts")
+}
+
+model AuthVerification {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  identifier String
+  value      String
+  expiresAt  DateTime @db.Timestamptz(3)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt  DateTime @updatedAt @db.Timestamptz(3)
+
+  @@index([identifier])
+  @@index([expiresAt])
+  @@map("auth_verifications")
+}
+
+model AuthRateLimit {
+  id          String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  key         String @unique
+  count       Int
+  lastRequest BigInt
+
+  @@index([lastRequest])
+  @@map("auth_rate_limits")
+}
+
+model StoredFile {
+  id          String     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId     String     @db.Uuid
+  uploadKey   String?    @db.VarChar(100)
+  contentHash String?    @db.Char(64)
+  kind        FileKind
+  status      FileStatus @default(PENDING)
+  bucket      String     @db.VarChar(100)
+  objectKey   String     @db.VarChar(512)
+  name        String     @db.VarChar(255)
+  mimeType    String     @db.VarChar(100)
+  sizeBytes   Int
+  width       Int?
+  height      Int?
+  createdAt   DateTime   @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime   @updatedAt @db.Timestamptz(3)
+
+  owner   User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks   RecognitionTask[]
+  exports ExportTask[]
+
+  @@unique([id, ownerId])
+  @@unique([bucket, objectKey])
+  @@unique([ownerId, uploadKey])
+  @@index([ownerId, createdAt(sort: Desc), id])
+  @@map("stored_files")
+}
+
+model RecognitionTask {
+  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId      String            @db.Uuid
+  inputFileId  String            @db.Uuid
+  requestKey   String            @db.VarChar(100)
+  mode         RecognitionMode
+  status       RecognitionStatus @default(QUEUED)
+  attemptCount Int               @default(0)
+  maxAttempts  Int               @default(3)
+  errorCode    String?           @db.VarChar(100)
+  errorMessage String?           @db.VarChar(1000)
+  startedAt    DateTime?         @db.Timestamptz(3)
+  finishedAt   DateTime?         @db.Timestamptz(3)
+  createdAt    DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime          @updatedAt @db.Timestamptz(3)
+  queueJobId   String?           @unique @db.Uuid
+
+  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  inputFile StoredFile @relation(fields: [inputFileId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+  formula   Formula?
+
+  @@unique([id, ownerId])
+  @@unique([ownerId, requestKey])
+  @@index([ownerId, createdAt(sort: Desc), id])
+  @@index([inputFileId, ownerId])
+  @@index([status, createdAt])
+  @@map("recognition_tasks")
+}
+
+model Category {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId   String   @db.Uuid
+  name      String   @db.VarChar(50)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+
+  owner    User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  formulas Formula[]
+
+  @@unique([id, ownerId])
+  @@unique([ownerId, name])
+  @@map("categories")
+}
+
+model Formula {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId           String   @db.Uuid
+  title             String   @db.VarChar(100)
+  categoryId        String?  @db.Uuid
+  recognitionTaskId String?  @db.Uuid
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+
+  owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  category        Category?        @relation(fields: [categoryId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+  recognitionTask RecognitionTask? @relation(fields: [recognitionTaskId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+  versions        FormulaVersion[]
+  favorites       Favorite[]
+
+  @@unique([id, ownerId])
+  @@unique([recognitionTaskId, ownerId])
+  @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)])
+  @@index([ownerId, updatedAt(sort: Desc), id])
+  @@index([categoryId, ownerId])
+  @@map("formulas")
+}
+
+model FormulaVersion {
+  id           String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  formulaId    String        @db.Uuid
+  ownerId      String        @db.Uuid
+  number       Int
+  latex        String        @db.Text
+  origin       VersionOrigin
+  modelVersion String?       @db.VarChar(100)
+  isMock       Boolean       @default(false)
+  confidence   Decimal?      @db.Decimal(5, 4)
+  createdAt    DateTime      @default(now()) @db.Timestamptz(3)
+
+  formula       Formula        @relation(fields: [formulaId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+  conversations Conversation[]
+  exports       ExportTask[]
+
+  @@unique([id, ownerId])
+  @@unique([formulaId, number])
+  @@index([formulaId, ownerId])
+  @@map("formula_versions")
+}
+
+model Favorite {
+  ownerId   String   @db.Uuid
+  formulaId String   @db.Uuid
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  owner   User    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  formula Formula @relation(fields: [formulaId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@id([ownerId, formulaId])
+  @@index([ownerId, createdAt(sort: Desc), formulaId])
+  @@index([formulaId, ownerId])
+  @@map("favorites")
+}
+
+model Conversation {
+  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId          String   @db.Uuid
+  formulaVersionId String?  @db.Uuid
+  title            String   @db.VarChar(100)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
+  requestKey       String?  @db.VarChar(100)
+
+  owner          User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  formulaVersion FormulaVersion? @relation(fields: [formulaVersionId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+  messages       ChatMessage[]
+  turns          ChatTurn[]
+
+  @@unique([id, ownerId])
+  @@unique([ownerId, requestKey])
+  @@index([ownerId, updatedAt(sort: Desc), id])
+  @@index([formulaVersionId, ownerId])
+  @@map("conversations")
+}
+
+model ChatMessage {
+  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId String        @db.Uuid
+  ownerId        String        @db.Uuid
+  position       Int
+  role           MessageRole
+  status         MessageStatus @default(COMPLETED)
+  content        String        @db.Text
+  isMock         Boolean       @default(false)
+  modelVersion   String?       @db.VarChar(100)
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
+  turnId         String?       @db.Uuid
+
+  conversation Conversation @relation(fields: [conversationId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+  turn         ChatTurn?    @relation(fields: [turnId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+
+  @@unique([conversationId, position])
+  @@unique([turnId, role])
+  @@index([conversationId, ownerId])
+  @@map("chat_messages")
+}
+
+model DailyUsage {
+  ownerId String    @db.Uuid
+  day     DateTime  @db.Date
+  kind    UsageKind
+  used    Int       @default(0)
+  owner   User      @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+
+  @@id([ownerId, day, kind])
+  @@map("daily_usage")
+}
+
+model ChatTurn {
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId        String            @db.Uuid
+  conversationId String            @db.Uuid
+  requestKey     String            @db.VarChar(100)
+  question       String            @db.VarChar(2000)
+  partialContent String            @default("") @db.Text
+  responseIsMock Boolean           @default(true)
+  responseModel  String?           @db.VarChar(100)
+  status         RecognitionStatus @default(QUEUED)
+  attemptCount   Int               @default(0)
+  maxAttempts    Int               @default(3)
+  queueJobId     String?           @unique @db.Uuid
+  errorMessage   String?           @db.VarChar(1000)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  startedAt      DateTime?         @db.Timestamptz(3)
+  finishedAt     DateTime?         @db.Timestamptz(3)
+  owner          User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  conversation   Conversation      @relation(fields: [conversationId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+  messages       ChatMessage[]
+
+  @@unique([id, ownerId])
+  @@unique([ownerId, requestKey])
+  @@index([conversationId, ownerId, createdAt])
+  @@map("chat_turns")
+}
+
+model ExportTask {
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId          String            @db.Uuid
+  formulaVersionId String            @db.Uuid
+  title            String            @db.VarChar(100)
+  requestKey       String            @db.VarChar(100)
+  status           RecognitionStatus @default(QUEUED)
+  attemptCount     Int               @default(0)
+  maxAttempts      Int               @default(3)
+  queueJobId       String?           @unique @db.Uuid
+  fileId           String?           @unique @db.Uuid
+  errorMessage     String?           @db.VarChar(1000)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  startedAt        DateTime?         @db.Timestamptz(3)
+  finishedAt       DateTime?         @db.Timestamptz(3)
+  owner            User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  formulaVersion   FormulaVersion    @relation(fields: [formulaVersionId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+  file             StoredFile?       @relation(fields: [fileId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+
+  @@unique([id, ownerId])
+  @@unique([ownerId, requestKey])
+  @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)])
+  @@map("export_tasks")
+}

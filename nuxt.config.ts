@@ -1,0 +1,41 @@
+export default defineNuxtConfig({
+  compatibilityDate: '2026-10-20',
+  devtools: { enabled: false },
+  css: ['katex/dist/katex.min.css', '~/assets/css/main.css'],
+  typescript: { strict: true },
+  vite: { optimizeDeps: { include: ['@lucide/vue', 'katex', 'better-auth/vue'] } },
+  runtimeConfig: {
+    // Private fields are only readable by server routes. Never move keys into public.
+    databaseUrl: '',
+    authSecret: '',
+    authBaseUrl: '',
+    storageEndpoint: '',
+    storageRegion: 'us-east-1',
+    storageBucket: '',
+    storageAccessKeyId: '',
+    storageSecretAccessKey: '',
+    recognitionServiceUrl: '',
+    recognitionApiKey: '',
+    recognitionProvider: 'mock',
+    aiApiKey: '',
+    aiProvider: 'mock',
+    aiModel: 'deepseek-flash',
+    aiBaseUrl: 'https://api.deepseek.com',
+    recognitionDailyLimit: 50,
+    chatDailyLimit: 30,
+    exportDailyLimit: 20,
+    public: { appName: 'Formula AI' },
+  },
+  app: {
+    head: {
+      title: 'Formula AI · 让每一个手写公式都能被理解',
+      htmlAttrs: { lang: 'zh-CN' },
+      meta: [
+        { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
+        { name: 'description', content: '识别、整理与理解你的数学公式。Formula AI 开发预览。' },
+        { name: 'theme-color', content: '#f6f7fc' },
+      ],
+      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+    },
+  },
+})

@@ -1,0 +1,10 @@
+node_modules/
+.nuxt/
+.output/
+.npm-cache/
+package-lock.json
+formula-ai-h5-15-day-plan.md
+artifacts/
+server/generated/
+.env*
+.tools/

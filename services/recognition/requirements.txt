@@ -1,0 +1,12 @@
+# 直接依赖说明；Docker使用requirements.lock.txt固定全部解析版本。
+# 此导出包验证使用3.3.1，不能任意升级到3.4或退回3.3.0。
+paddlepaddle==3.3.1
+paddlex[ocr]==3.3.12
+numpy==1.26.4
+tokenizers==0.21.4
+fastapi==0.121.3
+starlette==0.50.0
+uvicorn==0.38.0
+python-multipart==0.0.22
+httpx==0.28.1
+

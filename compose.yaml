@@ -1,0 +1,85 @@
+name: formula-ai
+
+services:
+  recognition:
+    image: formula-ai-recognition:cpu-v1
+    build:
+      context: ./services/recognition
+    restart: unless-stopped
+    init: true
+    environment:
+      RECOGNITION_API_KEY: ${NUXT_RECOGNITION_API_KEY:-}
+      RECOGNITION_MODEL_DIR: /models/formula
+      RECOGNITION_CPU_THREADS: ${RECOGNITION_CPU_THREADS:-4}
+    ports:
+      - '127.0.0.1:${RECOGNITION_PORT:-8001}:8000'
+    volumes:
+      - type: bind
+        source: ${RECOGNITION_MODEL_PATH:-../model}
+        target: /models/formula
+        read_only: true
+        bind:
+          create_host_path: false
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=512m,mode=1777
+    shm_size: 512mb
+    mem_limit: 6g
+    cpus: 4
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'python',
+          '-c',
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 120s
+      retries: 12
+
+  storage:
+    image: chrislusf/seaweedfs:4.48
+    restart: unless-stopped
+    entrypoint: ['/bin/sh', '-ec']
+    command:
+      - ': "$${AWS_ACCESS_KEY_ID:?Run npm run storage:env}"; : "$${AWS_SECRET_ACCESS_KEY:?Run npm run storage:env}"; exec weed mini -dir=/data'
+    environment:
+      AWS_ACCESS_KEY_ID: ${NUXT_STORAGE_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${NUXT_STORAGE_SECRET_ACCESS_KEY:-}
+      S3_BUCKET: ${NUXT_STORAGE_BUCKET:-formula-private}
+    ports:
+      - '127.0.0.1:8333:8333'
+    volumes:
+      - storage_data:/data
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:9333/cluster/status']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-formula}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Copy .env.example to .env and set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-formula_ai}
+    ports:
+      - '127.0.0.1:${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
+  storage_data:
