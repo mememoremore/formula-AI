@@ -37,6 +37,8 @@ onMounted(() => {
 
 <style scoped>
 .app-modal {
+  overflow: auto;
+  overscroll-behavior: contain;
   width: min(calc(100% - 24px), 456px);
   max-height: 88dvh;
   padding: 24px 24px 30px;

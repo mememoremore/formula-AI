@@ -1,0 +1,51 @@
+/* 公共布局规则；业务页面默认不选择宽屏，R4—R10 再逐页采用。 */
+:root {
+  --reading-width: 760px;
+  --workspace-width: 1080px;
+  --safe-area-top: env(safe-area-inset-top, 0px);
+  --safe-area-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-area-left: env(safe-area-inset-left, 0px);
+  --safe-area-right: env(safe-area-inset-right, 0px);
+  --bottom-nav-offset: 0px;
+}
+
+html {
+  scroll-padding-top: calc(24px + var(--safe-area-top));
+  scroll-padding-bottom: calc(
+    var(--bottom-nav-offset) + var(--chat-composer-height, 0px) + var(--safe-area-bottom) + 24px
+  );
+}
+html:has(.has-bottom-nav) {
+  --bottom-nav-offset: var(--nav-height);
+}
+html:has(dialog.app-modal[open]) {
+  overflow: hidden;
+}
+.app-shell {
+  position: relative;
+  max-width: var(--app-width);
+  min-height: 100dvh;
+  margin: 0 auto;
+  background: radial-gradient(ellipse at 100% 0%, #eeeaff50, transparent 48%), #f8f9ff;
+}
+.page-content {
+  min-width: 0;
+  padding: calc(28px + var(--safe-area-top)) max(var(--page-padding), var(--safe-area-right))
+    calc(36px + var(--safe-area-bottom)) max(var(--page-padding), var(--safe-area-left));
+}
+.has-bottom-nav .page-content {
+  padding-bottom: calc(var(--bottom-nav-offset) + var(--safe-area-bottom) + 28px);
+}
+@media (min-width: 600px) {
+  .app-shell {
+    box-shadow: 0 0 70px rgb(39 34 82 / 7%);
+  }
+}
+@media (min-width: 900px) {
+  .layout-reading {
+    --app-width: var(--reading-width);
+  }
+  .layout-workspace {
+    --app-width: var(--workspace-width);
+  }
+}

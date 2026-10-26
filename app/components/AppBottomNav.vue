@@ -1,22 +1,35 @@
 <script setup lang="ts">
-import { mainTabs, navigationSection } from '#shared/navigation'
+import { mainTabs, navigationSection, mainTabDestination } from '#shared/navigation'
+import type { ContentWidth } from '~/utils/layout'
+withDefaults(defineProps<{ contentWidth?: ContentWidth }>(), { contentWidth: 'compact' })
 const route = useRoute()
+const activeSection = computed(() => navigationSection(route.path))
+const mounted = ref(false)
+onMounted(() => {
+  mounted.value = true
+})
+// URL fragment 不会发送给 SSR；挂载前两端都省略，避免旧地址带锚点时水合不一致。
+const tabRoute = computed(() => ({
+  path: route.path,
+  fullPath: mounted.value ? route.fullPath : route.fullPath.split('#', 1)[0]!,
+  query: route.query,
+}))
 </script>
 <template>
   <Teleport to="#teleports">
-  <nav class="bottom-nav" aria-label="主导航">
-    <NuxtLink
-      v-for="tab in mainTabs"
-      :key="tab.to"
-      :to="tab.to"
-      class="nav-item"
-      :class="{ active: navigationSection(route.path) === tab.to }"
-      :aria-current="navigationSection(route.path) === tab.to ? 'page' : undefined"
-    >
-      <AppIcon :name="tab.icon" :size="25" />
-      <span>{{ tab.label }}</span>
-    </NuxtLink>
-  </nav>
+    <nav class="bottom-nav" :class="'layout-' + contentWidth" aria-label="主导航">
+      <NuxtLink
+        v-for="tab in mainTabs"
+        :key="tab.to"
+        :to="mainTabDestination(tab.to, tabRoute)"
+        class="nav-item"
+        :class="{ active: activeSection === tab.to }"
+        :aria-current="activeSection === tab.to ? 'page' : undefined"
+      >
+        <AppIcon :name="tab.icon" :size="25" />
+        <span>{{ tab.label }}</span>
+      </NuxtLink>
+    </nav>
   </Teleport>
 </template>
 <style scoped>
@@ -30,7 +43,8 @@ const route = useRoute()
   grid-template-columns: repeat(4, 1fr);
   width: min(100%, var(--app-width));
   min-height: var(--nav-height);
-  padding: 9px 12px calc(9px + env(safe-area-inset-bottom));
+  padding: 9px max(12px, var(--safe-area-right)) calc(9px + var(--safe-area-bottom))
+    max(12px, var(--safe-area-left));
   border: 1px solid #eeedf8;
   border-bottom: 0;
   border-radius: 22px 22px 0 0;

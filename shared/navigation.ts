@@ -6,6 +6,16 @@ export const mainTabs = [
   { to: '/ai', label: 'AI', icon: 'sparkles' },
   { to: '/profile', label: '我的', icon: 'user' },
 ] as const
+
+/** 同一入口保留筛选；跨入口只携带用户明确选择的空间。 */
+export function mainTabDestination(
+  target: (typeof mainTabs)[number]['to'],
+  route: { path: string; fullPath: string; query: { space?: unknown } },
+): string {
+  if (route.path === target) return route.fullPath
+  const space = route.query.space
+  return target + (space === 'demo' || space === 'account' ? '?space=' + space : '')
+}
 const knownPath =
   /^(?:\/|\/library|\/ai(?:\/new|\/[a-zA-Z0-9-]+)?|\/profile(?:\/edit)?|\/upload|\/settings|\/help|\/feedback|\/about|\/(?:formulas|recognitions|exports|result)\/[a-zA-Z0-9-]+)$/
 export function safeReturnPath(value: unknown, fallback = '/profile'): string {
@@ -61,4 +71,35 @@ export function legacyDestination(
 }
 export function isTransientPage(path: string) {
   return path === '/login' || path === '/ai/new' || /^\/recognitions\//.test(path)
+}
+
+/** 内存来源优先，刷新后可使用可信的浏览器上一项；排除同页和中转页。 */
+export function pageReturnDestination(
+  currentPath: string,
+  origin: unknown,
+  historyBack: unknown,
+  fallback: string,
+): string {
+  for (const candidate of [origin, historyBack]) {
+    const value = safeReturnPath(candidate, '')
+    const path = value.split(/[?#]/, 1)[0]!
+    if (value && path !== currentPath && !isTransientPage(path)) return value
+  }
+  return safeReturnPath(fallback, '/')
+}
+
+/** 同页筛选不成为新的父页面；中转页继承来源，返回操作不反写出双向循环。 */
+export function recordPageOrigin(
+  origins: Record<string, string>,
+  to: { path: string; fullPath: string },
+  from: { path: string; fullPath: string },
+) {
+  if (from.fullPath === to.fullPath || origins[from.fullPath] === to.fullPath) return
+  const origin =
+    to.path === from.path || isTransientPage(from.path) ? origins[from.fullPath] : from.fullPath
+  if (!origin || !safeReturnPath(origin, '') || origin === to.fullPath) return
+  delete origins[to.fullPath]
+  origins[to.fullPath] = origin
+  const keys = Object.keys(origins)
+  if (keys.length > 100) delete origins[keys[0]!]
 }

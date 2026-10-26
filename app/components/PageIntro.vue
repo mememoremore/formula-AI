@@ -39,9 +39,9 @@ p {
 }
 .intro-art {
   position: absolute;
-  right: -12px;
+  right: 0;
   top: -6px;
-  width: 105px;
+  width: 110px;
   height: 105px;
   opacity: 0.66;
   z-index: 0;

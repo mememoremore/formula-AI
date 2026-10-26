@@ -18,7 +18,9 @@ onBeforeUnmount(() => clearTimeout(timer))
 .toast {
   position: fixed;
   z-index: 100;
-  bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 20px);
+  bottom: calc(
+    var(--bottom-nav-offset) + var(--chat-composer-height, 0px) + var(--safe-area-bottom) + 20px
+  );
   left: 50%;
   transform: translateX(-50%);
   width: max-content;

@@ -1,6 +1,11 @@
 <script setup lang="ts">
 const props = defineProps<{ title: string; backTo?: string; subtitle?: string }>()
 const { destination, goBack } = usePageReturn(() => props.backTo ?? '/')
+function back(event: MouseEvent) {
+  if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
+  event.preventDefault()
+  return goBack()
+}
 </script>
 <template>
   <header class="page-header">
@@ -10,7 +15,7 @@ const { destination, goBack } = usePageReturn(() => props.backTo ?? '/')
         :href="destination"
         class="icon-button back-link"
         aria-label="返回上一页"
-        @click.prevent="goBack"
+        @click="back"
       >
         <AppIcon name="arrowLeft" :size="20" />
       </a>
@@ -29,6 +34,8 @@ const { destination, goBack } = usePageReturn(() => props.backTo ?? '/')
   flex-shrink: 0;
 }
 h1 {
+  min-width: 0;
+  overflow-wrap: anywhere;
   font-size: 21px;
 }
 .header-subtitle {

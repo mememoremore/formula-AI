@@ -86,13 +86,13 @@ function enter(event: KeyboardEvent) {
 .chat-composer {
   position: fixed;
   z-index: 21;
-  bottom: calc(env(safe-area-inset-bottom) + 14px);
+  bottom: calc(var(--bottom-nav-offset) + var(--safe-area-bottom) + 14px);
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  width: min(calc(100% - 32px), 448px);
+  width: min(calc(100% - 32px), calc(var(--app-width) - 32px));
   padding: 10px 10px 10px 17px;
   border: 1px solid #e7e1f2;
   border-radius: 24px;

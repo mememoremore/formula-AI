@@ -105,9 +105,8 @@ withDefaults(defineProps<{ kind?: 'formula' | 'book' | 'idea'; compact?: boolean
   font-size: 30px;
 }
 .compact {
-  width: 120px;
-  height: 115px;
-  transform: scale(0.63);
+  /* 保留完整画布再缩放，纸张和铅笔的定位不会溢出缩略图容器。 */
+  transform: scale(0.5);
   transform-origin: top left;
 }
 </style>
