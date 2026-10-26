@@ -1,9 +1,8 @@
-import 'dotenv/config'
+import { testEnvironment } from './support/integration.ts'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
-import { writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import { before, after, test } from 'node:test'
-import { setTimeout as delay } from 'node:timers/promises'
 import sharp from 'sharp'
 import { createAuthentication } from '../server/auth/config'
 import { createDatabaseClient } from '../server/database/client'
@@ -12,6 +11,7 @@ import { uploadPrivateImage } from '../server/services/image-upload'
 import { createFormula } from '../server/database/formulas'
 import type { RecognitionTaskState } from '../shared/types/tasks'
 import { createQueueClient, queues } from '../server/queue/client'
+import { processRecognition } from '../server/worker/recognition'
 import type {
   UploadedImage,
   SavedFormula,
@@ -19,9 +19,9 @@ import type {
   FormulaHistoryPage,
 } from '../shared/types/workspace'
 
-const baseURL = process.env.TEST_BASE_URL ?? 'http://127.0.0.1:3000'
+const baseURL = testEnvironment.apiUrl
 const origin = process.env.NUXT_AUTH_BASE_URL ?? baseURL
-const db = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
+const db = createDatabaseClient(testEnvironment.databaseUrl)
 const store = createObjectStore({
   endpoint: process.env.NUXT_STORAGE_ENDPOINT ?? '',
   region: process.env.NUXT_STORAGE_REGION ?? 'us-east-1',
@@ -62,24 +62,37 @@ async function api(
     body: body === undefined ? undefined : JSON.stringify(body),
     redirect: 'manual',
   })
-  // Day8 以后接口返回异步任务；这套历史业务回归等待完成，HTTP 202 与排队另由 jobs.test 验证。
-  if (path === '/api/account/recognitions' && body && response.status === 202) {
-    let task = (await response.json()) as RecognitionTaskState
-    for (let attempt = 0; attempt < 100; attempt++) {
-      if (task.status === 'COMPLETED')
-        return new Response(
-          JSON.stringify({ taskId: task.id, formulaId: task.formulaId, isMock: task.isMock }),
-          { status: 200 },
-        )
-      if (task.status === 'FAILED') throw new Error(task.errorMessage ?? '识别任务失败。')
-      await delay(100)
-      const status = await fetch(`${baseURL}/api/account/tasks/${task.id}`, { headers: { cookie } })
-      assert.equal(status.status, 200)
-      task = (await status.json()) as RecognitionTaskState
-    }
-    throw new Error('等待 Worker 超时，请先运行 npm run worker。')
-  }
   return response
+}
+
+/** 明确执行测试 Worker，不改写 HTTP 状态，也不依赖后台开发 Worker。 */
+async function completeRecognition(
+  task: RecognitionTaskState,
+  cookie: string,
+  ownerId: string,
+): Promise<SavedRecognition> {
+  assert.equal(task.status, 'QUEUED')
+  assert.equal(task.formulaId, null)
+  const boss = createQueueClient(testEnvironment.databaseUrl)
+  try {
+    await boss.start()
+    const [job] = await boss.fetch<{ taskId: string; ownerId: string }>(queues.recognition, {
+      includeMetadata: true,
+    })
+    assert.ok(job)
+    assert.equal(job.data.taskId, task.id)
+    assert.equal(job.data.ownerId, ownerId)
+    await processRecognition(db, boss, store, job)
+  } finally {
+    await boss.stop()
+  }
+  const response = await api(`/api/account/tasks/${task.id}`, cookie)
+  assert.equal(response.status, 200)
+  const completed = (await response.json()) as RecognitionTaskState
+  assert.equal(completed.status, 'COMPLETED')
+  assert.ok(completed.formulaId)
+  assert.equal(completed.isMock, true)
+  return { taskId: completed.id, formulaId: completed.formulaId, isMock: completed.isMock }
 }
 async function upload(
   data: Buffer,
@@ -145,11 +158,13 @@ before(async () => {
   )
     .png()
     .toBuffer()
-  await writeFile('artifacts/day56-fixture.png', browserFixture)
+  const outputDirectory = `tmp/r1-test/${testEnvironment.runId}/artifacts`
+  await mkdir(outputDirectory, { recursive: true })
+  await writeFile(`${outputDirectory}/day56-fixture.png`, browserFixture)
 })
 after(async () => {
   try {
-    const queue = createQueueClient(process.env.NUXT_DATABASE_URL ?? '')
+    const queue = createQueueClient(testEnvironment.databaseUrl)
     try {
       await queue.start()
       for (const name of Object.values(queues))
@@ -269,8 +284,10 @@ test('图片只允许本人读取，存储桶不允许匿名读取对象', async
     mode: 'printed',
     requestKey: randomUUID(),
   })
-  assert.equal(ownB.status, 200)
-  foreignFormulaId = ((await ownB.json()) as SavedRecognition).formulaId
+  assert.equal(ownB.status, 202)
+  foreignFormulaId = (
+    await completeRecognition((await ownB.json()) as RecognitionTaskState, cookieB, testOwners[1]!)
+  ).formulaId
 })
 
 test('模拟识别原子保存任务、公式和原始版本，并明确标记 isMock', async () => {
@@ -280,8 +297,12 @@ test('模拟识别原子保存任务、公式和原始版本，并明确标记 i
     requestKey: randomUUID(),
     ownerId: testOwners[1],
   })
-  assert.equal(response.status, 200)
-  recognitionA = (await response.json()) as SavedRecognition
+  assert.equal(response.status, 202)
+  recognitionA = await completeRecognition(
+    (await response.json()) as RecognitionTaskState,
+    cookieA,
+    testOwners[0]!,
+  )
   assert.equal(recognitionA.isMock, true)
   const task = await db.recognitionTask.findUniqueOrThrow({ where: { id: recognitionA.taskId } })
   assert.equal(task.ownerId, testOwners[0])
@@ -304,12 +325,15 @@ test('并发重放同一识别请求只生成一条结果，模式变化不能�
   ])
   assert.deepEqual(
     responses.map((response) => response.status),
-    [200, 200],
+    [202, 202],
   )
   const results = await Promise.all(
-    responses.map((response) => response.json() as Promise<SavedRecognition>),
+    responses.map((response) => response.json() as Promise<RecognitionTaskState>),
   )
-  assert.equal(results[0]?.formulaId, results[1]?.formulaId)
+  assert.equal(results[0]!.id, results[1]!.id)
+  const completed = await completeRecognition(results[0]!, cookieA, testOwners[0]!)
+  assert.ok(completed.formulaId)
+  assert.equal(await db.formula.count({ where: { recognitionTaskId: completed.taskId } }), 1)
   assert.equal(await db.recognitionTask.count({ where: { ownerId: testOwners[0], requestKey } }), 1)
   assert.equal(
     (await api('/api/account/recognitions', cookieA, { ...body, mode: 'printed' })).status,
@@ -421,7 +445,11 @@ test('账号历史分页不混入其他用户，页面可按记录重新打开�
   assert.equal(ids.includes(foreignFormulaId), false)
   assert.equal(ids.includes(recognitionA.formulaId), true)
   assert.equal((await api(`/api/account/formulas?cursor=${foreignFormulaId}`)).status, 404)
-  assert.equal((await api(`/account/formulas/${recognitionA.formulaId}`)).status, 200)
+  const canonical = `/formulas/${recognitionA.formulaId}`
+  const legacy = await api(`/account/formulas/${recognitionA.formulaId}`)
+  assert.equal(legacy.status, 302)
+  assert.equal(new URL(legacy.headers.get('location')!, baseURL).pathname, canonical)
+  assert.equal((await api(canonical)).status, 200)
   assert.equal((await api(`/api/account/files/${imageA.id}/content`)).status, 200)
 })
 

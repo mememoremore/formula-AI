@@ -1,7 +1,8 @@
+import { testEnvironment } from './support/integration.ts'
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-const base = process.env.BASE_URL || 'http://127.0.0.1:3000'
+const base = testEnvironment.apiUrl
 const image = { name: 'formula.png', mimeType: 'image/png', size: 2048 }
 async function post(path, body) {
   return fetch(`${base}${path}`, {

@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import { testEnvironment } from './support/integration.ts'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
@@ -30,9 +30,9 @@ import type {
   TaskState,
 } from '../shared/types/tasks'
 
-const db = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
-const db2 = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
-const boss = createQueueClient(process.env.NUXT_DATABASE_URL ?? '')
+const db = createDatabaseClient(testEnvironment.databaseUrl)
+const db2 = createDatabaseClient(testEnvironment.databaseUrl)
+const boss = createQueueClient(testEnvironment.databaseUrl)
 const store = createObjectStore({
   endpoint: process.env.NUXT_STORAGE_ENDPOINT ?? '',
   region: process.env.NUXT_STORAGE_REGION ?? '',
@@ -40,7 +40,7 @@ const store = createObjectStore({
   accessKeyId: process.env.NUXT_STORAGE_ACCESS_KEY_ID ?? '',
   secretAccessKey: process.env.NUXT_STORAGE_SECRET_ACCESS_KEY ?? '',
 })
-const base = process.env.TEST_BASE_URL ?? 'http://127.0.0.1:3000'
+const base = testEnvironment.apiUrl
 const origin = process.env.NUXT_AUTH_BASE_URL ?? base
 const owners: string[] = []
 const cookies: string[] = []
@@ -279,7 +279,7 @@ test('Worker进程领取后退出，超时监督后可由新实例恢复', async
   assert.equal(child.stdout, task.queueJobId)
   await delay(1600)
   await boss.supervise(queues.recognition)
-  const replacement = createQueueClient(process.env.NUXT_DATABASE_URL ?? '')
+  const replacement = createQueueClient(testEnvironment.databaseUrl)
   try {
     await replacement.start()
     const [job] = await replacement.fetch<JobPayload>(queues.recognition, {

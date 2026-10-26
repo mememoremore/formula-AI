@@ -1,6 +1,6 @@
-import 'dotenv/config'
+import { testEnvironment } from '../support/integration.ts'
 import { createQueueClient, type JobPayload } from '../../server/queue/client'
-const boss = createQueueClient(process.env.NUXT_DATABASE_URL ?? '')
+const boss = createQueueClient(testEnvironment.databaseUrl)
 await boss.start()
 const [job] = await boss.fetch<JobPayload>(process.argv[2]!, { includeMetadata: true })
 if (!job || job.data.taskId !== process.argv[3]) process.exit(2)

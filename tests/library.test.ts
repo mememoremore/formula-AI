@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import { testEnvironment } from './support/integration.ts'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { before, after, test } from 'node:test'
@@ -12,9 +12,9 @@ import type {
 } from '../shared/types/library'
 import type { SavedFormula } from '../shared/types/workspace'
 
-const baseURL = process.env.TEST_BASE_URL ?? 'http://127.0.0.1:3000'
+const baseURL = testEnvironment.apiUrl
 const origin = process.env.NUXT_AUTH_BASE_URL ?? baseURL
-const db = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
+const db = createDatabaseClient(testEnvironment.databaseUrl)
 const owners: string[] = []
 const cookies: string[] = []
 let firstId = ''
@@ -116,8 +116,19 @@ test('公式库只列出本人数据，响应私有且不泄漏存储或认证�
   )
   assert.deepEqual(
     Object.keys(result.items[0]!).sort(),
-    ['category', 'createdAt', 'favorite', 'id', 'isMock', 'latex', 'title', 'versionNumber'].sort(),
+    [
+      'category',
+      'createdAt',
+      'favorite',
+      'id',
+      'imageId',
+      'isMock',
+      'latex',
+      'title',
+      'versionNumber',
+    ].sort(),
   )
+  assert.equal(result.items[0]!.imageId, null, '无原图的演示公式不应暴露其他文件编号')
   assert.equal((await library('', 1)).items.length, 1)
 })
 

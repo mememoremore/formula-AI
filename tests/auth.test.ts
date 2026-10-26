@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import { testEnvironment } from './support/integration.ts'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { before, after, test } from 'node:test'
@@ -8,9 +8,9 @@ import { createDatabaseClient } from '../server/database/client'
 import { createFormula, getFormula } from '../server/database/formulas'
 import { readPrivateResource } from '../server/database/private-resources'
 
-const baseURL = process.env.TEST_BASE_URL ?? 'http://127.0.0.1:3000'
+const baseURL = testEnvironment.apiUrl
 const origin = process.env.NUXT_AUTH_BASE_URL ?? baseURL
-const db = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
+const db = createDatabaseClient(testEnvironment.databaseUrl)
 const suffix = randomUUID()
 const emails = [
   `auth-a-${suffix}@formula.test`,

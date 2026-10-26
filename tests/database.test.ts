@@ -1,4 +1,4 @@
-import 'dotenv/config'
+import { testEnvironment } from './support/integration.ts'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { after, before, test } from 'node:test'
@@ -6,7 +6,7 @@ import { createDatabaseClient } from '../server/database/client'
 import { appendFormulaVersion, createFormula, getFormula } from '../server/database/formulas'
 import { DatabaseOperationError } from '../server/database/errors'
 
-const db = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
+const db = createDatabaseClient(testEnvironment.databaseUrl)
 const ownerA = randomUUID()
 const ownerB = randomUUID()
 const testOwners = [ownerA, ownerB]

@@ -1,0 +1,36 @@
+# 只允许 scripts/test-environment.ts 提供本次随机运行配置；不读取开发 Compose。
+services:
+  postgres:
+    image: postgres:17-alpine
+    labels:
+      io.formula-ai.test-run: ${FORMULA_TEST_RUN_ID:?}
+      io.formula-ai.test-fingerprint: ${FORMULA_TEST_FINGERPRINT:?}
+    environment:
+      POSTGRES_USER: formula_test
+      POSTGRES_PASSWORD: ${FORMULA_TEST_DB_PASSWORD:?}
+      POSTGRES_DB: ${FORMULA_TEST_DB_NAME:?}
+    ports: ['127.0.0.1:15432:5432']
+    tmpfs: ['/var/lib/postgresql/data:rw,size=512m']
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U formula_test -d $$POSTGRES_DB']
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  storage:
+    image: chrislusf/seaweedfs:4.48
+    labels:
+      io.formula-ai.test-run: ${FORMULA_TEST_RUN_ID:?}
+      io.formula-ai.test-fingerprint: ${FORMULA_TEST_FINGERPRINT:?}
+    entrypoint: ['/bin/sh', '-ec']
+    command: ['exec weed mini -dir=/data']
+    environment:
+      AWS_ACCESS_KEY_ID: ${FORMULA_TEST_STORAGE_ID:?}
+      AWS_SECRET_ACCESS_KEY: ${FORMULA_TEST_STORAGE_SECRET:?}
+      S3_BUCKET: ${FORMULA_TEST_BUCKET:?}
+    ports: ['127.0.0.1:18333:8333']
+    tmpfs: ['/data:rw,size=256m']
+    healthcheck:
+      test: ['CMD-SHELL', 'wget -q -O /dev/null http://127.0.0.1:9333/cluster/status']
+      interval: 2s
+      timeout: 3s
+      retries: 30

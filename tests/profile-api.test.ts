@@ -1,12 +1,12 @@
-import 'dotenv/config'
+import { testEnvironment } from './support/integration.ts'
 import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID, randomBytes } from 'node:crypto'
 import sharp from 'sharp'
 import { createAuthentication } from '../server/auth/config'
 import { createDatabaseClient } from '../server/database/client'
-const base = process.env.TEST_BASE_URL ?? 'http://127.0.0.1:3000'
-const db = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
+const base = testEnvironment.apiUrl
+const db = createDatabaseClient(testEnvironment.databaseUrl)
 let cookie = '',
   ownerId = ''
 before(async () => {
