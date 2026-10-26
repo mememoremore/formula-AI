@@ -16,7 +16,7 @@ watch(src, () => {
     :style="{ width: size + 'px', height: size + 'px', fontSize: size * 0.34 + 'px' }"
   >
     <img v-if="src && !failed" :src="src" alt="头像" @error="failed = true" />
-    <img v-else src="/images/default-avatar.webp" alt="默认头像" />
+    <img v-else src="/images/default-avatar.svg" alt="默认头像" />
   </span>
 </template>
 <style scoped>
