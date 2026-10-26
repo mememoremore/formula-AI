@@ -1,26 +1,13 @@
+@import './tokens.css';
+
 :root {
-  --color-primary: #683fff;
-  --color-primary-hover: #5145d4;
-  --color-primary-soft: #eeedff;
-  --color-background: #f6f7fc;
-  --color-surface: #fff;
-  --color-text: #151631;
-  --color-muted: #8588a6;
-  --color-border: #eaeaf2;
-  --color-danger: #b83d52;
-  --radius-card: 18px;
-  --radius-control: 12px;
-  --shadow-card: 0 7px 22px rgb(54 43 109 / 5%);
-  --page-padding: 24px;
-  --nav-height: 80px;
-  --app-width: 480px;
-  font-family:
-    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: var(--font-sans);
   color: var(--color-text);
-  background: #f0f2ff;
+  background: var(--color-canvas);
   font-synthesis: none;
   -webkit-font-smoothing: antialiased;
 }
+
 * {
   box-sizing: border-box;
 }
@@ -63,7 +50,7 @@ a:focus-visible,
 input:focus-visible,
 textarea:focus-visible,
 select:focus-visible {
-  outline: 3px solid #a49af5;
+  outline: 3px solid var(--color-focus);
   outline-offset: 3px;
 }
 h1,
@@ -89,11 +76,10 @@ h3 {
   max-width: var(--app-width);
   min-height: 100dvh;
   margin: 0 auto;
-  background:
-    radial-gradient(ellipse at 100% 0%, #eeeaff50, transparent 48%), #f8f9ff;
+  background: radial-gradient(ellipse at 100% 0%, #eeeaff50, transparent 48%), #f8f9ff;
 }
 .page-content {
-  padding: 24px var(--page-padding) 36px;
+  padding: 28px var(--page-padding) 36px;
 }
 .has-bottom-nav .page-content {
   padding-bottom: calc(var(--nav-height) + env(safe-area-inset-bottom) + 28px);
@@ -107,14 +93,14 @@ html {
   box-shadow: var(--shadow-card);
 }
 .section {
-  margin-top: 26px;
+  margin-top: 30px;
 }
 .section-heading {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 .muted {
   color: var(--color-muted);
@@ -126,7 +112,7 @@ html {
 .stack {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 16px;
 }
 .row {
   display: flex;
@@ -148,10 +134,13 @@ html {
   font-size: 14px;
   font-weight: 500;
   line-height: 1.4;
+  transition:
+    background var(--motion-fast) var(--motion-easing),
+    box-shadow var(--motion-fast) var(--motion-easing);
 }
 .button-primary {
   color: #fff;
-  background: linear-gradient(115deg, #8260fa, #6547ed);
+  background: var(--gradient-primary);
   box-shadow: 0 6px 16px #6257e51c;
 }
 .button-primary:hover:not(:disabled) {
@@ -162,7 +151,7 @@ html {
   background: var(--color-primary-soft);
 }
 .button-white {
-  background: #fff;
+  background: #ffffffc9;
   border: 1px solid var(--color-border);
 }
 .button-block {
@@ -173,7 +162,7 @@ html {
   align-items: center;
   justify-content: center;
   gap: 5px;
-  min-height: 40px;
+  min-height: var(--control-hit-area);
   border: 0;
   padding: 6px 0;
   background: transparent;
@@ -201,8 +190,41 @@ html {
   line-height: 1.6;
   color: var(--color-text);
 }
+.input:focus {
+  border-color: #aaa0e3;
+  box-shadow: 0 0 0 2px #6257e50b;
+}
 .input::placeholder {
   color: #a1a4b0;
+}
+.input[aria-invalid='true'] {
+  border-color: var(--color-danger);
+}
+.input:disabled {
+  background: var(--color-background);
+  cursor: not-allowed;
+}
+.button[aria-busy='true'] {
+  opacity: 1;
+}
+.busy-indicator {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: ui-spin 900ms linear infinite;
+}
+@keyframes ui-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.skeleton {
+  height: 14px;
+  border-radius: var(--radius-small);
+  background: var(--color-primary-soft);
 }
 textarea.input {
   resize: vertical;
@@ -248,6 +270,22 @@ textarea.input {
   background: #fff;
   font-size: 12px;
   white-space: nowrap;
+}
+.badge-success {
+  color: var(--color-success);
+  background: var(--color-success-soft);
+}
+.badge-warning {
+  color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+.badge-danger {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+.badge-info {
+  color: var(--color-info);
+  background: var(--color-info-soft);
 }
 .chip.active {
   color: var(--color-primary);
@@ -313,17 +351,9 @@ textarea.input {
   background: #fff;
   color: var(--color-primary);
 }
-@media (max-width: 360px) {
-  :root {
-    --page-padding: 18px;
-  }
-}
 @media (min-width: 600px) {
   .app-shell {
     box-shadow: 0 0 70px rgb(39 34 82 / 7%);
-  }
-  .page-content {
-    padding-top: 30px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -336,28 +366,6 @@ textarea.input {
   }
 }
 
-/* 纸页灵感：页面留白与控件共用规则，工作内容保持清晰。 */
-:root {
-  --radius-card: 22px;
-  --radius-control: 15px;
-}
-.page-content {
-  padding-top: 28px;
-}
-.section {
-  margin-top: 30px;
-}
-.stack {
-  gap: 16px;
-}
-.section-heading {
-  margin-bottom: 16px;
-}
-.input:focus {
-  outline: none;
-  border-color: #aaa0e3;
-  box-shadow: 0 0 0 2px #6257e50b;
-}
 .button-outline {
   color: var(--color-primary);
   border: 1px solid #b8a7f5;
@@ -365,9 +373,6 @@ textarea.input {
   min-height: 44px;
   padding: 10px 28px;
   border-radius: 22px;
-}
-.button-white {
-  background: #ffffffc9;
 }
 .search-field {
   display: flex;

@@ -1,0 +1,65 @@
+/* 单一 Token 来源。已有变量保持兼容；样板提出的视觉值在预览层显式覆盖。 */
+:root {
+  --color-primary: #683fff;
+  --color-primary-hover: #5145d4;
+  --color-primary-soft: #eeedff;
+  --color-background: #f6f7fc;
+  --color-canvas: #f0f2ff;
+  --color-surface: #fff;
+  --color-text: #151631;
+  --color-text-secondary: #62657d;
+  --color-muted: #8588a6;
+  --color-border: #eaeaf2;
+  --color-focus: #7450cf;
+  --color-danger: #b83d52;
+  --color-danger-soft: #fff1f3;
+  --color-success: #25674e;
+  --color-success-soft: #edf7f1;
+  --color-warning: #8a5816;
+  --color-warning-soft: #fff6e8;
+  --color-info: #3a5c98;
+  --color-info-soft: #eef3fc;
+  --gradient-primary: linear-gradient(115deg, #8260fa, #6547ed);
+
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  --font-size-caption: 12px;
+  --font-size-small: 14px;
+  --font-size-body: 16px;
+  --font-size-heading: 20px;
+  --font-size-title: 28px;
+  --font-size-hero: 36px;
+  --line-height-body: 1.75;
+  --line-height-heading: 1.35;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --radius-small: 8px;
+  --radius-control: 15px;
+  --radius-card: 22px;
+  --radius-dialog: 24px;
+  --radius-pill: 999px;
+  --shadow-card: 0 7px 22px rgb(54 43 109 / 5%);
+  --shadow-dialog: 0 20px 80px #29204a33;
+  --color-overlay: rgb(30 26 51 / 32%);
+  --motion-fast: 160ms;
+  --motion-easing: ease-out;
+  --control-hit-area: 44px;
+  --control-font-size: 14px;
+  --page-padding: 24px;
+  --nav-height: 80px;
+  --app-width: 480px;
+}
+
+@media (max-width: 360px) {
+  :root {
+    --page-padding: 18px;
+  }
+}

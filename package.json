@@ -61,7 +61,9 @@
     "test:server": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-environment.ts api",
     "test:worker": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-environment.ts worker",
     "check:assets": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/check-assets.ts",
-    "check:build": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-build.ts"
+    "check:build": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-build.ts",
+    "preview:design": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/design-preview.ts",
+    "typecheck:design": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/design-preview.ts typecheck"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1154.0",

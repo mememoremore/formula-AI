@@ -41,12 +41,12 @@ onMounted(() => {
   max-height: 88dvh;
   padding: 24px 24px 30px;
   border: 0;
-  border-radius: 24px;
+  border-radius: var(--radius-dialog);
   color: var(--color-text);
-  box-shadow: 0 20px 80px #29204a33;
+  box-shadow: var(--shadow-dialog);
 }
 .app-modal::backdrop {
-  background: rgb(30 26 51 / 32%);
+  background: var(--color-overlay);
   backdrop-filter: blur(3px);
 }
 .app-sheet {
