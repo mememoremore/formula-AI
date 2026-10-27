@@ -46,6 +46,7 @@ const owners: string[] = []
 const cookies: string[] = []
 let imageId = ''
 let recognition: RecognitionTaskState
+let failedRecognition: { id: string; requestKey: string }
 let versionId = ''
 let formulaId = ''
 let foreignVersion = ''
@@ -255,7 +256,9 @@ test('存储临时失败自动重试最多三次，最终失败不产生公式',
   assert.equal(failed.status, 'FAILED')
   assert.equal(failed.attemptCount, 3)
   assert.equal(await db.formula.count({ where: { recognitionTaskId: task.id } }), 0)
+  failedRecognition = { id: task.id, requestKey: task.requestKey }
 })
+
 test('Worker进程领取后退出，超时监督后可由新实例恢复', async () => {
   const task = await submitRecognition(db, boss, defaultUsageLimits, {
     ownerId: owners[0]!,
@@ -731,4 +734,43 @@ test('上游流未正常结束时保存失败片段，不标为完整回答', as
   })
   assert.equal(answer.status, 'FAILED')
   assert.match(answer.content, /回答未完成/)
+})
+
+test('R7 刷新失败任务和重放旧请求不扣额，新键重试只创建一个新任务', async () => {
+  const used = async () =>
+    (await db.dailyUsage.findFirstOrThrow({ where: { ownerId: owners[0], kind: 'RECOGNITION' } }))
+      .used
+  const before = await used()
+  for (let i = 0; i < 3; i++) {
+    const response = await api(`/tasks/${failedRecognition.id}`)
+    assert.equal(response.status, 200)
+    assert.equal(((await response.json()) as RecognitionTaskState).status, 'FAILED')
+  }
+  const original = await api('/recognitions', 'POST', {
+    fileId: imageId,
+    mode: 'printed',
+    requestKey: failedRecognition.requestKey,
+  })
+  assert.equal(original.status, 202)
+  assert.equal(((await original.json()) as RecognitionTaskState).id, failedRecognition.id)
+  assert.equal(await used(), before)
+  const body = { fileId: imageId, mode: 'printed', requestKey: randomUUID() }
+  const replies = await Promise.all([
+    api('/recognitions', 'POST', body),
+    api('/recognitions', 'POST', body),
+  ])
+  assert.deepEqual(
+    replies.map((r) => r.status),
+    [202, 202],
+  )
+  const tasks = await Promise.all(replies.map((r) => r.json() as Promise<RecognitionTaskState>))
+  assert.equal(tasks[0]!.id, tasks[1]!.id)
+  assert.notEqual(tasks[0]!.id, failedRecognition.id)
+  assert.equal(await used(), before + 1)
+  await processRecognition(db, boss, store, await fetchJob('recognition'))
+  const result = await api(`/tasks/${tasks[0]!.id}`)
+  const completed = (await result.json()) as RecognitionTaskState
+  assert.equal(completed.status, 'COMPLETED')
+  assert.ok(completed.formulaId)
+  assert.equal(await used(), before + 1)
 })

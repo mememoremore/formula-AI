@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import type { UsageOverview } from '#shared/types/tasks'
+const props = defineProps<{ ownerId?: string }>()
 const {
   data: usage,
   error,
   refresh,
-} = useFetch<UsageOverview>('/api/account/usage', { key: 'account-usage' })
+} = useFetch<UsageOverview>('/api/account/usage', {
+  key: computed(() => (props.ownerId ? 'account-usage-' + props.ownerId : 'account-usage')),
+  getCachedData: (key, app) => (app.isHydrating ? app.payload.data[key] : undefined),
+})
 const labels = { RECOGNITION: '识别', CHAT: '对话', EXPORT: '导出' }
 </script>
 <template>
@@ -13,7 +17,7 @@ const labels = { RECOGNITION: '识别', CHAT: '对话', EXPORT: '导出' }
       <h2>今日可用次数</h2>
       <button v-if="error" class="text-button" @click="refresh()">重新读取</button>
     </div>
-    <div v-if="usage" class="usage-grid">
+    <div v-if="usage && !error" class="usage-grid">
       <div v-for="item in usage.items" :key="item.kind">
         <strong>
           {{ item.remaining }}

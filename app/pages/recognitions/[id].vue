@@ -1,74 +1,52 @@
 <script setup lang="ts">
-import type { RecognitionTaskState } from '#shared/types/tasks'
-import { workspaceFeedback } from '~/utils/workspace-feedback'
-definePageMeta({ middleware: 'auth', bottomNav: false, alias: '/account/tasks/:id' })
+definePageMeta({
+  middleware: 'auth',
+  bottomNav: false,
+  contentWidth: 'reading',
+  alias: '/account/tasks/:id',
+})
 useHead({ title: '识别任务 · Formula AI' })
-const id = String(useRoute().params.id)
-const request = useTaskPolling<RecognitionTaskState>(
-  `account-task-${id}`,
-  `/api/account/tasks/${id}`,
-  (task) => ['QUEUED', 'PROCESSING'].includes(task.status),
+const route = useRoute(),
+  session = useAccountSession()
+await session
+const ownerId = computed(() =>
+  session.status.value === 'success' && !session.error.value
+    ? session.data.value?.user?.id
+    : undefined,
 )
-const { data: task, error, refresh, status } = request
-const submitting = ref(false)
-const feedback = ref('')
-let requestKey = ''
+const id = computed(() => String(route.params.id))
+const draft = useNuxtApp().$uploadDraft
 watch(
-  task,
-  (value) => {
-    if (import.meta.client && value?.status === 'COMPLETED' && value.formulaId) {
-      clearNuxtData(
-        (key) =>
-          key.startsWith('account-library-') ||
-          ['account-overview', 'account-history', 'account-categories'].includes(key),
-      )
-      void navigateTo(`/formulas/${value.formulaId}`, { replace: true })
-    }
+  [session.status, () => session.data.value?.user?.id],
+  ([status, id]) => {
+    if (status === 'success') draft.confirmOwner(id ?? null)
   },
-  { immediate: true },
+  { immediate: true, flush: 'sync' },
 )
-async function retry() {
-  if (!task.value || submitting.value) return
-  submitting.value = true
-  feedback.value = ''
-  requestKey ||= crypto.randomUUID()
-  try {
-    const next = await $fetch<RecognitionTaskState>('/api/account/recognitions', {
-      method: 'POST',
-      body: { fileId: task.value.fileId, mode: task.value.mode, requestKey },
-      retry: 0,
-      timeout: 20000,
-    })
-    clearNuxtData('account-usage')
-    await navigateTo(`/recognitions/${next.id}`, { replace: true })
-  } catch (error) {
-    feedback.value = workspaceFeedback(error)
-  } finally {
-    submitting.value = false
-  }
-}
-await request
 </script>
 <template>
-  <PageHeader title="识别任务" back-to="/library?view=recent" />
-  <TaskProgress v-if="task" :task="task" title="公式识别" />
-  <RecognitionSteps v-if="task" :status="task.status" />
-  <p class="info-note section">任务保存在账号，刷新后可以继续查看。识别完成后请核对公式内容。</p>
-  <div v-if="error" class="stack section" role="alert">
-    <p class="error-text">任务暂时无法读取，请重试或重新登录。</p>
-    <button class="button button-secondary" :disabled="status === 'pending'" @click="refresh()">
-      {{ status === 'pending' ? '正在读取…' : '重新读取任务' }}
-    </button>
+  <PageHeader title="识别任务" back-to="/library?space=account&view=recent" />
+  <div v-if="session.status.value === 'pending'" class="card status-panel" role="status">
+    正在确认账号…
   </div>
-  <button
-    v-if="task?.status === 'FAILED'"
-    class="button button-primary button-block section"
-    :disabled="submitting || !!error"
-    @click="retry"
-  >
-    {{ submitting ? '正在提交…' : '重新提交识别' }}
-  </button>
-  <p v-if="task?.status === 'FAILED'" class="info-note section">重新提交会使用1次新的识别额度。</p>
-  <p v-if="feedback" class="error-text section" role="alert">{{ feedback }}</p>
-  <AccountUsage />
+  <div v-else-if="session.error.value" class="card status-panel" role="alert">
+    <h2>暂时无法确认账号</h2>
+    <p>已隐藏私有任务，请重新连接。</p>
+    <button class="text-button" @click="session.refresh()">重新连接账号</button>
+  </div>
+  <AccountRecognitionTask
+    v-else-if="ownerId"
+    :key="ownerId + ':' + id"
+    :id="id"
+    :owner-id="ownerId"
+  />
+  <div v-else class="card status-panel" role="alert">
+    <h2>请登录后查看任务</h2>
+    <NuxtLink
+      :to="{ path: '/login', query: { redirect: route.fullPath } }"
+      class="button button-primary"
+    >
+      前往登录
+    </NuxtLink>
+  </div>
 </template>

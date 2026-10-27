@@ -6,6 +6,25 @@ export function useImageSelection() {
   const checking = ref(false)
   const selectionError = ref('')
   let selection = 0
+  let disposed = false
+  const decoding = new Set<string>()
+  function releaseDecoding() {
+    for (const url of decoding) URL.revokeObjectURL(url)
+    decoding.clear()
+  }
+  function removeImage() {
+    selection++
+    releaseDecoding()
+    checking.value = false
+    selectionError.value = ''
+    file.value = null
+    replacePreview(null)
+  }
+  onScopeDispose(() => {
+    disposed = true
+    selection++
+    releaseDecoding()
+  })
 
   async function selectImage(event: Event) {
     const input = event.target as HTMLInputElement
@@ -13,6 +32,7 @@ export function useImageSelection() {
     input.value = ''
     if (!selected) return
     const token = ++selection
+    releaseDecoding()
     checking.value = false
     file.value = null
     selectionError.value = ''
@@ -27,16 +47,18 @@ export function useImageSelection() {
     }
     checking.value = true
     const url = URL.createObjectURL(selected)
+    decoding.add(url)
     try {
       const image = new Image()
       image.src = url
       await image.decode()
       if (image.naturalWidth * image.naturalHeight > 20_000_000) throw new Error('pixels')
-      if (selection !== token) {
+      if (disposed || selection !== token) {
         URL.revokeObjectURL(url)
         return
       }
       file.value = selected
+      decoding.delete(url)
       replacePreview({
         url,
         name: selected.name,
@@ -45,14 +67,15 @@ export function useImageSelection() {
       })
     } catch (error) {
       URL.revokeObjectURL(url)
-      if (selection === token)
+      if (!disposed && selection === token)
         selectionError.value =
           error instanceof Error && error.message === 'pixels'
             ? '图片不能超过 2000 万像素，请缩小后重试。'
             : '图片无法打开，请换一张完整的图片。'
     } finally {
-      if (selection === token) checking.value = false
+      decoding.delete(url)
+      if (!disposed && selection === token) checking.value = false
     }
   }
-  return { file, checking, selectionError, selectImage }
+  return { file, checking, selectionError, selectImage, removeImage }
 }

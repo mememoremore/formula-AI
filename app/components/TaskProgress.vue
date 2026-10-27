@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { TaskState } from '#shared/types/tasks'
-const props = defineProps<{ task: TaskState; title: string }>()
+const props = defineProps<{ task: TaskState; title: string; compact?: boolean }>()
 const labels = {
   QUEUED: '正在排队',
   PROCESSING: '正在处理',
@@ -11,7 +11,7 @@ const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.stat
 </script>
 <template>
   <section class="task-progress" :class="{ failed: task.status === 'FAILED' }" aria-live="polite">
-    <PaperArtwork />
+    <PaperArtwork v-if="!compact" />
     <span class="task-ring" :class="{ waiting }">
       <AppIcon
         :name="
@@ -31,7 +31,9 @@ const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.stat
             : '已保留原始资料，可检查原因后重试。'
       }}
     </p>
-    <p v-if="task.errorMessage" class="error-text">{{ task.errorMessage }}</p>
+    <p v-if="task.errorMessage" :class="task.status === 'FAILED' ? 'error-text' : 'info-note'">
+      {{ task.errorMessage }}
+    </p>
   </section>
 </template>
 <style scoped>
@@ -62,6 +64,10 @@ const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.stat
 }
 h2 {
   font-size: 25px;
+}
+p {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }
 .failed .task-ring {
   border-top-color: #c87c8d;
