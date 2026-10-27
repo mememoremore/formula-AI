@@ -425,6 +425,40 @@ test('相同内容或只改名称不会制造空版本', async () => {
   assert.equal(after.versions.length, current.versions.length)
 })
 
+test('R6 已知契约缺口：标题不推进内容版本，旧窗口仍可覆盖新标题', async () => {
+  const created = await createFormula(db, {
+    ownerId: testOwners[0]!,
+    title: '窗口共同读取的原名',
+    latex: 'x=1',
+    origin: 'DEMO',
+    isMock: true,
+  })
+  const path = `/api/account/formulas/${created.formula.id}`
+  const snapshot = (await (await api(path)).json()) as SavedFormula
+  const expectedVersionId = snapshot.versions.at(-1)!.id
+  const rename = await api(`${path}/versions`, cookieA, {
+    title: '窗口 A 的新标题',
+    latex: 'x=1',
+    expectedVersionId,
+  })
+  assert.equal(rename.status, 200)
+  const renamed = (await rename.json()) as SavedFormula
+  assert.equal(renamed.title, '窗口 A 的新标题')
+  assert.equal(renamed.versions.at(-1)!.id, expectedVersionId)
+  const stale = await api(`${path}/versions`, cookieA, {
+    title: snapshot.title,
+    latex: 'x=2',
+    expectedVersionId,
+  })
+  // 现状复现，不是正确性保证；批准元数据 CAS 后应改为 409 和保留新标题。
+  assert.equal(stale.status, 200)
+  const overwritten = (await stale.json()) as SavedFormula
+  assert.equal(overwritten.title, snapshot.title)
+  assert.equal(overwritten.versions.length, 2)
+  assert.equal(overwritten.versions[0]!.latex, 'x=1')
+  assert.equal(overwritten.versions[1]!.latex, 'x=2')
+})
+
 test('账号历史分页不混入其他用户，页面可按记录重新打开原图', async () => {
   for (let index = 0; index < 21; index++)
     await createFormula(db, {

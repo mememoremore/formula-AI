@@ -4,10 +4,13 @@ import type { ExportTaskState } from '#shared/types/tasks'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 const props = defineProps<{ formula: SavedFormula }>()
 const selected = ref(props.formula.versions.at(-1)?.id ?? '')
-const busy = ref(false)
-const open = ref(false)
-const feedback = ref('')
-let requestKey = ''
+const busy = ref(false),
+  open = ref(false),
+  feedback = ref('')
+const version = computed(() => props.formula.versions.find((v) => v.id === selected.value))
+let requestKey = '',
+  controller: AbortController | undefined,
+  disposed = false
 watch(selected, () => {
   requestKey = ''
   feedback.value = ''
@@ -15,54 +18,80 @@ watch(selected, () => {
 watch(
   () => props.formula.versions.at(-1)?.id,
   (id) => {
-    selected.value = id ?? ''
+    if (!open.value) selected.value = id ?? ''
   },
 )
+function show() {
+  selected.value = props.formula.versions.at(-1)?.id ?? ''
+  feedback.value = ''
+  open.value = true
+}
 async function submit() {
-  if (busy.value || !selected.value) return
+  if (busy.value || !version.value) return
   busy.value = true
   feedback.value = ''
   requestKey ||= crypto.randomUUID()
+  const versionId = version.value.id
+  controller = new AbortController()
   try {
     const task = await $fetch<ExportTaskState>('/api/account/exports', {
       method: 'POST',
-      body: { formulaVersionId: selected.value, requestKey },
+      body: { formulaVersionId: versionId, requestKey },
       retry: 0,
-      timeout: 20000,
+      timeout: 20_000,
+      signal: controller.signal,
     })
+    if (disposed) return
     clearNuxtData('account-usage')
     await navigateTo(`/exports/${task.id}`)
   } catch (error) {
-    feedback.value = workspaceFeedback(error)
+    if (!disposed)
+      feedback.value = workspaceFeedback(
+        error,
+        '导出任务暂时无法提交，请重试；已保存公式不受影响。',
+      )
   } finally {
-    busy.value = false
+    if (!disposed) busy.value = false
   }
 }
+onScopeDispose(() => {
+  disposed = true
+  controller?.abort()
+})
 </script>
 <template>
-  <button class="button button-white button-block export-trigger" @click="open = true">
+  <button class="button button-white button-block export-trigger" @click="show">
     <AppIcon name="download" :size="18" />
     导出 Word
   </button>
   <AppModal :open="open" title="导出可编辑 Word" @close="!busy && (open = false)">
-    <form class="stack" @submit.prevent="submit">
+    <form class="stack" :aria-busy="busy" @submit.prevent="submit">
       <label>
         <span class="field-label">选择导出的公式版本</span>
         <select v-model="selected" class="input" :disabled="busy">
-          <option
-            v-for="version in formula.versions.toReversed()"
-            :key="version.id"
-            :value="version.id"
-          >
-            v{{ version.number }} · {{ version.number === 1 ? '原始识别' : '人工修订' }}
+          <option v-for="item in formula.versions.toReversed()" :key="item.id" :value="item.id">
+            v{{ item.number }} ·
+            {{
+              item.origin === 'RECOGNITION'
+                ? '原始识别'
+                : item.origin === 'DEMO'
+                  ? '模拟示例'
+                  : '人工修订'
+            }}
           </option>
         </select>
       </label>
-      <button class="button button-primary" type="submit" :disabled="busy">
+      <div v-if="version" class="export-preview">
+        <p class="field-label">将导出 v{{ version.number }} 的已保存内容</p>
+        <MathFormula :latex="version.latex" tabindex="0" aria-label="导出版本预览，可横向滚动" />
+      </div>
+      <p v-if="feedback" class="error-text" role="alert">{{ feedback }}</p>
+      <button class="button button-primary" type="submit" :disabled="busy || !version">
         {{ busy ? '正在提交…' : '生成 Word 文档' }}
       </button>
-      <p v-if="feedback" class="error-text" role="alert">{{ feedback }}</p>
-      <p class="info-note">导出原生可编辑公式，并附上所选版本的 LaTeX 源码。</p>
+      <p class="info-note">
+        导出原生可编辑公式，并附上所选版本的 LaTeX。未保存的编辑草稿不会导出。
+      </p>
     </form>
   </AppModal>
 </template>
@@ -70,10 +99,10 @@ async function submit() {
 .export-trigger {
   margin-top: 12px;
 }
-.export-section h2 {
-  font-size: 14px;
-}
-.export-section > .section-heading svg {
-  color: #a18abf;
+.export-preview {
+  min-width: 0;
+  padding: 16px;
+  border-radius: var(--radius-control);
+  background: var(--color-background);
 }
 </style>

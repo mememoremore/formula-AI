@@ -11,6 +11,7 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
       'tests/navigation.test.ts',
       'tests/home.test.ts',
       'tests/library-state.test.ts',
+      'tests/formula-editor.test.ts',
       'tests/profile.test.ts',
     ],
     integration: false,

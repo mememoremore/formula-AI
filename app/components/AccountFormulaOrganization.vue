@@ -46,12 +46,13 @@ async function favorite() {
 }
 .organization-category {
   max-width: 80%;
-  color: #9380ac;
+  min-height: var(--control-hit-area);
+  color: var(--color-text-secondary);
 }
 .organization-category span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
 .organization-category svg {
   flex-shrink: 0;

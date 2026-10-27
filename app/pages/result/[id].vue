@@ -1,5 +1,6 @@
 <script setup lang="ts">
-definePageMeta({ bottomNav: false })
+import { formulaDraftChanged, formulaDraftFeedback } from '~/utils/formula-editor'
+definePageMeta({ bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '演示公式 · Formula AI' })
 const route = useRoute()
 const { formulas, categories, toggleFavorite, updateFormula } = useDemoLibrary()
@@ -20,27 +21,49 @@ const title = ref(''),
   latex = ref(''),
   categoryId = ref(''),
   feedback = ref('')
+const original = ref({ title: '', latex: '', categoryId: '' })
+const saving = ref(false)
+const validation = computed(() => formulaDraftFeedback(title.value, latex.value))
 const editorDirty = computed(
   () =>
-    !!formula.value &&
-    (title.value !== formula.value.title ||
-      latex.value !== formula.value.latex ||
-      categoryId.value !== (formula.value.categoryId ?? '')),
+    formulaDraftChanged({ title: title.value, latex: latex.value }, original.value) ||
+    categoryId.value !== original.value.categoryId,
+)
+const { canLeave } = useFormulaDraftGuard(showEditor, editorDirty, saving)
+const versions = computed(() =>
+  (formula.value?.versions ?? []).map((version, index) => ({
+    ...version,
+    number: index + 1,
+    label: index === 0 ? '本机原始内容' : '本机修订',
+    to: {
+      path: '/ai/new',
+      query: { space: 'demo', formulaId: formula.value!.id, demoVersionId: version.id },
+    },
+  })),
+)
+watch(
+  () => route.params.id,
+  () => {
+    showEditor.value = false
+    showVersions.value = false
+    showCategory.value = false
+    showExport.value = false
+  },
 )
 function edit() {
   if (!formula.value) return
   title.value = formula.value.title
   latex.value = formula.value.latex
   categoryId.value = formula.value.categoryId ?? ''
+  original.value = { title: title.value, latex: latex.value, categoryId: categoryId.value }
   feedback.value = ''
   showEditor.value = true
 }
 function closeEditor() {
-  if (!editorDirty.value || window.confirm('公式修改尚未保存，确定放弃吗？'))
-    showEditor.value = false
+  if (canLeave()) showEditor.value = false
 }
 function save() {
-  if (!formula.value) return
+  if (!formula.value || validation.value || !editorDirty.value) return
   if (!updateFormula(formula.value.id, latex.value, title.value, categoryId.value || null)) {
     feedback.value = '请填写名称和 LaTeX，公式最长 5000 字。'
     return
@@ -63,14 +86,12 @@ function saveCategory() {
   showCategory.value = false
   showToast('分类已更新。')
 }
-onBeforeRouteLeave(
-  () => !showEditor.value || !editorDirty.value || window.confirm('公式修改尚未保存，确定放弃吗？'),
-)
 </script>
 <template>
   <PageHeader title="演示公式" back-to="/library?space=demo" />
   <template v-if="formula">
     <FormulaDetailContent
+      :key="formula.id"
       :title="formula.title"
       :latex="formula.latex"
       :version="formula.versions.length"
@@ -123,9 +144,22 @@ onBeforeRouteLeave(
         </label>
         <label>
           <span class="field-label">LaTeX</span>
-          <textarea v-model="latex" class="input" maxlength="5000" required spellcheck="false" />
+          <textarea
+            v-model="latex"
+            class="input latex-editor"
+            maxlength="5000"
+            required
+            spellcheck="false"
+            :aria-invalid="!!validation"
+            :aria-describedby="validation ? 'demo-draft-validation' : undefined"
+          />
         </label>
-        <div class="paper-preview"><MathFormula :latex="latex" /></div>
+        <div class="paper-preview editor-preview">
+          <MathFormula :latex="latex" tabindex="0" aria-label="编辑预览，可横向滚动" />
+        </div>
+        <p v-if="validation" id="demo-draft-validation" class="error-text" role="status">
+          {{ validation }}
+        </p>
         <label>
           <span class="field-label">分类</span>
           <select v-model="categoryId" class="input">
@@ -136,9 +170,15 @@ onBeforeRouteLeave(
           </select>
         </label>
         <p v-if="feedback" class="error-text" role="alert">{{ feedback }}</p>
-        <div class="row">
+        <div class="editor-actions">
           <button class="button button-white" type="button" @click="closeEditor">取消</button>
-          <button class="button button-primary" type="submit">保存修改</button>
+          <button
+            class="button button-primary"
+            type="submit"
+            :disabled="!!validation || !editorDirty"
+          >
+            保存修改
+          </button>
         </div>
       </form>
     </AppModal>
@@ -154,29 +194,7 @@ onBeforeRouteLeave(
         <button class="button button-primary" type="submit">保存分类</button>
       </form>
     </AppModal>
-    <AppModal :open="showVersions" title="版本记录" sheet @close="showVersions = false">
-      <div class="stack">
-        <details
-          v-for="(version, index) in formula.versions.toReversed()"
-          :key="version.id"
-          class="version-row"
-        >
-          <summary>
-            v{{ formula.versions.length - index }} · {{ index === 0 ? '当前版本' : '历史版本' }}
-          </summary>
-          <MathFormula :latex="version.latex" />
-          <NuxtLink
-            :to="{
-              path: '/ai/new',
-              query: { space: 'demo', formulaId: formula.id, demoVersionId: version.id },
-            }"
-            class="text-button"
-          >
-            讨论这个版本
-          </NuxtLink>
-        </details>
-      </div>
-    </AppModal>
+    <FormulaVersions :open="showVersions" :versions="versions" @close="showVersions = false" />
     <AppModal :open="showExport" title="使用账号公式导出 Word" @close="showExport = false">
       <p class="prose">
         本机演示公式不能直接生成账号文档。登录后上传公式图片，即可在账号公式详情中导出；演示数据不会自动导入。
@@ -206,14 +224,24 @@ onBeforeRouteLeave(
 .export-button {
   margin-top: 12px;
 }
-.version-row {
-  padding: 16px;
-  background: #f6f3fc;
-  border-radius: 14px;
+.organization-row > .text-button {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  text-align: left;
 }
-summary {
-  font-size: 13px;
-  line-height: 1.8;
-  cursor: pointer;
+.editor-preview {
+  min-width: 0;
+  padding: 18px;
+}
+.latex-editor {
+  min-height: 150px;
+  font:
+    13px/1.8 Consolas,
+    monospace;
+}
+.editor-actions {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
 }
 </style>
