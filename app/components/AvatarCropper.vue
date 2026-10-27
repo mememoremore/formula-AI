@@ -41,24 +41,29 @@ function move(event: PointerEvent) {
 }
 function complete() {
   if (!bitmap || !ready.value) return
-  const output = document.createElement('canvas')
-  output.width = 512
-  output.height = 512
-  const crop = avatarCrop(bitmap.width, bitmap.height, zoom.value, x.value, y.value, 320)
-  const ctx = output.getContext('2d')
-  if (!ctx) {
-    error.value = '浏览器暂时无法裁剪图片。'
-    return
+  try {
+    const output = document.createElement('canvas')
+    output.width = 512
+    output.height = 512
+    const crop = avatarCrop(bitmap.width, bitmap.height, zoom.value, x.value, y.value, 320)
+    const ctx = output.getContext('2d')
+    if (!ctx) {
+      error.value = '浏览器暂时无法裁剪图片。'
+      return
+    }
+    ctx.fillStyle = '#ffffff'
+    ctx.fillRect(0, 0, 512, 512)
+    ctx.drawImage(bitmap, crop.x * 1.6, crop.y * 1.6, crop.width * 1.6, crop.height * 1.6)
+    emit('selected', output.toDataURL('image/jpeg', 0.9))
+  } catch {
+    error.value = '裁剪结果无法生成，请取消后重新选择图片。'
   }
-  ctx.fillStyle = '#ffffff'
-  ctx.fillRect(0, 0, 512, 512)
-  ctx.drawImage(bitmap, crop.x * 1.6, crop.y * 1.6, crop.width * 1.6, crop.height * 1.6)
-  emit('selected', output.toDataURL('image/jpeg', 0.9))
 }
 onMounted(async () => {
   try {
     if (
       !['image/jpeg', 'image/png'].includes(props.file.type) ||
+      !props.file.size ||
       props.file.size > 10 * 1024 * 1024
     )
       throw new Error('请选择不超过 10MB 的 JPG 或 PNG。')
@@ -72,7 +77,15 @@ onMounted(async () => {
     ready.value = true
     draw()
   } catch (cause) {
-    error.value = cause instanceof Error ? cause.message : '图片无法读取，请重新选择。'
+    bitmap?.close()
+    bitmap = undefined
+    ready.value = false
+    error.value =
+      cause instanceof DOMException
+        ? '图片无法读取，请重新选择完整的 JPG 或 PNG。'
+        : cause instanceof Error
+          ? cause.message
+          : '图片无法读取，请重新选择。'
   }
 })
 onScopeDispose(() => {
@@ -146,6 +159,7 @@ canvas {
   pointer-events: none;
 }
 .zoom {
+  min-height: 44px;
   width: 100%;
   accent-color: var(--color-primary);
 }
@@ -156,6 +170,8 @@ canvas {
   margin-top: 12px;
 }
 .crop-position button {
+  min-height: 44px;
+  min-width: 64px;
   background: #f0ecf9;
   border: 0;
   color: #8a79a6;

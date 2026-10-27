@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth/minimal'
-import { APIError } from 'better-auth/api'
+import { APIError, createAuthMiddleware } from 'better-auth/api'
+import { authProfileViolation } from './profile-policy'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
 import type { PrismaClient } from '../generated/prisma/client'
 
@@ -23,6 +24,12 @@ export function createAuthentication(db: PrismaClient, config: AuthConfiguration
     baseURL: origin,
     database: prismaAdapter(db, { provider: 'postgresql', transaction: true }),
     user: { modelName: 'User', fields: { name: 'displayName' } },
+    hooks: {
+      before: createAuthMiddleware(async (context) => {
+        const violation = authProfileViolation(context.path, context.body)
+        if (violation) throw new APIError('BAD_REQUEST', { message: violation })
+      }),
+    },
     account: { modelName: 'AuthAccount', accountLinking: { enabled: false } },
     verification: { modelName: 'AuthVerification' },
     emailAndPassword: {
@@ -62,6 +69,8 @@ export function createAuthentication(db: PrismaClient, config: AuthConfiguration
       user: {
         create: {
           before: async (user) => {
+            if (user.image)
+              throw new APIError('BAD_REQUEST', { message: '头像必须在编辑资料中上传。' })
             const name = user.name.trim()
             if (!name || name.length > 100) {
               throw new APIError('BAD_REQUEST', { message: '昵称需要包含 1～100 个字符。' })
@@ -71,7 +80,12 @@ export function createAuthentication(db: PrismaClient, config: AuthConfiguration
         },
         update: {
           before: async (user) => {
-            if (user.name !== undefined && (!user.name.trim() || user.name.trim().length > 100)) {
+            if (user.image !== undefined)
+              throw new APIError('BAD_REQUEST', { message: '头像必须通过资料服务更新或重置。' })
+            if (
+              user.name !== undefined &&
+              (typeof user.name !== 'string' || !user.name.trim() || user.name.trim().length > 100)
+            ) {
               throw new APIError('BAD_REQUEST', { message: '昵称需要包含 1～100 个字符。' })
             }
             return {
