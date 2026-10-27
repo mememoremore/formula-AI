@@ -104,6 +104,7 @@ const errorCode = computed(
       :formula="formula"
       @close="showEditor = false"
       @saved="saved"
+      @reloaded="update"
     />
     <FormulaVersions :open="showVersions" :versions="versions" @close="showVersions = false" />
   </template>

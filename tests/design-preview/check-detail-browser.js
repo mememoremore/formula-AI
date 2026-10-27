@@ -1,6 +1,6 @@
 async function checkDetail(page) {
   const base = 'http://127.0.0.1:3200',
-    shots = 'docs/设计稿/R6公式详情/',
+    shots = 'tmp/r6-detail-check/',
     checks = []
   const ensure = (value, name) => {
     if (!value) throw new Error(name)
@@ -184,7 +184,30 @@ async function checkDetail(page) {
     (await page.getByRole('textbox', { name: 'LaTeX', exact: true }).inputValue()) === 'y=42',
     '账号失败保留草稿',
   )
-  await mode('conflict')
+  await mode('account')
+  ensure(
+    await page.evaluate(async () => {
+      const formula = await (await fetch('/api/account/formulas/r6-formula')).json()
+      const latest = formula.versions.at(-1)
+      const response = await fetch('/api/account/formulas/r6-formula/versions', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          title: '外部窗口的新标题',
+          latex: latest.latex,
+          expectedVersionId: latest.id,
+          expectedTitle: formula.title,
+        }),
+      })
+      const renamed = await response.json()
+      return (
+        response.status === 200 &&
+        renamed.title === '外部窗口的新标题' &&
+        renamed.versions.at(-1).id === latest.id
+      )
+    }),
+    '另一个窗口仅改标题，不推进内容版本',
+  )
   await page.getByRole('button', { name: '确认并保存', exact: true }).click()
   await page.getByRole('alert').filter({ hasText: '其他窗口' }).waitFor()
   ensure(
@@ -193,6 +216,16 @@ async function checkDetail(page) {
     '冲突仍保留名称和正文',
   )
   await page.screenshot({ path: shots + '保存冲突390.png', fullPage: true })
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: base })
+  await page.getByRole('button', { name: '复制当前草稿', exact: true }).click()
+  await page.getByRole('alert').filter({ hasText: '草稿已复制' }).waitFor()
+  ensure(
+    await page.evaluate(
+      async () =>
+        (await navigator.clipboard.readText()).replace(/\r\n/g, '\n') === '账号新标题\n\ny=42',
+    ),
+    '冲突草稿完整复制，名称和正文不丢失',
+  )
   await page.getByRole('button', { name: '关闭弹窗', exact: true }).click()
   ensure(await page.getByRole('dialog').isVisible(), '账号关闭草稿受保护')
   ensure(
@@ -205,7 +238,45 @@ async function checkDetail(page) {
   )
   await page.goBack()
   ensure(await page.getByRole('dialog').isVisible(), '账号路由离开受保护')
+  ensure(
+    await page.getByRole('button', { name: '确认并保存', exact: true }).isDisabled(),
+    '冲突后禁止直接重放旧草稿',
+  )
+  await page.getByRole('button', { name: '重新读取最新内容', exact: true }).click()
+  ensure(
+    (await page.getByRole('textbox', { name: 'LaTeX', exact: true }).inputValue()) === 'y=42',
+    '取消放弃时仍保留草稿',
+  )
+  await page.evaluate(() => {
+    window.__r6Allow = true
+  })
+  await mode('error')
+  await page.getByRole('button', { name: '重新读取最新内容', exact: true }).click()
+  await page.getByRole('alert').filter({ hasText: '读取失败' }).waitFor()
+  ensure(
+    (await page.getByRole('textbox', { name: 'LaTeX', exact: true }).inputValue()) === 'y=42',
+    '读取最新内容失败仍保留草稿',
+  )
   await mode('slow')
+  await page.getByRole('button', { name: '重新读取最新内容', exact: true }).click()
+  await page.waitForFunction(
+    () => document.querySelector('dialog[open] input')?.value === '外部窗口的新标题',
+  )
+  ensure(
+    (await page.getByRole('textbox', { name: '公式名称', exact: true }).inputValue()) ===
+      '外部窗口的新标题',
+    '明确放弃后回填最新内容',
+  )
+  ensure(
+    await page.getByRole('button', { name: '确认并保存', exact: true }).isDisabled(),
+    '重新读取未修改时不保存',
+  )
+  await page.screenshot({ path: shots + '恢复最新内容390.png', fullPage: true })
+  await page.getByRole('textbox', { name: '公式名称', exact: true }).fill('账号新标题')
+  await page.getByRole('textbox', { name: 'LaTeX', exact: true }).fill('y=42')
+  await page.evaluate(() => {
+    window.__r6Allow = false
+  })
   await page.getByRole('button', { name: '确认并保存', exact: true }).click()
   ensure(
     await page.getByRole('button', { name: '正在保存…', exact: true }).isDisabled(),
@@ -219,9 +290,23 @@ async function checkDetail(page) {
     '账号成功保存更新标题',
   )
   const calls = await page.evaluate(() =>
-    window.__r6Calls.filter((c) => c.url.endsWith('/versions') && c.method === 'POST'),
+    window.__r6Calls.filter(
+      (c) =>
+        c.url.endsWith('/versions') &&
+        c.method === 'POST' &&
+        JSON.parse(c.body).title === '账号新标题',
+    ),
   )
   ensure(calls.length === 3, '失败、冲突和成功各一次提交，无重复提交')
+  ensure(
+    JSON.stringify(calls.map((c) => JSON.parse(c.body).expectedTitle)) ===
+      JSON.stringify([
+        '矩阵与定积分：一次公式探索',
+        '矩阵与定积分：一次公式探索',
+        '外部窗口的新标题',
+      ]),
+    '请求传打开快照原标题，不能传新标题代替',
+  )
   await editor()
   ensure(
     (await page.getByRole('textbox', { name: 'LaTeX', exact: true }).inputValue()) === 'y=42',

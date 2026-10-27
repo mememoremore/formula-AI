@@ -82,6 +82,7 @@ before(async () => {
         ownerId: owners[0]!,
         formulaId: formula.id,
         expectedVersionId: version.id,
+        expectedTitle: formula.title,
         latex: '\\int NewOnlyToken \\mathrm{a_b\\%}',
       })
     }

@@ -3,33 +3,40 @@ import type { SavedFormula } from '#shared/types/workspace'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { formulaDraftFeedback, formulaDraftChanged } from '~/utils/formula-editor'
 const props = defineProps<{ open: boolean; formula: SavedFormula }>()
-const emit = defineEmits<{ close: []; saved: [formula: SavedFormula] }>()
+const emit = defineEmits<{
+  close: []
+  saved: [formula: SavedFormula]
+  reloaded: [formula: SavedFormula]
+}>()
 const title = ref(''),
   latex = ref(''),
   expectedVersionId = ref('')
 const original = ref({ title: '', latex: '' })
-const saving = ref(false),
-  feedback = ref('')
+const operation = ref<'save' | 'reload' | null>(null)
+const busy = computed(() => operation.value !== null)
+const feedback = ref('')
+const conflicted = ref(false)
 const open = toRef(props, 'open')
 const dirty = computed(() =>
   formulaDraftChanged({ title: title.value, latex: latex.value }, original.value),
 )
 const validation = computed(() => formulaDraftFeedback(title.value, latex.value))
-const { canLeave } = useFormulaDraftGuard(open, dirty, saving)
+const { canLeave } = useFormulaDraftGuard(open, dirty, busy)
 let controller: AbortController | undefined
 let disposed = false
+function fill(formula: SavedFormula) {
+  original.value = { title: formula.title, latex: formula.versions.at(-1)?.latex ?? '' }
+  title.value = original.value.title
+  latex.value = original.value.latex
+  expectedVersionId.value = formula.versions.at(-1)?.id ?? ''
+  feedback.value = ''
+  conflicted.value = false
+}
 watch(
   open,
   (value) => {
     if (!value) return
-    original.value = {
-      title: props.formula.title,
-      latex: props.formula.versions.at(-1)?.latex ?? '',
-    }
-    title.value = original.value.title
-    latex.value = original.value.latex
-    expectedVersionId.value = props.formula.versions.at(-1)?.id ?? ''
-    feedback.value = ''
+    fill(props.formula)
   },
   { immediate: true },
 )
@@ -37,8 +44,8 @@ function close() {
   if (canLeave()) emit('close')
 }
 async function save() {
-  if (saving.value || validation.value || !dirty.value) return
-  saving.value = true
+  if (busy.value || conflicted.value || validation.value || !dirty.value) return
+  operation.value = 'save'
   feedback.value = ''
   const id = props.formula.id
   controller = new AbortController()
@@ -48,7 +55,12 @@ async function save() {
       retry: 0,
       timeout: 20_000,
       signal: controller.signal,
-      body: { title: title.value, latex: latex.value, expectedVersionId: expectedVersionId.value },
+      body: {
+        title: title.value,
+        latex: latex.value,
+        expectedVersionId: expectedVersionId.value,
+        expectedTitle: original.value.title,
+      },
     })
     if (disposed || props.formula.id !== id) return
     original.value = { title: formula.title, latex: formula.versions.at(-1)?.latex ?? '' }
@@ -57,11 +69,40 @@ async function save() {
   } catch (error) {
     if (disposed) return
     const conflict = (error as { statusCode?: number }).statusCode === 409
+    conflicted.value = conflict
     feedback.value = conflict
-      ? '公式已被其他窗口修改。草稿仍保留，请先复制草稿，再关闭编辑并重新加载。'
+      ? '公式名称或内容已被其他窗口修改。草稿仍保留，可先复制草稿，再重新读取最新内容。'
       : workspaceFeedback(error, '保存失败，草稿已保留，请检查网络后重试。')
   } finally {
-    if (!disposed) saving.value = false
+    if (!disposed) operation.value = null
+  }
+}
+async function copyDraft() {
+  try {
+    await navigator.clipboard.writeText(title.value + '\n\n' + latex.value)
+    feedback.value = '草稿已复制。重新读取会替换当前编辑内容。'
+  } catch {
+    feedback.value = '复制不可用，请手动保留名称和 LaTeX；当前草稿未变。'
+  }
+}
+async function reloadLatest() {
+  if (busy.value || !canLeave()) return
+  operation.value = 'reload'
+  const id = props.formula.id
+  controller = new AbortController()
+  try {
+    const formula = await $fetch<SavedFormula>(`/api/account/formulas/${id}`, {
+      signal: controller.signal,
+      retry: 0,
+      timeout: 15_000,
+    })
+    if (disposed || props.formula.id !== id) return
+    fill(formula)
+    emit('reloaded', formula)
+  } catch (error) {
+    if (!disposed) feedback.value = workspaceFeedback(error, '读取失败，当前草稿仍保留，请重试。')
+  } finally {
+    if (!disposed) operation.value = null
   }
 }
 onScopeDispose(() => {
@@ -71,7 +112,7 @@ onScopeDispose(() => {
 </script>
 <template>
   <AppModal :open="open" title="编辑公式" sheet @close="close">
-    <form class="stack" :aria-busy="saving" @submit.prevent="save">
+    <form class="stack" :aria-busy="busy" @submit.prevent="save">
       <p class="info-note">
         正在编辑 v{{
           formula.versions.find((v) => v.id === expectedVersionId)?.number
@@ -79,7 +120,7 @@ onScopeDispose(() => {
       </p>
       <label>
         <span class="field-label">公式名称</span>
-        <input v-model="title" class="input" maxlength="100" required :disabled="saving" />
+        <input v-model="title" class="input" maxlength="100" required :disabled="busy" />
       </label>
       <label>
         <span class="field-label">LaTeX</span>
@@ -89,7 +130,7 @@ onScopeDispose(() => {
           maxlength="5000"
           required
           spellcheck="false"
-          :disabled="saving"
+          :disabled="busy"
           :aria-invalid="!!validation"
           :aria-describedby="validation ? 'account-draft-validation' : undefined"
         />
@@ -102,16 +143,24 @@ onScopeDispose(() => {
         {{ validation }}
       </p>
       <p v-if="feedback" class="error-text" role="alert">{{ feedback }}</p>
+      <div v-if="conflicted" class="stack">
+        <button class="text-button" type="button" :disabled="busy" @click="copyDraft">
+          复制当前草稿
+        </button>
+        <button class="button button-white" type="button" :disabled="busy" @click="reloadLatest">
+          {{ operation === 'reload' ? '正在读取…' : '重新读取最新内容' }}
+        </button>
+      </div>
       <div class="editor-actions">
-        <button class="button button-white" type="button" :disabled="saving" @click="close">
+        <button class="button button-white" type="button" :disabled="busy" @click="close">
           取消
         </button>
         <button
           class="button button-primary"
           type="submit"
-          :disabled="saving || !!validation || !dirty"
+          :disabled="busy || conflicted || !!validation || !dirty"
         >
-          {{ saving ? '正在保存…' : '确认并保存' }}
+          {{ operation === 'save' ? '正在保存…' : '确认并保存' }}
         </button>
       </div>
       <p class="info-note">保存前请核对名称与公式。历史内容不会被覆盖。</p>

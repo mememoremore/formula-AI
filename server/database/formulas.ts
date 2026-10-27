@@ -74,11 +74,12 @@ interface AppendVersionInput {
   ownerId: string
   formulaId: string
   expectedVersionId: string
+  expectedTitle: string
   latex: string
   title?: string
 }
 
-/** 只有新增版本操作，没有覆盖版本操作；调用者必须提供编辑时看到的版本 ID。 */
+/** 内容只追加；标题与内容版本的预期值在同一 Serializable 事务内校验。 */
 export async function appendFormulaVersion(db: PrismaClient, input: AppendVersionInput) {
   if (
     !hasValidResourceIdentity(input.ownerId, input.formulaId) ||
@@ -87,6 +88,12 @@ export async function appendFormulaVersion(db: PrismaClient, input: AppendVersio
     throw new DatabaseOperationError('INVALID_INPUT', '缺少有效的用户或公式版本标识。')
   }
   const latex = checkedLatex(input.latex)
+  if (
+    typeof input.expectedTitle !== 'string' ||
+    !input.expectedTitle.trim() ||
+    input.expectedTitle.length > 100
+  )
+    throw new DatabaseOperationError('INVALID_INPUT', '缺少有效的原标题，请重新读取公式后保存。')
   const title = input.title?.trim()
   if (title !== undefined && (!title || title.length > 100))
     throw new DatabaseOperationError('INVALID_INPUT', '公式名称需要包含 1～100 个字符。')
@@ -103,10 +110,14 @@ export async function appendFormulaVersion(db: PrismaClient, input: AppendVersio
             where: { formulaId: formula.id, ownerId: input.ownerId },
             orderBy: { number: 'desc' },
           })
-          if (!latest || latest.id !== input.expectedVersionId) {
+          if (
+            !latest ||
+            latest.id !== input.expectedVersionId ||
+            formula.title !== input.expectedTitle
+          ) {
             throw new DatabaseOperationError(
               'VERSION_CONFLICT',
-              '公式已被修改，请重新读取最新版本。',
+              '公式名称或内容已被修改，请重新读取最新内容。',
             )
           }
           if (latex === latest.latex) {
@@ -137,7 +148,7 @@ export async function appendFormulaVersion(db: PrismaClient, input: AppendVersio
         { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
       )
     } catch (error) {
-      // 并发提交可能产生序列化冲突或唯一版本号冲突，重新读取后再校验预期版本。
+      // 同时读到旧标题的事务不能都提交；冲突重试必须重新校验原标题和版本。
       const retryable =
         error instanceof Prisma.PrismaClientKnownRequestError &&
         (error.code === 'P2034' || error.code === 'P2002')

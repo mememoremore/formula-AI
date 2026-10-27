@@ -111,10 +111,25 @@ export async function detailFixture(event: H3Event) {
     return formula
   }
   if (path === '/api/account/formulas/r6-formula/versions') {
-    const body = await readBody<{ title: string; latex: string; expectedVersionId: string }>(event)
+    const body = await readBody<{
+      title: string
+      latex: string
+      expectedVersionId: string
+      expectedTitle: string
+    }>(event)
+    if (
+      typeof body.expectedTitle !== 'string' ||
+      !body.expectedTitle.trim() ||
+      body.expectedTitle.length > 100
+    )
+      throw createError({ statusCode: 400, message: '缺少原标题' })
     if (mode === 'save-error') throw createError({ statusCode: 503, message: '受控保存失败' })
     if (mode === 'slow') await new Promise((r) => setTimeout(r, 800))
-    if (mode === 'conflict' || body.expectedVersionId !== formula.versions.at(-1)!.id)
+    if (
+      mode === 'conflict' ||
+      body.expectedVersionId !== formula.versions.at(-1)!.id ||
+      body.expectedTitle !== formula.title
+    )
       throw createError({ statusCode: 409, message: '公式已被修改' })
     if (body.latex.trim() !== formula.versions.at(-1)!.latex)
       formula.versions.push({

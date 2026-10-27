@@ -2,7 +2,7 @@ import { testEnvironment } from './support/integration.ts'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
-import { before, after, test } from 'node:test'
+import { before, after, test, type TestContext } from 'node:test'
 import sharp from 'sharp'
 import { createAuthentication } from '../server/auth/config'
 import { createDatabaseClient } from '../server/database/client'
@@ -350,6 +350,7 @@ test('其他用户不能读取公式或追加版本，未登录不能上传和�
         title: '越权',
         latex: 'x',
         expectedVersionId: original.versions[0]!.id,
+        expectedTitle: original.title,
       })
     ).status,
     404,
@@ -372,6 +373,7 @@ test('确认修改生成新版，刷新可读取，原始结果和原图仍保�
     title: '  保存后的公式  ',
     latex: 'E = mc^2',
     expectedVersionId: original.versions[0]!.id,
+    expectedTitle: original.title,
   })
   assert.equal(response.status, 200)
   const refreshed = (await (
@@ -393,6 +395,7 @@ test('并发修改旧版本只允许一份成功，另一份返回明确的 409'
     title: '并发保存',
     latex,
     expectedVersionId: current.versions.at(-1)!.id,
+    expectedTitle: current.title,
   }))
   const responses = await Promise.all(
     bodies.map((body) =>
@@ -416,6 +419,7 @@ test('相同内容或只改名称不会制造空版本', async () => {
         title: '只修改名称',
         latex: latest.latex,
         expectedVersionId: latest.id,
+        expectedTitle: current.title,
       })
     ).status,
     200,
@@ -425,7 +429,7 @@ test('相同内容或只改名称不会制造空版本', async () => {
   assert.equal(after.versions.length, current.versions.length)
 })
 
-test('R6 已知契约缺口：标题不推进内容版本，旧窗口仍可覆盖新标题', async () => {
+test('R6.1 标题更新后旧窗口保存正文返回409，不覆盖新标题', async () => {
   const created = await createFormula(db, {
     ownerId: testOwners[0]!,
     title: '窗口共同读取的原名',
@@ -440,6 +444,7 @@ test('R6 已知契约缺口：标题不推进内容版本，旧窗口仍可覆�
     title: '窗口 A 的新标题',
     latex: 'x=1',
     expectedVersionId,
+    expectedTitle: snapshot.title,
   })
   assert.equal(rename.status, 200)
   const renamed = (await rename.json()) as SavedFormula
@@ -449,14 +454,128 @@ test('R6 已知契约缺口：标题不推进内容版本，旧窗口仍可覆�
     title: snapshot.title,
     latex: 'x=2',
     expectedVersionId,
+    expectedTitle: snapshot.title,
   })
-  // 现状复现，不是正确性保证；批准元数据 CAS 后应改为 409 和保留新标题。
-  assert.equal(stale.status, 200)
-  const overwritten = (await stale.json()) as SavedFormula
-  assert.equal(overwritten.title, snapshot.title)
-  assert.equal(overwritten.versions.length, 2)
-  assert.equal(overwritten.versions[0]!.latex, 'x=1')
-  assert.equal(overwritten.versions[1]!.latex, 'x=2')
+  assert.equal(stale.status, 409)
+  const after = (await (await api(path)).json()) as SavedFormula
+  assert.equal(after.title, '窗口 A 的新标题')
+  assert.equal(after.versions.length, 1)
+  assert.equal(after.versions[0]!.latex, 'x=1')
+})
+
+async function editableFixture(context: TestContext) {
+  const { formula } = await createFormula(db, {
+    ownerId: testOwners[0]!,
+    title: '并发基线',
+    latex: 'x=0',
+    origin: 'DEMO',
+    isMock: true,
+  })
+  const path = `/api/account/formulas/${formula.id}`
+  context.after(async () => {
+    // 新并发夹具只在当前用例内存活，不改变原历史分页用例的数据窗口。
+    await db.formula.deleteMany({ where: { id: formula.id, ownerId: testOwners[0]! } })
+  })
+  const snapshot = (await (await api(path)).json()) as SavedFormula
+  const body = {
+    title: snapshot.title,
+    latex: 'x=0',
+    expectedTitle: snapshot.title,
+    expectedVersionId: snapshot.versions[0]!.id,
+  }
+  return { path, body }
+}
+
+test('两个窗口同时改标题仅一个成功，版本仍不可变且不产生空版本（8组）', async (context) => {
+  for (let round = 0; round < 8; round++) {
+    const { path, body } = await editableFixture(context)
+    const responses = await Promise.all(
+      ['窗口A', '窗口B'].map((title) => api(`${path}/versions`, cookieA, { ...body, title })),
+    )
+    assert.deepEqual(responses.map((r) => r.status).sort(), [200, 409])
+    const winner = (await responses.find((r) => r.status === 200)!.json()) as SavedFormula
+    const after = (await (await api(path)).json()) as SavedFormula
+    assert.equal(after.title, winner.title)
+    assert.equal(after.versions.length, 1)
+    assert.equal(after.versions[0]!.id, body.expectedVersionId)
+    assert.equal(after.versions[0]!.latex, 'x=0')
+  }
+})
+
+test('标题与正文并发保存仅一个成功，败方不发生部分写入（8组）', async (context) => {
+  for (let round = 0; round < 8; round++) {
+    const { path, body } = await editableFixture(context)
+    const responses = await Promise.all([
+      api(`${path}/versions`, cookieA, { ...body, title: '新标题' }),
+      api(`${path}/versions`, cookieA, { ...body, latex: 'x=2' }),
+    ])
+    assert.deepEqual(responses.map((r) => r.status).sort(), [200, 409])
+    const after = (await (await api(path)).json()) as SavedFormula
+    if (responses[0]!.status === 200) {
+      assert.equal(after.title, '新标题')
+      assert.equal(after.versions.length, 1)
+    } else {
+      assert.equal(after.title, body.title)
+      assert.equal(after.versions.length, 2)
+      assert.equal(after.versions[1]!.latex, 'x=2')
+    }
+    assert.equal(after.versions[0]!.latex, 'x=0')
+  }
+})
+
+test('重复提交改标题或正文不重复写；真正无修改的请求可以重复成功', async (context) => {
+  for (const change of [{ title: '重复标题' }, { latex: 'x=3' }]) {
+    const { path, body } = await editableFixture(context)
+    const command = { ...body, ...change }
+    const replies = await Promise.all([
+      api(`${path}/versions`, cookieA, command),
+      api(`${path}/versions`, cookieA, command),
+    ])
+    assert.deepEqual(replies.map((r) => r.status).sort(), [200, 409])
+    assert.equal((await api(`${path}/versions`, cookieA, command)).status, 409)
+    const current = (await (await api(path)).json()) as SavedFormula
+    assert.equal(current.title, command.title)
+    assert.equal(current.versions.at(-1)!.latex, command.latex)
+    assert.equal(current.versions.length, 'latex' in change ? 2 : 1)
+    const noop = {
+      title: current.title,
+      latex: current.versions.at(-1)!.latex,
+      expectedTitle: current.title,
+      expectedVersionId: current.versions.at(-1)!.id,
+    }
+    assert.equal((await api(`${path}/versions`, cookieA, noop)).status, 200)
+    assert.equal((await api(`${path}/versions`, cookieA, noop)).status, 200)
+    assert.equal(
+      ((await (await api(path)).json()) as SavedFormula).versions.length,
+      current.versions.length,
+    )
+  }
+})
+
+test('旧请求和非法 expectedTitle 明确400且不写入；认证和归属检查保持优先', async (context) => {
+  const { path, body } = await editableFixture(context)
+  const { expectedTitle, ...legacy } = body
+  for (const input of [
+    legacy,
+    { ...body, expectedTitle: null },
+    { ...body, expectedTitle: 1 },
+    { ...body, expectedTitle: ' ' },
+    { ...body, expectedTitle: '名'.repeat(101) },
+  ]) {
+    const response = await api(`${path}/versions`, cookieA, { ...input, title: '不应写入' })
+    assert.equal(response.status, 400)
+    assert.match((await response.json()).message, /expectedTitle/)
+  }
+  assert.equal(
+    (await api(`${path}/versions`, cookieA, { ...body, expectedTitle: '过期名称' })).status,
+    409,
+  )
+  assert.equal((await api(`${path}/versions`, cookieB, { ...body, title: '他人写入' })).status, 404)
+  assert.equal((await api(`${path}/versions`, '', { ...body, title: '未登录写入' })).status, 401)
+  assert.equal((await api(`${path}/versions`, cookieB, legacy)).status, 404)
+  const after = (await (await api(path)).json()) as SavedFormula
+  assert.equal(after.title, body.title)
+  assert.equal(after.versions.length, 1)
 })
 
 test('账号历史分页不混入其他用户，页面可按记录重新打开原图', async () => {

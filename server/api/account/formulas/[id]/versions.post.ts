@@ -14,6 +14,11 @@ export default defineEventHandler((event) =>
     // 先判断记录归属，外部资源与不存在资源保持一致的 404。
     await readSavedFormula(getDatabase(), user.id, id)
     const body = await readWorkspaceJson(event)
+    if (isRecord(body) && !isText(body.expectedTitle, 100))
+      throw createError({
+        statusCode: 400,
+        message: '保存需要编辑时的原标题（expectedTitle），请刷新页面后重新编辑。',
+      })
     if (
       !isRecord(body) ||
       !isText(body.latex, 5000) ||
@@ -25,6 +30,7 @@ export default defineEventHandler((event) =>
       ownerId: user.id,
       formulaId: id,
       expectedVersionId: body.expectedVersionId as string,
+      expectedTitle: body.expectedTitle as string,
       latex: body.latex,
       title: body.title,
     })

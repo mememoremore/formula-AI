@@ -358,6 +358,7 @@ test('修改公式后旧对话仍绑定旧版本，直接覆盖上下文被数�
     ownerId: owners[0]!,
     formulaId,
     expectedVersionId: versionId,
+    expectedTitle: '原始标题',
     latex: 'E=mc^2',
     title: '修改后的标题',
   })

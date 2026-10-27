@@ -91,6 +91,7 @@ test('追加修订保留原始版本，相同内容不会产生无意义的新�
     ownerId: ownerA,
     formulaId: saved.formula.id,
     expectedVersionId: saved.version.id,
+    expectedTitle: saved.formula.title,
     latex: 'm = \\frac{E}{c^2}',
   })
   assert.equal(revised.number, 2)
@@ -99,6 +100,7 @@ test('追加修订保留原始版本，相同内容不会产生无意义的新�
     ownerId: ownerA,
     formulaId: saved.formula.id,
     expectedVersionId: revised.id,
+    expectedTitle: saved.formula.title,
     latex: revised.latex,
   })
   assert.equal(unchanged.id, revised.id)
@@ -116,12 +118,29 @@ test('数据库拒绝直接覆盖任何公式版本', async () => {
   assert.equal(original.latex, 'E = mc^2')
 })
 
+test('数据入口也拒绝缺少原标题的旧调用，不能绕过 HTTP 保护', async () => {
+  const saved = await newFormula('必需原标题')
+  const legacy = {
+    ownerId: ownerA,
+    formulaId: saved.formula.id,
+    expectedVersionId: saved.version.id,
+    latex: 'x=1',
+    title: '不能写入',
+  }
+  // @ts-expect-error 故意模拟旧 JavaScript 调用，验证运行时也 fail-closed。
+  await assert.rejects(appendFormulaVersion(db, legacy), hasCode('INVALID_INPUT'))
+  const after = await getFormula(db, ownerA, saved.formula.id)
+  assert.equal(after?.title, '必需原标题')
+  assert.equal(after?.versions.length, 1)
+})
+
 test('旧版本提交会明确冲突，其他用户不能追加版本', async () => {
   const saved = await newFormula('过期编辑')
   await appendFormulaVersion(db, {
     ownerId: ownerA,
     formulaId: saved.formula.id,
     expectedVersionId: saved.version.id,
+    expectedTitle: saved.formula.title,
     latex: 'm=E/c^2',
   })
   await assert.rejects(
@@ -129,6 +148,7 @@ test('旧版本提交会明确冲突，其他用户不能追加版本', async ()
       ownerId: ownerA,
       formulaId: saved.formula.id,
       expectedVersionId: saved.version.id,
+      expectedTitle: saved.formula.title,
       latex: 'c^2=E/m',
     }),
     hasCode('VERSION_CONFLICT'),
@@ -138,6 +158,7 @@ test('旧版本提交会明确冲突，其他用户不能追加版本', async ()
       ownerId: ownerB,
       formulaId: saved.formula.id,
       expectedVersionId: saved.version.id,
+      expectedTitle: saved.formula.title,
       latex: 'x=1',
     }),
     hasCode('NOT_FOUND'),
@@ -152,6 +173,7 @@ test('并发编辑只允许一份旧版本提交成功，不会静默覆盖或�
         ownerId: ownerA,
         formulaId: saved.formula.id,
         expectedVersionId: saved.version.id,
+        expectedTitle: saved.formula.title,
         latex,
       }),
     ),
@@ -287,6 +309,7 @@ test('对话绑定具体版本，不能跨用户引用或悄悄切换到新版�
     ownerId: ownerA,
     formulaId: saved.formula.id,
     expectedVersionId: saved.version.id,
+    expectedTitle: saved.formula.title,
     latex: 'm=E/c^2',
   })
   await assert.rejects(
