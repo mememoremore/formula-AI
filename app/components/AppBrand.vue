@@ -1,6 +1,14 @@
 <script setup lang="ts">
-withDefaults(defineProps<{ avatar?: boolean; tagline?: boolean }>(), { avatar: true, tagline: false })
-const { data: account } = useAccountSession()
+import type { AccountUser } from '#shared/types/account'
+const props = withDefaults(
+  defineProps<{ avatar?: boolean; tagline?: boolean; accountUser?: AccountUser | null }>(),
+  { avatar: true, tagline: false },
+)
+// 首页已读取会话时直接展示传入值；其他现有页面保留原来的读取方式。
+const session = props.accountUser === undefined ? useAccountSession() : undefined
+const avatarUser = computed(() =>
+  props.accountUser === undefined ? session?.data.value?.user : props.accountUser,
+)
 </script>
 <template>
   <header class="app-brand">
@@ -19,7 +27,7 @@ const { data: account } = useAccountSession()
       </span>
     </NuxtLink>
     <NuxtLink v-if="avatar" to="/profile" aria-label="查看我的资料">
-      <UserAvatar :user="account?.user" :size="38" />
+      <UserAvatar :user="avatarUser" :size="38" />
     </NuxtLink>
   </header>
   <p v-if="tagline" class="brand-tagline">让每一个手写公式都能被理解</p>
@@ -47,7 +55,7 @@ strong {
 .brand-tagline {
   margin: -18px 0 24px;
   font-size: 14px;
-  letter-spacing: .5px;
+  letter-spacing: 0.5px;
   color: var(--color-muted);
 }
 </style>

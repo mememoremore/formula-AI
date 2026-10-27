@@ -1,238 +1,181 @@
 <script setup lang="ts">
-import type { FormulaLibraryPage } from '#shared/types/library'
-import type { ConversationPage } from '#shared/types/tasks'
-const { data: account, error: sessionError, demo } = useWorkspace()
+const workspace = useWorkspace()
 await useAccountSession()
-const request = useRequestFetch()
-const { formulas } = useDemoLibrary()
-const demoStore = useDemoStore()
-const { preview } = useUploadPreview()
-const {
-  data: recent,
-  error,
-  refresh,
-} = await useAsyncData(
-  'home-recent',
-  async () => {
-    if (!account.value?.user || demo.value) return { formulas: [], conversation: undefined }
-    const [library, conversations] = await Promise.all([
-      request<FormulaLibraryPage>('/api/account/library'),
-      request<ConversationPage>('/api/account/conversations'),
-    ])
-    return { formulas: library.items.slice(0, 1), conversation: conversations.items[0] }
-  },
-  { watch: [() => account.value?.user?.id, demo] },
-)
-const demoFormula = computed(() => formulas.value[0])
-const demoConversation = computed(() => {
-  const entry = Object.entries(demoStore.value.chats).find(([, messages]) => messages.length > 0)
-  if (!entry) return undefined
-  const formula = formulas.value.find((item) => entry[0] === `version:${item.versionId}`)
-  return {
-    title: formula?.title ?? '自由提问',
-    subtitle:
-      entry[1].filter((message) => message.role === 'user').at(-1)?.content ?? '继续上次的思考',
-    latex: formula?.latex,
-    to: formula ? `/ai/new?space=demo&formulaId=${formula.id}` : '/ai/new?space=demo',
-  }
-})
+const home = useHomeOverview(workspace)
+const { demo, recent, demoFormula, demoConversation, preview, loading } = home
+const { error: sessionError, status: sessionStatus } = home.session
+await home.request
 </script>
 <template>
-  <AppBrand tagline />
-  <section class="home-hero">
-    <div class="hero-copy">
-      <h1>
-        写下灵感，
-        <br />
-        <em>读懂公式。</em>
-      </h1>
-      <p>
-        从手写的疑问，
-        <br />
-        到清晰的答案。
-      </p>
-      <svg class="ink-stroke" viewBox="0 0 150 40" aria-hidden="true">
-        <path
-          d="M5 35Q70 -2 145 5"
-          fill="none"
-          stroke="#a28bff"
-          stroke-width="1.8"
-          stroke-linecap="round"
-        />
-      </svg>
+  <div class="home-brand">
+    <AppBrand tagline :account-user="home.session.data.value?.user ?? null" />
+  </div>
+  <HomeHero :camera-to="home.cameraTo.value" :upload-to="home.uploadTo.value" />
+  <section class="home-recents" aria-labelledby="home-recents-title" :aria-busy="loading">
+    <div class="section-heading">
+      <div>
+        <p class="section-kicker">留住思考的轨迹</p>
+        <h2 id="home-recents-title">继续探索</h2>
+      </div>
+      <NuxtLink :to="home.libraryTo.value" class="text-button">
+        公式库
+        <AppIcon name="arrowRight" :size="14" />
+      </NuxtLink>
     </div>
-    <img
-      class="hero-art"
-      src="/images/home-paper.svg"
-      alt=""
-      aria-hidden="true"
-      fetchpriority="high"
-    />
+    <div v-if="sessionError" class="card status-panel home-feedback" role="alert">
+      <h3>账号状态暂时无法确认</h3>
+      <p>请重新连接后读取记录；这里不会自动切换为演示数据。</p>
+      <button
+        class="text-button"
+        :disabled="sessionStatus === 'pending'"
+        @click="home.retrySession"
+      >
+        重新连接账号
+      </button>
+    </div>
+    <div v-else-if="loading" class="stack home-loading" role="status" aria-label="正在读取首页记录">
+      <div v-for="index in 2" :key="index" class="card loading-card" aria-hidden="true">
+        <div class="skeleton" />
+        <div class="skeleton" />
+        <div class="skeleton" />
+      </div>
+      <span class="sr-only">正在读取你的记录</span>
+    </div>
+    <div v-else class="stack home-records">
+      <div
+        v-if="recent.failed.length || home.request.error.value"
+        class="card status-panel home-feedback"
+        role="alert"
+      >
+        <h3>{{ recent.failed.length === 1 ? '部分记录暂时未能读取' : '最近记录暂时未能读取' }}</h3>
+        <p>
+          {{ recent.failed.includes('formulas') ? '公式记录暂不可用。' : ''
+          }}{{ recent.failed.includes('conversations') ? '对话记录暂不可用。' : '' }}
+          已读取的内容仍可打开。
+        </p>
+        <button class="text-button" @click="home.retryRecent">重试最近记录</button>
+      </div>
+      <RecentEntryCard
+        v-if="!demo && recent.conversation"
+        label="最近创建的对话"
+        :title="recent.conversation.title"
+        :subtitle="recent.conversation.preview || '接着已有的思路，继续提问'"
+        :latex="recent.conversation.latex ?? undefined"
+        :to="'/ai/' + recent.conversation.id"
+      />
+      <RecentEntryCard
+        v-else-if="demo && demoConversation"
+        label="继续本机对话"
+        v-bind="demoConversation"
+        sample
+      />
+      <RecentEntryCard
+        v-else-if="demo && demoFormula"
+        label="试着问问为什么"
+        title="从一个公式开始思考"
+        subtitle="体验公式解释与连续提问"
+        :latex="demoFormula.latex"
+        :to="'/ai/new?space=demo&formulaId=' + demoFormula.id"
+        sample
+      />
+      <RecentEntryCard
+        v-for="formula in recent.formulas"
+        :key="formula.id"
+        label="最近保存的公式"
+        :title="formula.title"
+        subtitle="打开公式，回顾与校正"
+        :latex="formula.latex"
+        :to="'/formulas/' + formula.id"
+        :image-src="
+          formula.imageId ? '/api/account/files/' + formula.imageId + '/content' : undefined
+        "
+      />
+      <RecentEntryCard
+        v-if="demo && demoFormula"
+        :label="demoFormula.source === 'demo' ? '示例公式' : '本机公式'"
+        :title="demoFormula.title"
+        :subtitle="
+          demoFormula.source === 'demo'
+            ? '本机预置示例 · 并非真实识别结果'
+            : '本次演示识别，仅保存在浏览器'
+        "
+        :latex="demoFormula.latex"
+        :to="'/result/' + demoFormula.id"
+        :image-src="preview?.formulaId === demoFormula.id ? preview.url : undefined"
+        sample
+      />
+      <div
+        v-if="
+          !recent.failed.length &&
+          !home.request.error.value &&
+          !recent.formulas.length &&
+          (!demo || !demoFormula)
+        "
+        class="card"
+      >
+        <EmptyState
+          title="等待你的第一笔"
+          description="上传一张清晰的公式图片，把新的思考留在这里。"
+          action-label="去识别"
+          :action-to="home.uploadTo.value"
+        />
+      </div>
+    </div>
   </section>
-  <div class="stack home-actions">
-    <NuxtLink to="/upload?source=camera" class="button button-primary">
-      <AppIcon name="camera" :size="29" />
-      识别公式
-    </NuxtLink>
-    <NuxtLink to="/upload" class="button button-white">
-      <AppIcon name="image" :size="27" />
-      上传图片
-    </NuxtLink>
-  </div>
-  <div v-if="sessionError || error" class="card status-panel section" role="alert">
-    <p>最近记录暂时无法读取。</p>
-    <button class="text-button" @click="refresh()">重新加载</button>
-  </div>
-  <div v-else class="stack home-recents">
-    <RecentEntryCard
-      v-if="recent?.conversation"
-      label="继续上次对话"
-      :title="recent.conversation.title"
-      :subtitle="recent.conversation.preview || '接着上次的思路，继续提问'"
-      :latex="recent.conversation.latex ?? undefined"
-      :to="'/ai/' + recent.conversation.id"
-    />
-    <RecentEntryCard
-      v-else-if="demo && demoConversation"
-      label="继续上次对话"
-      v-bind="demoConversation"
-      sample
-    />
-    <RecentEntryCard
-      v-else-if="demo && demoFormula"
-      label="公式对话"
-      title="从一个公式开始思考"
-      subtitle="选一个示例，试着问问为什么"
-      :latex="demoFormula.latex"
-      :to="'/ai/new?space=demo&formulaId=' + demoFormula.id"
-      sample
-    />
-    <RecentEntryCard
-      v-for="formula in recent?.formulas ?? []"
-      :key="formula.id"
-      label="最近公式"
-      :title="formula.title"
-      subtitle="回顾识别结果与思考"
-      :latex="formula.latex"
-      :to="'/formulas/' + formula.id"
-      :image-src="
-        formula.imageId ? '/api/account/files/' + formula.imageId + '/content' : undefined
-      "
-    />
-    <RecentEntryCard
-      v-if="demo && demoFormula"
-      label="最近公式"
-      :title="demoFormula.title"
-      subtitle="本机预置公式示例"
-      :latex="demoFormula.latex"
-      :to="'/result/' + demoFormula.id"
-      :image-src="preview?.formulaId === demoFormula.id ? preview.url : undefined"
-      sample
-    />
-    <EmptyState
-      v-if="!demo && !recent?.formulas.length"
-      title="等待你的第一笔"
-      description="上传一张清晰的公式图片，开始整理思考。"
-      action-label="去识别"
-      action-to="/upload"
-    />
-  </div>
-  <p v-if="demo" class="home-note">本机演示 · 登录后可保存真实识别记录</p>
+  <p v-if="demo && !sessionError" class="home-note">本机演示 · 登录后可保存真实识别记录</p>
 </template>
 <style scoped>
-.home-hero {
-  position: relative;
-  min-height: 270px;
-  margin: -8px -12px 20px 0;
-  isolation: isolate;
+.home-brand :deep(a) {
+  min-height: var(--control-hit-area);
 }
-.hero-copy {
-  position: relative;
-  z-index: 1;
-  padding-top: 15px;
-  pointer-events: none;
-}
-h1 {
-  font-size: 38px;
-  line-height: 1.4;
-  letter-spacing: -1.5px;
-}
-em {
-  color: var(--color-primary);
-  font-style: normal;
-}
-.hero-copy p {
-  font-size: 17px;
-  line-height: 1.9;
-  margin-top: 29px;
-  color: #777caa;
-  letter-spacing: 2.5px;
-  transform: rotate(-7deg);
-  transform-origin: left;
-}
-.ink-stroke {
-  width: 137px;
-  height: 36px;
-  margin: 1px 0 0 18px;
-}
-.hero-art {
-  position: absolute;
-  width: 265px;
-  height: 290px;
-  object-fit: contain;
-  top: -19px;
-  right: -20px;
-  z-index: 0;
-  pointer-events: none;
-}
-.home-actions {
-  gap: 12px;
-}
-.home-actions .button {
-  min-height: 62px;
-  font-size: 20px;
-  gap: 15px;
-  border-radius: 16px;
-}
-.home-actions .button-primary {
-  background: linear-gradient(115deg, #8a60ff, #603aff);
-}
-.home-actions .button-white {
-  background: #ffffff85;
-  border-color: #dfe2ff;
-  box-shadow: 0 3px 10px #6359db06;
+.home-brand :deep(a[aria-label='查看我的资料']) {
+  display: grid;
+  place-items: center;
+  min-width: var(--control-hit-area);
 }
 .home-recents {
-  margin-top: 24px;
-  gap: 12px;
+  margin-top: 32px;
+}
+.section-heading {
+  align-items: flex-end;
+}
+.section-heading h2 {
+  font-size: 19px;
+}
+.section-kicker {
+  font-size: 11px;
+  color: var(--color-text-secondary);
+  margin-bottom: 3px;
+}
+.home-records {
+  gap: 16px;
+}
+.home-feedback {
+  border: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  padding: 20px;
+}
+.home-feedback h3 {
+  color: var(--color-text);
+  margin-bottom: 6px;
+}
+.loading-card {
+  padding: 24px;
+  display: grid;
+  gap: 16px;
+  min-height: 150px;
+}
+.loading-card .skeleton:first-child {
+  width: 40%;
+}
+.loading-card .skeleton:last-child {
+  width: 65%;
 }
 .home-note {
-  margin: 20px 0 0;
-  color: #9596ac;
+  margin: 24px 0 0;
+  color: var(--color-text-secondary);
   font-size: 11px;
   text-align: center;
-  line-height: 1.7;
-}
-@media (max-width: 390px) {
-  .home-hero {
-    min-height: 238px;
-  }
-  h1 {
-    font-size: 32px;
-  }
-  .hero-copy p {
-    font-size: 15px;
-    margin-top: 25px;
-  }
-  .hero-art {
-    width: 216px;
-    height: 252px;
-    right: -21px;
-    top: -8px;
-  }
-  .home-actions .button {
-    min-height: 58px;
-    font-size: 18px;
-  }
+  line-height: 1.8;
 }
 </style>
