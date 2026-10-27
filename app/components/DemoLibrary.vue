@@ -1,39 +1,24 @@
 <script setup lang="ts">
 import { libraryView } from '#shared/navigation'
 const route = useRoute()
-const router = useRouter()
 const { formulas, categories, addCategory } = useDemoLibrary()
 const { showToast } = useToast()
-const query = ref(typeof route.query.q === 'string' ? route.query.q : '')
-const active = computed(() =>
-  typeof route.query.category === 'string' ? route.query.category : '',
-)
+const { query, activeCategory: active, search, selectCategory: category } = useLibraryFilters(true)
 const view = computed(() => libraryView(route.query.view))
 const showNew = ref(false)
 const name = ref('')
 const error = ref('')
-watch(
-  () => route.query.q,
-  (value) => {
-    query.value = typeof value === 'string' ? value : ''
-  },
-)
 const filtered = computed(() =>
   formulas.value.filter((item) => {
     const text = query.value.trim().toLowerCase()
     return (
       (!active.value || item.categoryId === active.value) &&
+      (view.value !== 'recent' || item.source === 'mock-recognition') &&
       (view.value !== 'favorites' || item.favorite) &&
       (!text || (item.title + ' ' + item.latex).toLowerCase().includes(text))
     )
   }),
 )
-async function search() {
-  await router.replace({ query: { ...route.query, q: query.value.trim() || undefined } })
-}
-async function category(id: string) {
-  await router.replace({ query: { ...route.query, category: id || undefined } })
-}
 function create() {
   if (!addCategory(name.value)) {
     error.value = '请输入不重复的分类名称。'
@@ -46,18 +31,7 @@ function create() {
 }
 </script>
 <template>
-  <form class="search-field" role="search" @submit.prevent="search">
-    <AppIcon name="search" :size="19" />
-    <label for="demo-search" class="sr-only">搜索公式</label>
-    <input
-      id="demo-search"
-      v-model="query"
-      type="search"
-      placeholder="搜索公式名称或内容"
-      maxlength="200"
-      @input="search"
-    />
-  </form>
+  <LibrarySearch v-model="query" live @search="search" />
   <LibraryViews />
   <section>
     <div class="section-heading">
@@ -93,12 +67,18 @@ function create() {
       </h2>
       <span class="muted text-small">{{ filtered.length }} 条</span>
     </div>
-    <div v-if="filtered.length" class="stack">
+    <LibraryGrid v-if="filtered.length">
       <FormulaCard v-for="formula in filtered" :key="formula.id" :formula="formula" />
-    </div>
+    </LibraryGrid>
     <EmptyState
       v-else
-      :title="view === 'favorites' ? '还没有收藏公式' : '没有找到匹配的公式'"
+      :title="
+        view === 'recent'
+          ? '还没有演示识别记录'
+          : view === 'favorites'
+            ? '还没有收藏公式'
+            : '没有找到匹配的公式'
+      "
       description="试试其他分类，或上传一张新的公式图片。"
     />
   </section>
@@ -113,3 +93,18 @@ function create() {
     </form>
   </AppModal>
 </template>
+<style scoped>
+.chip:not(.active) {
+  color: var(--color-text-secondary);
+}
+.chip {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+.section-heading h2 {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+</style>

@@ -13,6 +13,12 @@ const {
 const selected = ref(props.currentCategoryId ?? '')
 const saving = ref(false)
 const feedback = ref('')
+const controller = new AbortController()
+let disposed = false
+onScopeDispose(() => {
+  disposed = true
+  controller.abort()
+})
 async function save() {
   if (saving.value || status.value === 'pending' || error.value) return
   saving.value = true
@@ -25,12 +31,15 @@ async function save() {
         body: { categoryId: selected.value || null },
         retry: 0,
         timeout: 15_000,
+        signal: controller.signal,
       },
     )
+    if (disposed) return
     clearNuxtData(`saved-formula-${props.formulaId}`)
     emit('saved', formula)
     emit('close')
   } catch (error) {
+    if (disposed) return
     feedback.value = workspaceFeedback(error)
   } finally {
     saving.value = false

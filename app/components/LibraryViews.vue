@@ -22,22 +22,32 @@ const options = [
           view: view.id === 'all' ? undefined : view.id,
         },
       }"
-      replace
       :class="{ active: libraryView(route.query.view) === view.id }"
       :aria-current="libraryView(route.query.view) === view.id ? 'page' : undefined"
     >
       {{ view.label }}
     </NuxtLink>
-    <button v-if="filterable" class="filter-button" :class="{ filtered }" aria-label="筛选与管理分类" @click="$emit('filter')"><AppIcon name="filter" :size="21" /></button>
+    <button
+      v-if="filterable"
+      class="filter-button"
+      :class="{ filtered }"
+      aria-label="筛选与管理分类"
+      @click="$emit('filter')"
+    >
+      <AppIcon name="filter" :size="21" />
+    </button>
   </nav>
 </template>
 <style scoped>
 .library-views {
   display: flex;
-  gap: 10px;
+  gap: 8px;
   margin: 22px 0 26px;
 }
 a {
+  min-width: 0;
+  padding: 8px 10px;
+  text-align: center;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -49,8 +59,22 @@ a {
   background: #ffffff80;
   color: var(--color-text);
 }
-.filter-button { display:grid; place-items:center; flex:0 0 42px; height:44px; margin-left:8px; border:0; border-radius:14px; background:white; color:#66638d; box-shadow:0 3px 14px #6257e507; }
-.filter-button.filtered { background:#e9e2ff; color:var(--color-primary); }
+.filter-button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 42px;
+  height: 44px;
+  margin-left: 8px;
+  border: 0;
+  border-radius: 14px;
+  background: white;
+  color: #66638d;
+  box-shadow: 0 3px 14px #6257e507;
+}
+.filter-button.filtered {
+  background: #e9e2ff;
+  color: var(--color-primary);
+}
 a.active {
   color: var(--color-primary);
   background: #eae5ff;

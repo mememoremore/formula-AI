@@ -48,7 +48,6 @@ function date(value: string) {
     </div>
     <NuxtLink :to="to" :aria-label="'查看' + title" class="formula-card-body">
       <h3>{{ title }}</h3>
-      <MathFormula class="card-latex" :latex="latex" />
       <div class="formula-card-meta">
         <FormulaThumbnail :src="imageSrc" :latex="latex" :sample="sample" />
         <div>
@@ -58,10 +57,18 @@ function date(value: string) {
         <AppIcon name="chevron" :size="17" />
       </div>
     </NuxtLink>
+    <MathFormula
+      class="card-latex"
+      :latex="latex"
+      tabindex="0"
+      role="group"
+      :aria-label="title + '，公式可横向滚动'"
+    />
   </article>
 </template>
 <style scoped>
 .formula-list-card {
+  min-width: 0;
   padding: 15px 20px 22px;
   border: 1px solid #eeebf4;
 }
@@ -73,17 +80,25 @@ function date(value: string) {
   margin-bottom: 3px;
 }
 .category-tag {
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  max-width: 80%;
+  max-width: calc(100% - 56px);
   padding: 7px 12px;
   border: 0;
   border-radius: 9px;
   background: #efeaff;
-  color: #8c71be;
+  color: var(--color-primary);
   font-size: 11px;
   overflow-wrap: anywhere;
+}
+button.category-tag {
+  min-height: 44px;
+}
+.card-latex:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 2px;
 }
 h3 {
   font-size: 15px;
@@ -94,8 +109,8 @@ h3 {
   display: block;
   min-width: 0;
 }
-.formula-card-body :deep(.card-latex) {
-  padding: 20px 0 24px;
+.card-latex {
+  padding: 18px 0 4px;
 }
 .formula-card-body :deep(.katex-display) {
   margin: 0;
@@ -113,7 +128,7 @@ h3 {
 time {
   font-size: 11px;
   line-height: 1.8;
-  color: #9a92a8;
+  color: var(--color-text-secondary);
 }
 time {
   display: block;

@@ -17,7 +17,8 @@ function saved(value: SavedFormula) {
   clearNuxtData(
     (key) =>
       key.startsWith('account-library-') ||
-      ['account-history', 'account-categories', 'home-recent'].includes(key),
+      key.startsWith('account-history') ||
+      ['account-categories', 'home-recent'].includes(key),
   )
   showToast('公式已保存。')
 }

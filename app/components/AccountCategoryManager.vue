@@ -9,6 +9,12 @@ const deleting = ref<AccountCategory | null>(null)
 const busy = ref(false)
 const feedback = ref('')
 const { showToast } = useToast()
+const controller = new AbortController()
+let disposed = false
+onScopeDispose(() => {
+  disposed = true
+  controller.abort()
+})
 function edit(category: AccountCategory | null) {
   editing.value = category
   deleting.value = null
@@ -26,11 +32,14 @@ async function submit() {
       body: { name: name.value },
       retry: 0,
       timeout: 15_000,
+      signal: controller.signal,
     })
+    if (disposed) return
     edit(null)
     emit('changed')
     showToast(category ? '分类名称已更新。' : '分类已创建。')
   } catch (error) {
+    if (disposed) return
     feedback.value = workspaceFeedback(error)
   } finally {
     busy.value = false
@@ -49,11 +58,14 @@ async function remove() {
       method: 'DELETE',
       retry: 0,
       timeout: 15_000,
+      signal: controller.signal,
     })
+    if (disposed) return
     edit(null)
     emit('changed')
     showToast('分类已删除，公式已保留在未分类中。')
   } catch (error) {
+    if (disposed) return
     feedback.value = workspaceFeedback(error)
   } finally {
     busy.value = false
