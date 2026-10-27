@@ -398,6 +398,25 @@ test('Word导出绑定指定旧版本并提供私有下载', async () => {
   assert.ok(xml.includes('v1'))
   assert.ok(!xml.includes('E=mc^2'))
 })
+
+test('刷新导出读取保留固定版本，重复下载不新增任务或额度', async () => {
+  const usage = await db.dailyUsage.findMany({ where: { ownerId: owners[0] } })
+  const count = await db.exportTask.count({ where: { ownerId: owners[0] } })
+  const first = await api(`/exports/${exportTask.id}`)
+  assert.equal(first.status, 200)
+  assert.match(first.headers.get('cache-control') ?? '', /no-store/)
+  const ready = (await first.json()) as ExportTaskState
+  assert.equal(ready.formulaVersionId, versionId)
+  assert.equal(ready.downloadUrl, `/api/account/exports/${exportTask.id}/download`)
+  for (let index = 0; index < 2; index++) {
+    const download = await api(`/exports/${exportTask.id}/download`)
+    assert.equal(download.status, 200)
+    assert.match(download.headers.get('content-type') ?? '', /wordprocessingml.document/)
+    assert.ok((await download.arrayBuffer()).byteLength > 0)
+  }
+  assert.equal(await db.exportTask.count({ where: { ownerId: owners[0] } }), count)
+  assert.deepEqual(await db.dailyUsage.findMany({ where: { ownerId: owners[0] } }), usage)
+})
 test('失效Worker不能提交导出，下一次执行可恢复且只保留一份READY成品', async () => {
   const task = await submitExport(db, boss, defaultUsageLimits, {
     ownerId: owners[0]!,

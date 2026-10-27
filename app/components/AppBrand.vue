@@ -5,7 +5,7 @@ const props = withDefaults(
   { avatar: true, tagline: false },
 )
 // 首页已读取会话时直接展示传入值；其他现有页面保留原来的读取方式。
-const session = props.accountUser === undefined ? useAccountSession() : undefined
+const session = props.avatar && props.accountUser === undefined ? useAccountSession() : undefined
 const avatarUser = computed(() =>
   props.accountUser === undefined ? session?.data.value?.user : props.accountUser,
 )

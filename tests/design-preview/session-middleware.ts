@@ -5,9 +5,12 @@ import { detailFixture, hasDetailFixture } from './detail-fixtures'
 import { recognitionFixture, hasRecognitionFixture } from './recognition-fixtures'
 import { chatFixture, hasChatFixture } from './chat-fixtures'
 import { accountFixture, hasAccountFixture } from './account-fixtures'
+import { finalFixture, hasFinalFixture } from './final-pages-fixtures'
 
 /** 仅隔离预览层：避免真实页面的 SSR 会话读取触及认证和数据库。 */
 export default defineEventHandler((event) => {
+  if (hasFinalFixture(event) && getRequestURL(event).pathname.startsWith('/api/'))
+    return finalFixture(event)
   if (hasAccountFixture(event) && getRequestURL(event).pathname.startsWith('/api/'))
     return accountFixture(event)
   if (hasChatFixture(event) && getRequestURL(event).pathname.startsWith('/api/'))

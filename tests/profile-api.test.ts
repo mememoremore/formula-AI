@@ -43,6 +43,24 @@ async function update(body: unknown, source = base, identity = cookie) {
     body: JSON.stringify(body),
   })
 }
+
+test('公开关于页SSR不序列化登录身份，私有页面仍拒绝共享缓存', async () => {
+  const user = await db.user.findUniqueOrThrow({ where: { id: ownerId } })
+  for (const path of ['/about', '/help', '/feedback']) {
+    const response = await fetch(base + path, { headers: { cookie } })
+    assert.equal(response.status, 200)
+    const html = await response.text()
+    for (const value of [user.id, user.email, user.displayName]) {
+      assert.ok(value && !html.includes(value), `${path} 不应包含登录用户资料`)
+    }
+    // 账号边界插件注册的空Nuxt缓存槽使用 -1 表示 undefined，不含Session资料。
+    assert.match(html, /"account-session":-1/, `${path} 只能包含未读取的空Session缓存槽`)
+  }
+  const privatePage = await fetch(base + '/profile', { headers: { cookie } })
+  assert.equal(privatePage.status, 200)
+  assert.match(privatePage.headers.get('cache-control') ?? '', /private.*no-store/)
+  assert.match(privatePage.headers.get('vary') ?? '', /cookie/i)
+})
 test('未登录与跨站请求不能修改资料', async () => {
   assert.equal((await update({ name: '其他名字' }, base, '')).status, 401)
   assert.equal((await update({ name: '其他名字' }, 'https://evil.test')).status, 403)

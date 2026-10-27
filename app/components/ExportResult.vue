@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { ExportTaskState } from '#shared/types/tasks'
-defineProps<{ task: ExportTaskState }>()
+defineProps<{ task: ExportTaskState; downloadable: boolean; busy: boolean }>()
+defineEmits<{ download: [] }>()
 function size(value: number) {
   return value < 1024
     ? value + ' B'
@@ -29,15 +30,17 @@ function size(value: number) {
       </p>
     </div>
   </div>
-  <a
-    v-if="task.downloadUrl"
-    :href="task.downloadUrl"
-    download
+  <button
+    v-if="downloadable"
+    type="button"
+    :disabled="busy"
+    :aria-busy="busy"
+    @click="$emit('download')"
     class="button button-primary button-block section"
   >
     <AppIcon name="download" :size="19" />
-    下载 Word
-  </a>
+    {{ busy ? '正在准备下载…' : '下载 Word' }}
+  </button>
 </template>
 <style scoped>
 .export-complete {
@@ -45,33 +48,33 @@ function size(value: number) {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  padding: 26px 0 34px;
+  padding: 16px 0 24px;
 }
 .document-art {
   position: relative;
   display: grid;
   place-items: center;
-  width: 135px;
-  height: 150px;
+  width: 88px;
+  height: 100px;
   border: 1px solid #e7e0d9;
   border-radius: 8px 26px 12px 6px;
   background: #fffcf6;
   transform: rotate(-7deg);
   box-shadow: 8px 10px 0 #ede6fc;
-  margin-bottom: 38px;
+  margin-bottom: 28px;
   color: #a492b4;
 }
 .document-art > span {
   position: absolute;
-  left: 28px;
-  top: 47px;
-  width: 52px;
-  height: 52px;
+  left: 17px;
+  top: 27px;
+  width: 42px;
+  height: 42px;
   border-radius: 7px;
   background: #7c64cf;
   color: white;
   font:
-    bold 31px/52px Georgia,
+    bold 26px/42px Georgia,
     serif;
 }
 h2 {
@@ -86,8 +89,12 @@ p {
 .document-card {
   display: flex;
   align-items: center;
-  gap: 17px;
-  padding: 23px;
+  gap: 14px;
+  padding: 20px;
+  min-width: 0;
+}
+.document-card > div {
+  min-width: 0;
 }
 .document-icon {
   color: var(--color-primary);

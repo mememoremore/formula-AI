@@ -1,12 +1,14 @@
 <script setup lang="ts">
-definePageMeta({ bottomNav: false })
+definePageMeta({ bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '关于项目 · Formula AI' })
 </script>
 <template>
   <PageHeader title="关于项目" back-to="/profile" />
   <section class="about-hero">
     <AppBrand :avatar="false" />
-    <h2>从识别，到理解</h2>
+    <span class="eyebrow">写下灵感，读懂公式</span>
+    <h2 class="about-title">从识别，到理解</h2>
+    <p class="about-description">把一张公式图片，整理成可以回顾、校正与继续探索的知识。</p>
     <PaperArtwork />
   </section>
   <div class="stack">
@@ -33,6 +35,13 @@ useHead({ title: '关于项目 · Formula AI' })
     </article>
   </div>
   <p class="page-footnote">把每一次思考，整理成知识</p>
+  <p class="info-note">
+    模型结果需要核对；游客演示与账号数据相互独立。实际识别与 AI 服务取决于管理员配置。
+  </p>
+  <NuxtLink to="/help" class="button button-secondary button-block section">
+    了解使用方式
+    <AppIcon name="arrowRight" :size="16" />
+  </NuxtLink>
 </template>
 <style scoped>
 .about-hero {
@@ -45,9 +54,18 @@ useHead({ title: '关于项目 · Formula AI' })
 .about-hero :deep(.app-brand) {
   margin-bottom: 22px;
 }
-h2 {
-  font-size: 25px;
-  margin-bottom: 24px;
+.about-title {
+  font-size: clamp(26px, 6vw, 34px);
+  margin: 12px 0;
+}
+.eyebrow {
+  font-size: 12px;
+  letter-spacing: 2px;
+  color: var(--color-primary);
+}
+.about-description {
+  max-width: 360px;
+  margin: 0 0 24px;
 }
 .about-feature {
   display: flex;
@@ -55,7 +73,7 @@ h2 {
   gap: 18px;
   padding: 18px 2px;
 }
-h2 {
+.about-feature h2 {
   font-size: 16px;
 }
 p {
@@ -63,5 +81,8 @@ p {
   font-size: 13px;
   line-height: 1.9;
   color: var(--color-muted);
+}
+.about-feature {
+  border-bottom: 1px solid var(--color-border);
 }
 </style>

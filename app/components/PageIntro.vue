@@ -5,12 +5,13 @@ withDefaults(
     subtitle: string
     artwork?: 'formula' | 'book' | 'idea'
     level?: 1 | 2
+    inlineArtwork?: boolean
   }>(),
   { level: 1 },
 )
 </script>
 <template>
-  <div class="page-intro" :class="{ 'with-art': artwork }">
+  <div class="page-intro" :class="{ 'with-art': artwork, 'inline-art': artwork && inlineArtwork }">
     <div>
       <component :is="level === 2 ? 'h2' : 'h1'" class="intro-title">{{ title }}</component>
       <p>{{ subtitle }}</p>
@@ -52,5 +53,19 @@ p {
 }
 .with-art > div:first-child {
   max-width: calc(100% - 75px);
+}
+.inline-art {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 110px;
+  gap: 16px;
+}
+.inline-art > div:first-child {
+  max-width: none;
+  min-width: 0;
+}
+.inline-art .intro-art {
+  position: relative;
+  top: auto;
+  right: auto;
 }
 </style>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ bottomNav: false })
+definePageMeta({ bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '使用帮助 · Formula AI' })
 const questions = [
   {
@@ -35,7 +35,17 @@ const questions = [
   {
     title: 'AI 回答和 Word 导出能用了吗？',
     answer:
-      '账号 AI 对话支持流式回答、连续追问、刷新恢复和停止生成。管理员配置 DeepSeek 后可使用真实回答；模拟模式会明确标注。AI 可能出错，请核对推导和结论。从账号公式详情可选择版本，生成并下载包含原生可编辑公式的 Word。',
+      '账号 AI 对话支持逐步显示已保存的回答、连续追问、刷新恢复和停止生成，并不保证逐 Token 实时传输。管理员配置 DeepSeek 后可使用真实回答；模拟模式会明确标注。AI 可能出错，请核对推导和结论。从账号公式详情可选择已保存的版本，生成并下载包含原生可编辑公式的 Word。',
+  },
+  {
+    title: '提交后网络断开，要再点一次吗？',
+    answer:
+      '先重新读取原任务。提交结果尚未确认时，应使用页面提供的确认入口，沿用原请求标识；不要反复新建任务。已确认失败后的重新提交会创建新任务，并使用新的对应额度。下载已完成的 Word 不会重新生成文档。',
+  },
+  {
+    title: '为什么没有更早的聊天记录？',
+    answer:
+      '当前会话最多展示最近 100 条消息；页面会提示存在更早记录。首版暂不支持在页面继续加载更早消息，不代表更早内容已被删除。',
   },
 ]
 </script>
@@ -47,6 +57,7 @@ const questions = [
     title="从一张图片开始"
     subtitle="上传、校正、理解，每一步都有清晰的思路。"
     artwork="formula"
+    inline-artwork
   />
   <ol class="help-steps">
     <li>
@@ -109,7 +120,7 @@ const questions = [
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #eae3ff;
+  background: var(--color-primary-soft);
   color: var(--color-primary);
 }
 .help-steps p {
@@ -121,6 +132,7 @@ const questions = [
   padding: 20px;
 }
 summary {
+  min-height: 44px;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -142,7 +154,7 @@ details[open] summary svg {
   transform: rotate(45deg);
 }
 .help-item p {
-  font-size: 13px;
+  font-size: 14px;
   color: var(--color-muted);
   line-height: 1.95;
   margin-top: 15px;
