@@ -1,4 +1,5 @@
 import { testEnvironment } from './support/integration.ts'
+import { acceptConversationSnapshot } from '../app/utils/chat-state'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
@@ -773,4 +774,46 @@ test('R7 刷新失败任务和重放旧请求不扣额，新键重试只创建�
   assert.equal(completed.status, 'COMPLETED')
   assert.ok(completed.formulaId)
   assert.equal(await used(), before + 1)
+})
+
+test('R8 SSE 断开重连与重复停止不新增轮次或额度，旧 GET 不能覆盖停止结果', async () => {
+  const fixture = await freshChat('R8 网络恢复与停止测试')
+  const used = async () =>
+    (await db.dailyUsage.findFirstOrThrow({ where: { ownerId: owners[0], kind: 'CHAT' } })).used
+  const before = await used()
+  const old = (await (await api(`/conversations/${fixture.saved.id}`)).json()) as SavedConversation
+  for (let i = 0; i < 2; i++) {
+    const stream = await api(`/conversations/${fixture.saved.id}/events`)
+    assert.equal(stream.status, 200)
+    const reader = stream.body!.getReader()
+    const first = await reader.read()
+    assert.match(new TextDecoder().decode(first.value), /event: snapshot/)
+    await reader.cancel()
+  }
+  const responses = await Promise.all([
+    api(`/conversations/${fixture.saved.id}/turns/${fixture.turn.id}/cancel`, 'POST'),
+    api(`/conversations/${fixture.saved.id}/turns/${fixture.turn.id}/cancel`, 'POST'),
+  ])
+  assert.deepEqual(
+    responses.map((r) => r.status),
+    [200, 200],
+  )
+  const stopped = (await responses[0]!.json()) as SavedConversation
+  assert.equal(stopped.currentTurn?.status, 'FAILED')
+  assert.equal(acceptConversationSnapshot(stopped, old), stopped)
+  const replay = await db.chatTurn.findUniqueOrThrow({ where: { id: fixture.turn.id } })
+  const replayResponse = await api(`/conversations/${fixture.saved.id}/messages`, 'POST', {
+    question: replay.question,
+    requestKey: replay.requestKey,
+  })
+  assert.equal(replayResponse.status, 202)
+  assert.equal(((await replayResponse.json()) as TaskState).id, fixture.turn.id)
+  assert.equal(await used(), before)
+  assert.equal(await db.chatTurn.count({ where: { conversationId: fixture.saved.id } }), 1)
+  assert.equal(
+    await db.chatMessage.count({ where: { turnId: fixture.turn.id, role: 'ASSISTANT' } }),
+    1,
+  )
+  const terminal = await api(`/conversations/${fixture.saved.id}/events`)
+  assert.match(await terminal.text(), /已停止生成/)
 })

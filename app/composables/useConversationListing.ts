@@ -1,59 +1,82 @@
 import type { ConversationPage } from '#shared/types/tasks'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
-/** URL 管搜索，分页只属于当前关键词，迟到请求不混入新结果。 */
-export function useConversationListing() {
-  const route = useRoute()
+/** URL 搜索限定列表快照，首屏与追加请求都不能跨关键词写入。 */
+export function useConversationListing(ownerId: string) {
+  const route = useRoute(),
+    fetcher = useRequestFetch()
   const query = computed(() => (typeof route.query.q === 'string' ? route.query.q : ''))
-  const request = useFetch<ConversationPage>('/api/account/conversations', {
-    key: 'account-conversations',
-    query: { q: query },
-  })
-  const items = ref<ConversationPage['items']>([])
-  const cursor = ref<string | null>(null),
-    loading = ref(false),
+  const request = useAsyncData(
+    `account-conversations-${ownerId}`,
+    async (_app, { signal }) => {
+      const q = query.value
+      const page = await fetcher<ConversationPage>('/api/account/conversations', {
+        query: { q },
+        signal,
+        retry: 0,
+        timeout: 15000,
+      })
+      signal.throwIfAborted()
+      return { ...page, q }
+    },
+    {
+      watch: [query],
+      getCachedData: (_key, app, ctx) =>
+        ctx.cause === 'initial' && app.isHydrating
+          ? app.payload.data[`account-conversations-${ownerId}`]
+          : undefined,
+    },
+  )
+  const current = computed(() =>
+    request.data.value?.q === query.value ? request.data.value : undefined,
+  )
+  const items = computed(() => current.value?.items ?? []),
+    cursor = computed(() => current.value?.nextCursor ?? null)
+  const loading = ref(false),
     feedback = ref('')
-  let generation = 0
-  watch(
-    query,
-    () => {
-      generation++
-      items.value = []
-      cursor.value = null
-      feedback.value = ''
-    },
-    { flush: 'sync' },
-  )
-  watch(
-    request.data,
-    (page) => {
-      items.value = page?.items ?? []
-      cursor.value = page?.nextCursor ?? null
-    },
-    { immediate: true },
-  )
+  let controller: AbortController | undefined,
+    disposed = false
+  function cancel() {
+    controller?.abort()
+    controller = undefined
+    loading.value = false
+    feedback.value = ''
+  }
+  watch(query, cancel, { flush: 'sync' })
   onScopeDispose(() => {
-    generation++
+    disposed = true
+    cancel()
+    if (import.meta.client) request.clear()
   })
   async function more() {
-    if (!cursor.value || loading.value) return
-    const current = generation
+    if (!cursor.value || loading.value || request.status.value === 'pending' || disposed) return
+    const q = query.value,
+      after = cursor.value,
+      active = new AbortController()
+    controller = active
     loading.value = true
     feedback.value = ''
     try {
       const page = await $fetch<ConversationPage>('/api/account/conversations', {
-        query: { q: query.value, cursor: cursor.value },
+        query: { q, cursor: after },
+        signal: active.signal,
         retry: 0,
         timeout: 15000,
       })
-      if (current !== generation) return
+      if (disposed || active.signal.aborted || query.value !== q || !current.value) return
       const ids = new Set(items.value.map((item) => item.id))
-      items.value.push(...page.items.filter((item) => !ids.has(item.id)))
-      cursor.value = page.nextCursor
+      request.data.value = {
+        ...current.value,
+        items: [...items.value, ...page.items.filter((item) => !ids.has(item.id))],
+        nextCursor: page.nextCursor,
+      }
     } catch (error) {
-      if (current === generation)
-        feedback.value = workspaceFeedback(error, '暂时无法加载更多对话。')
+      if (!disposed && !active.signal.aborted)
+        feedback.value = workspaceFeedback(error, '暂时无法加载更多对话，已有记录保留。')
     } finally {
-      loading.value = false
+      if (controller === active) {
+        loading.value = false
+        controller = undefined
+      }
     }
   }
   return { request, query, items, cursor, loading, feedback, more }

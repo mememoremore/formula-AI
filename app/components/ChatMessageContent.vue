@@ -1,36 +1,25 @@
 <script setup lang="ts">
+import { chatSegments } from '~/utils/chat-content'
 const props = defineProps<{ content: string }>()
-// 仅识别数学分隔符；其余全部作为Vue文字节点，绝不注入模型HTML。
-const segments = computed(() => {
-  const pattern =
-    /\$\$[\s\S]+?\$\$|\\\[[\s\S]+?\\\]|\\\([\s\S]+?\\\)|(?<!\\)\$(?!\$)(?:\\.|[^$])+?(?<!\\)\$/g
-  const parts: { content: string; math: boolean; display: boolean }[] = []
-  let offset = 0
-  for (const match of props.content.matchAll(pattern)) {
-    if (match.index > offset)
-      parts.push({ content: props.content.slice(offset, match.index), math: false, display: false })
-    const value = match[0]
-    const display = value.startsWith('$$') || value.startsWith('\\[')
-    const trim = value.startsWith('$') && !display ? 1 : 2
-    parts.push({ content: value.slice(trim, -trim), math: true, display })
-    offset = match.index + value.length
-  }
-  if (offset < props.content.length)
-    parts.push({ content: props.content.slice(offset), math: false, display: false })
-  return parts
-})
+const segments = computed(() => chatSegments(props.content))
 </script>
 <template>
   <div class="message-content">
     <template v-for="(part, index) in segments" :key="index">
-      <MathFormula v-if="part.math" :latex="part.content" :display="part.display" />
+      <MathFormula v-if="part.kind === 'math'" :latex="part.content" :display="part.display" />
+      <div v-else-if="part.kind === 'code'" class="code-block">
+        <span v-if="part.language" class="code-language">{{ part.language }}</span>
+        <pre tabindex="0" aria-label="代码，可横向滚动"><code>{{part.content}}</code></pre>
+      </div>
       <ChatText v-else :content="part.content" />
     </template>
   </div>
 </template>
 <style scoped>
 .message-content {
-  white-space: pre-wrap;
+  min-width: 0;
+  max-width: 100%;
+  white-space: normal;
   line-height: 1.85;
   overflow-wrap: anywhere;
 }
@@ -38,5 +27,30 @@ const segments = computed(() => {
   display: inline-block;
   vertical-align: middle;
   padding-block: 0;
+  max-width: 100%;
+}
+.code-block {
+  min-width: 0;
+  margin: 16px 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-surface);
+}
+.code-language {
+  display: block;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--color-border);
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+pre {
+  max-width: 100%;
+  overflow: auto;
+  padding: 14px;
+  white-space: pre;
+  overflow-wrap: normal;
+  font:
+    13px/1.8 Consolas,
+    monospace;
 }
 </style>

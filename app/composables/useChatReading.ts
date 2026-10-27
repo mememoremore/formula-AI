@@ -10,6 +10,7 @@ export function useChatReading(content: WatchSource<unknown>[]) {
     if (!following.value) cancelAnimationFrame(frame)
   }
   function bottom() {
+    if (!mounted.value) return
     following.value = true
     window.scrollTo({ top: document.documentElement.scrollHeight })
   }
@@ -18,6 +19,7 @@ export function useChatReading(content: WatchSource<unknown>[]) {
     async () => {
       if (!mounted.value || !following.value) return
       await nextTick()
+      if (!mounted.value) return
       cancelAnimationFrame(frame)
       frame = requestAnimationFrame(() => {
         if (following.value) bottom()
@@ -28,9 +30,12 @@ export function useChatReading(content: WatchSource<unknown>[]) {
   onMounted(() => {
     mounted.value = true
     window.addEventListener('scroll', check, { passive: true })
-    nextTick(bottom)
+    nextTick(() => {
+      if (mounted.value) bottom()
+    })
   })
   onScopeDispose(() => {
+    mounted.value = false
     if (import.meta.client) {
       window.removeEventListener('scroll', check)
       cancelAnimationFrame(frame)

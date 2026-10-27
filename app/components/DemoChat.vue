@@ -25,6 +25,7 @@ const context = computed<FormulaContext | undefined>(() =>
 )
 const { messages, pending, error, send, clearMessages } = useDemoChat(context)
 const draft = ref('')
+onBeforeRouteLeave(() => !draft.value.trim() || window.confirm('演示提问尚未完成，确定离开吗？'))
 const { following, bottom } = useChatReading([() => messages.value.length])
 async function submit() {
   if (invalidContext.value) return
@@ -43,9 +44,9 @@ async function submit() {
     </p>
     <div v-if="formula" class="paper-preview"><MathFormula :latex="formula.latex" /></div>
     <div v-if="!messages.length" class="demo-welcome">
-      <PaperArtwork kind="idea" />
+      <span class="soft-icon"><AppIcon name="sparkles" :size="24" /></span>
       <h2>从一个问题开始</h2>
-      <p>这里可以体验对话；登录后使用账号 AI。</p>
+      <p>本机保存最近的模拟对话；账号 AI 与演示记录独立。</p>
       <div class="chip-list section">
         <button class="chip" @click="draft = '这个公式怎么推导？'">看看推导过程</button>
         <button class="chip" @click="draft = '给我一个计算例子'">举个计算例子</button>
@@ -98,7 +99,7 @@ h2 {
   margin-top: 24px;
 }
 article {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.85;
   min-width: 0;
 }

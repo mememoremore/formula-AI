@@ -3,9 +3,12 @@ import { homeFixtureResponse, isHomeScenario } from './home-fixtures'
 import { libraryFixture, hasLibraryFixture } from './library-fixtures'
 import { detailFixture, hasDetailFixture } from './detail-fixtures'
 import { recognitionFixture, hasRecognitionFixture } from './recognition-fixtures'
+import { chatFixture, hasChatFixture } from './chat-fixtures'
 
 /** 仅隔离预览层：避免真实页面的 SSR 会话读取触及认证和数据库。 */
 export default defineEventHandler((event) => {
+  if (hasChatFixture(event) && getRequestURL(event).pathname.startsWith('/api/'))
+    return chatFixture(event)
   if (hasRecognitionFixture(event) && getRequestURL(event).pathname.startsWith('/api/'))
     return recognitionFixture(event)
   if (hasDetailFixture(event) && getRequestURL(event).pathname.startsWith('/api/'))

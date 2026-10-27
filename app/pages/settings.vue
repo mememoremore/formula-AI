@@ -6,6 +6,7 @@ useHead({ title: '设置 · Formula AI' })
 const { data: account, error, refresh } = await useAccountSession()
 const store = useDemoStore()
 const uploadDraft = useNuxtApp().$uploadDraft
+const chatDraft = useNuxtApp().$chatDraft
 const { showToast } = useToast()
 const showReset = ref(false)
 const busy = ref(false)
@@ -25,6 +26,7 @@ async function logout() {
     )
     useState<Record<string, string>>('page-origins').value = {}
     uploadDraft.clearAccountState()
+    chatDraft.clear()
     await refresh()
     await navigateTo('/profile', { replace: true })
   } catch {

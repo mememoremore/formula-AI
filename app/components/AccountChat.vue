@@ -1,10 +1,35 @@
 <script setup lang="ts">
-const props = defineProps<{ conversationId: string }>()
-const chat = useAccountChat(props.conversationId)
-const { data: conversation, error, refresh, status } = chat.request
-const { busy, feedback, stopping, streamFeedback } = chat
+const props = defineProps<{ conversationId: string; ownerId: string }>()
+const chat = useAccountChat(props.conversationId, props.ownerId)
+const { data: conversation, error, status } = chat.request
+const { busy, feedback, stopping, streamFeedback, generating, submitting, pendingIntent } = chat
+const { recoveryReady, recoveryWarning } = chat
+const refresh = chat.refresh
 const turn = computed(() => conversation.value?.currentTurn)
 const draft = ref('')
+onBeforeRouteLeave(
+  () =>
+    !draft.value.trim() ||
+    !!pendingIntent.value ||
+    window.confirm('提问尚未发送，确定放弃草稿吗？'),
+)
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (draft.value.trim() && !pendingIntent.value) {
+    event.preventDefault()
+    event.returnValue = ''
+  }
+}
+onMounted(() => window.addEventListener('beforeunload', beforeUnload))
+onScopeDispose(() => {
+  if (import.meta.client) window.removeEventListener('beforeunload', beforeUnload)
+})
+watch(
+  pendingIntent,
+  (value) => {
+    if (value) draft.value = value.question
+  },
+  { immediate: true },
+)
 const { showToast } = useToast()
 const { following, bottom } = useChatReading([
   () => conversation.value?.messages.length,
@@ -87,25 +112,51 @@ await chat.request
         {{ turn?.status === 'PROCESSING' ? '正在生成…' : '问题已排队…' }}
       </p>
       <p v-if="streamFeedback && busy" class="info-note section">{{ streamFeedback }}</p>
+      <button
+        v-if="streamFeedback && busy"
+        class="text-button"
+        :disabled="status === 'pending'"
+        @click="refresh"
+      >
+        重新连接实时更新
+      </button>
       <p v-if="turn?.status === 'FAILED'" class="error-text section" role="alert">
         {{ turn.errorMessage }} 已生成的内容会保留；重新发送会使用一次额度。
       </p>
     </template>
     <div v-if="error" class="status-panel" role="alert">
-      <p>对话暂时无法读取，已显示的内容会保留。</p>
+      <p>
+        {{
+          [401, 403, 404].includes(error.statusCode ?? 0)
+            ? '对话不存在或当前账号无法访问，请返回会话列表。'
+            : '对话暂时无法读取，已显示的内容会保留。'
+        }}
+      </p>
       <button class="text-button" :disabled="status === 'pending'" @click="refresh()">
         重新连接
       </button>
     </div>
+    <div v-if="pendingIntent" class="status-panel section">
+      <p>原提问尚未确认，重试沿用原请求。原问题和请求标识暂存于此标签页，确认后移除。</p>
+      <button class="text-button" :disabled="submitting" @click="submit">确认原提问</button>
+    </div>
     <p v-if="feedback" class="error-text section" role="alert">{{ feedback }}</p>
+    <p
+      v-if="recoveryWarning && recoveryWarning !== feedback"
+      class="error-text section"
+      role="alert"
+    >
+      {{ recoveryWarning }}
+    </p>
     <button v-if="!following && conversation?.messages.length" class="jump-latest" @click="bottom">
       回到最新内容 ↓
     </button>
     <ChatComposer
       v-model="draft"
-      :busy="busy"
+      :busy="generating"
       :stopping="stopping"
-      :disabled="!!error || !conversation"
+      :readonly="!!pendingIntent"
+      :disabled="!!error || !conversation || submitting || (!recoveryReady && !generating)"
       @send="submit"
       @stop="chat.stop"
     />
@@ -113,6 +164,7 @@ await chat.request
 </template>
 <style scoped>
 .account-chat {
+  min-width: 0;
   padding-bottom: calc(var(--chat-composer-height, 70px) + 42px);
 }
 .chat-context {
@@ -152,7 +204,7 @@ summary::-webkit-details-marker {
 }
 .chat-message {
   min-width: 0;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.85;
 }
 .chat-message.user {
@@ -184,7 +236,7 @@ summary::-webkit-details-marker {
 }
 .copy-answer {
   color: #9b91ad;
-  min-height: 30px;
+  min-height: 44px;
   font-size: 11px;
   margin-top: 9px;
 }
@@ -211,7 +263,10 @@ summary::-webkit-details-marker {
 .jump-latest {
   position: fixed;
   z-index: 22;
-  bottom: 100px;
+  bottom: calc(
+    var(--chat-composer-height, 80px) + var(--chat-keyboard-offset, 0px) + var(--safe-area-bottom) +
+      24px
+  );
   left: 50%;
   transform: translateX(-50%);
   border: 1px solid #e3dbf4;
@@ -219,6 +274,8 @@ summary::-webkit-details-marker {
   background: white;
   color: var(--color-primary);
   padding: 9px 17px;
+  min-height: 44px;
+  max-width: calc(100% - 32px);
   font-size: 12px;
   box-shadow: var(--shadow-card);
 }

@@ -1,12 +1,14 @@
 <script setup lang="ts">
+const props = defineProps<{ ownerId: string }>()
 const route = useRoute(),
   router = useRouter()
-const listing = useConversationListing()
+const listing = useConversationListing(props.ownerId)
 const { items, cursor, loading, feedback } = listing
 const { error, status, refresh } = listing.request
 const query = ref(listing.query.value)
+let searches = 0
 watch(listing.query, (value) => {
-  query.value = value
+  if (!searches) query.value = value
 })
 const groups = computed(() => {
   const result = new Map<string, typeof items.value>()
@@ -23,7 +25,12 @@ const groups = computed(() => {
   return [...result].map(([date, entries]) => ({ date, entries }))
 })
 async function search() {
-  await router.replace({ query: { ...route.query, q: query.value.trim() || undefined } })
+  searches++
+  try {
+    await router.replace({ query: { ...route.query, q: query.value.trim() || undefined } })
+  } finally {
+    searches--
+  }
 }
 await listing.request
 </script>
@@ -102,15 +109,15 @@ await listing.request
 .conversation-item {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 21px 18px;
+  gap: 12px;
+  padding: 18px 16px;
 }
 .conversation-item > div {
   flex: 1;
   min-width: 0;
 }
 h3 {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.7;
   overflow-wrap: anywhere;
 }

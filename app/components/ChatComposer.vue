@@ -11,11 +11,28 @@ const props = withDefaults(
   { placeholder: '输入你的问题…' },
 )
 const emit = defineEmits<{ send: []; stop: [] }>()
-const input = ref<HTMLTextAreaElement>()
-const container = ref<HTMLFormElement>()
-let observer: ResizeObserver | undefined
+const composing = ref(false)
+const input = ref<HTMLTextAreaElement>(),
+  container = ref<HTMLFormElement>(),
+  inputId = useId()
+let observer: ResizeObserver | undefined,
+  frame = 0,
+  disposed = false
+function resize() {
+  if (!input.value || disposed) return
+  input.value.style.height = 'auto'
+  input.value.style.height = Math.min(input.value.scrollHeight, 160) + 'px'
+}
+function viewport() {
+  cancelAnimationFrame(frame)
+  frame = requestAnimationFrame(() => {
+    if (disposed) return
+    const vv = window.visualViewport,
+      offset = vv && vv.scale === 1 ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
+    document.documentElement.style.setProperty('--chat-keyboard-offset', offset + 'px')
+  })
+}
 onMounted(() => {
-  if (!container.value) return
   observer = new ResizeObserver(() => {
     if (container.value)
       document.documentElement.style.setProperty(
@@ -23,25 +40,40 @@ onMounted(() => {
         container.value.offsetHeight + 'px',
       )
   })
-  observer.observe(container.value)
+  if (container.value) observer.observe(container.value)
+  window.visualViewport?.addEventListener('resize', viewport)
+  window.visualViewport?.addEventListener('scroll', viewport)
+  window.addEventListener('resize', viewport)
+  resize()
+  viewport()
 })
 onScopeDispose(() => {
+  disposed = true
   observer?.disconnect()
-  if (import.meta.client) document.documentElement.style.removeProperty('--chat-composer-height')
-})
-const inputId = useId()
-watch(draft, async () => {
-  await nextTick()
-  if (input.value) {
-    input.value.style.height = 'auto'
-    input.value.style.height = Math.min(input.value.scrollHeight, 144) + 'px'
+  if (import.meta.client) {
+    cancelAnimationFrame(frame)
+    window.visualViewport?.removeEventListener('resize', viewport)
+    window.visualViewport?.removeEventListener('scroll', viewport)
+    window.removeEventListener('resize', viewport)
+    document.documentElement.style.removeProperty('--chat-composer-height')
+    document.documentElement.style.removeProperty('--chat-keyboard-offset')
   }
 })
+watch(draft, async () => {
+  await nextTick()
+  resize()
+})
 function send() {
-  if (!props.busy && !props.disabled && draft.value.trim()) emit('send')
+  if (!props.busy && !props.disabled && !composing.value && draft.value.trim()) emit('send')
 }
 function enter(event: KeyboardEvent) {
-  if (event.key === 'Enter' && !event.shiftKey && !event.isComposing) {
+  if (
+    event.key === 'Enter' &&
+    !event.shiftKey &&
+    !event.isComposing &&
+    !composing.value &&
+    event.keyCode !== 229
+  ) {
     event.preventDefault()
     send()
   }
@@ -59,6 +91,8 @@ function enter(event: KeyboardEvent) {
       maxlength="2000"
       :disabled="disabled"
       :readonly="readonly"
+      @compositionstart="composing = true"
+      @compositionend="composing = false"
       @keydown="enter"
     />
     <button
@@ -86,34 +120,36 @@ function enter(event: KeyboardEvent) {
 .chat-composer {
   position: fixed;
   z-index: 21;
-  bottom: calc(var(--bottom-nav-offset) + var(--safe-area-bottom) + 14px);
+  bottom: calc(
+    var(--bottom-nav-offset) + var(--safe-area-bottom) + var(--chat-keyboard-offset, 0px) + 12px
+  );
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   align-items: flex-end;
   gap: 10px;
-  width: min(calc(100% - 32px), calc(var(--app-width) - 32px));
-  padding: 10px 10px 10px 17px;
-  border: 1px solid #e7e1f2;
-  border-radius: 24px;
+  width: min(calc(100% - 32px), calc(var(--app-width) - 48px));
+  padding: 10px 10px 10px 16px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-card);
   background: #fffffff5;
   backdrop-filter: blur(16px);
-  box-shadow: 0 6px 28px #4430750c;
+  box-shadow: var(--shadow-card);
 }
 .chat-composer:focus-within {
-  border-color: #b6a7e5;
+  border-color: var(--color-focus);
 }
 textarea {
   width: 100%;
   min-width: 0;
-  min-height: 42px;
-  max-height: 144px;
+  min-height: 44px;
+  max-height: 160px;
   resize: none;
   border: 0;
   outline: none;
   padding: 10px 0;
   background: transparent;
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1.6;
   color: var(--color-text);
 }
@@ -121,17 +157,17 @@ textarea:focus-visible {
   outline: none;
 }
 textarea::placeholder {
-  color: #a8a1b8;
+  color: var(--color-muted);
 }
 .composer-action {
-  flex: 0 0 42px;
+  flex: 0 0 44px;
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   border: 0;
   border-radius: 50%;
-  background: linear-gradient(140deg, #8b6cf8, #6547ed);
+  background: var(--gradient-primary);
   color: white;
 }
 </style>
