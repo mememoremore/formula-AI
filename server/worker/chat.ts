@@ -1,3 +1,8 @@
+import { bumpConversation } from '../database/chat-revision'
+import { lockTaskConversation } from '../database/task-lifecycle'
+import { readPromptHistory } from '../database/chat-history'
+import { recordCallObservation } from '../database/chat-calls'
+import type { ChatCallObserver, ChatUsage } from '../chat/adapter'
 import type { PgBoss } from 'pg-boss'
 import type { PrismaClient } from '../generated/prisma/client'
 import type { ChatAdapter } from '../chat/adapter'
@@ -19,9 +24,10 @@ export async function processChat(
       where: { id: job.data.taskId, ownerId: job.data.ownerId, queueJobId: job.id },
       include: { conversation: { include: { formulaVersion: true } } },
     })
-    const initialized = await db.$transaction(async (tx) => {
+    const call = await db.$transaction(async (tx) => {
+      await lockTaskConversation(tx, 'chat', turn.ownerId, turn.id)
       await touchClaim(boss, tx, job)
-      return tx.chatTurn.updateMany({
+      const initialized = await tx.chatTurn.updateMany({
         where: {
           id: turn.id,
           ownerId: turn.ownerId,
@@ -31,13 +37,22 @@ export async function processChat(
         },
         data: { partialContent: '', responseIsMock: adapter.isMock, responseModel: adapter.model },
       })
+      if (!initialized.count) throw new LostJobClaim()
+      await bumpConversation(tx, turn.conversationId)
+      return tx.chatCallAttempt.create({
+        data: {
+          ownerId: turn.ownerId,
+          turnId: turn.id,
+          workerAttempt: job.retryCount + 1,
+          queueJobId: job.id,
+          provider: adapter.isMock ? 'mock' : 'deepseek',
+          model: adapter.model,
+          isMock: adapter.isMock,
+          usageSource: adapter.isMock ? 'MOCK' : 'UNKNOWN',
+        },
+      })
     })
-    if (!initialized.count) throw new LostJobClaim()
-    const messages = await db.chatMessage.findMany({
-      where: { conversationId: turn.conversationId, ownerId: turn.ownerId, status: 'COMPLETED' },
-      orderBy: { position: 'desc' },
-      take: 19,
-    })
+    const messages = await readPromptHistory(db, turn.ownerId, turn.conversationId)
     const context = turn.conversation.formulaVersion
     const controller = new AbortController()
     const parent = job.signal ? AbortSignal.any([job.signal, controller.signal]) : controller.signal
@@ -67,19 +82,55 @@ export async function processChat(
     let content = ''
     let lastSaved = 0
     let finishReason = ''
+    let usage: ChatUsage | undefined
+    let upstreamSucceeded = false
+    const started = performance.now()
+    const observer: ChatCallObserver = {
+      async beforeDispatch() {
+        await db.$transaction(async (tx) => {
+          await lockTaskConversation(tx, 'chat', turn.ownerId, turn.id)
+          await touchClaim(boss, tx, job)
+          const active = await tx.chatTurn.findFirst({
+            where: {
+              id: turn.id,
+              ownerId: turn.ownerId,
+              status: 'PROCESSING',
+              attemptCount: job.retryCount + 1,
+            },
+          })
+          if (!active) throw new LostJobClaim()
+          await tx.chatCallAttempt.update({
+            where: { id: call.id },
+            data: { status: 'IN_FLIGHT', dispatchIntentAt: new Date() },
+          })
+        })
+      },
+      async invoked() {
+        await recordCallObservation(db, call.id, { transportInvokedAt: new Date() })
+      },
+      async responded(httpStatus, requestId) {
+        await recordCallObservation(db, call.id, {
+          httpStatus,
+          responseObservedAt: new Date(),
+          providerRequestId:
+            requestId && /^[a-zA-Z0-9._:-]{1,200}$/.test(requestId) ? requestId : null,
+        })
+      },
+    }
     try {
+      // 替身不经过HTTP；仅记录意图，绝不虚构供应商transport/用量。
+      if (adapter.isMock) await observer.beforeDispatch()
       await withInferenceDeadline(async (signal) => {
         for await (const delta of adapter.stream(
           {
             formula: context ? { versionId: context.id, latex: context.latex } : undefined,
-            messages: messages.toReversed().map((message) => ({
-              role: message.role === 'USER' ? 'user' : 'assistant',
-              content: message.content,
-            })),
+            messages: [...messages, { role: 'user', content: turn.question }],
           },
           signal,
+          observer,
         )) {
           signal.throwIfAborted()
+          if (delta.usage && !adapter.isMock) usage = delta.usage
           content += delta.text
           if (content.length > 16000)
             throw new InferenceFailure(
@@ -99,6 +150,14 @@ export async function processChat(
           throw new InferenceFailure('INVALID_INPUT', '回答未完整生成，请调整问题后重试。', false)
         }
       }, parent)
+      upstreamSucceeded = true
+      await recordCallObservation(db, call.id, {
+        status: 'SUCCEEDED',
+        closedAt: new Date(),
+        durationMs: Math.round(performance.now() - started),
+        finishReason,
+        ...(usage ? { usageSource: 'PROVIDER_REPORTED', ...usage } : {}),
+      })
       await db.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM conversations WHERE id=${turn.conversationId}::uuid AND "ownerId"=${turn.ownerId}::uuid FOR UPDATE`
         await touchClaim(boss, tx, job)
@@ -136,12 +195,37 @@ export async function processChat(
             errorMessage: null,
           },
         })
-        await tx.conversation.update({
-          where: { id: turn.conversationId },
-          data: { updatedAt: new Date() },
+        await bumpConversation(tx, turn.conversationId)
+        await tx.chatCallAttempt.update({
+          where: { id: call.id },
+          data: { resultCommittedAt: new Date(), resultDiscardedAt: null },
         })
         await completeClaim(boss, tx, job)
       })
+    } catch (error) {
+      const stopped = await db.chatTurn
+        .findFirst({
+          where: { id: turn.id, ownerId: turn.ownerId },
+          select: { status: true, errorMessage: true },
+        })
+        .catch(() => null)
+      await recordCallObservation(db, call.id, {
+        status: upstreamSucceeded
+          ? 'SUCCEEDED'
+          : stopped?.status === 'FAILED' && stopped.errorMessage === '已停止生成。'
+            ? 'CANCELLED'
+            : error instanceof LostJobClaim || parent.aborted
+              ? 'UNKNOWN'
+              : 'FAILED',
+        resultDiscardedAt: new Date(),
+        closedAt: new Date(),
+        durationMs: Math.round(performance.now() - started),
+        errorCode: error instanceof InferenceFailure ? error.code : 'UNCONFIRMED',
+        ...(usage ? { usageSource: 'PROVIDER_REPORTED', ...usage } : {}),
+      }).catch(() => {
+        /* 后台根据真实队列事实核对，不能把未知调用当成未调用。 */
+      })
+      throw error
     } finally {
       clearInterval(monitor)
     }

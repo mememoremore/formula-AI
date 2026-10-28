@@ -14,6 +14,7 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
       'tests/formula-editor.test.ts',
       'tests/recognition-state.test.ts',
       'tests/chat-state.test.ts',
+      'tests/chat-protocol.test.ts',
       'tests/chat-content.test.ts',
       'tests/account-state.test.ts',
       'tests/account-cache.test.ts',
@@ -41,6 +42,7 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
       'tests/workspace.test.ts',
       'tests/jobs.test.ts',
       'tests/task-recovery.test.ts',
+      'tests/chat-governance.test.ts',
     ],
     integration: true,
   },
@@ -55,6 +57,7 @@ for (const [name, file] of Object.entries({
   jobs: 'jobs.test.ts',
   resources: 'resources.test.ts',
   recovery: 'task-recovery.test.ts',
+  chat: 'chat-governance.test.ts',
 }))
   suites[name] = { files: [`tests/${file}`], integration: true }
 

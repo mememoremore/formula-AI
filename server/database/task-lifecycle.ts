@@ -1,3 +1,4 @@
+import { bumpChatTurn } from './chat-revision'
 import type { Prisma } from '../generated/prisma/client'
 import type { JobKind } from '../../shared/types/tasks'
 export function readBusinessTask(
@@ -80,5 +81,6 @@ export async function transitionFailure(
   if (kind === 'export') return (await tx.exportTask.updateMany({ where, data })).count
   const changed = (await tx.chatTurn.updateMany({ where, data })).count
   if (changed && terminal) await appendFailedAnswer(tx, where.ownerId, where.id, message)
+  if (changed) await bumpChatTurn(tx, where.ownerId, where.id)
   return changed
 }

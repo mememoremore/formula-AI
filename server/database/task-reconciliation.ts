@@ -1,3 +1,4 @@
+import { bumpChatTurn } from './chat-revision'
 import type { PrismaClient, Prisma } from '../generated/prisma/client'
 import type { PgBoss } from 'pg-boss'
 import type { JobKind } from '../../shared/types/tasks'
@@ -74,8 +75,10 @@ export async function reconcileTask(
           errorMessage: '上次处理已中断，正在等待重试。',
         }
         if (kind === 'recognition') await tx.recognitionTask.updateMany({ where, data })
-        else if (kind === 'chat') await tx.chatTurn.updateMany({ where, data })
-        else await tx.exportTask.updateMany({ where, data })
+        else if (kind === 'chat') {
+          await tx.chatTurn.updateMany({ where, data })
+          await bumpChatTurn(tx, ownerId, id)
+        } else await tx.exportTask.updateMany({ where, data })
         return 'changed'
       }
       const result = await hasCompletedResult(tx, kind, ownerId, id)
@@ -90,8 +93,10 @@ export async function reconcileTask(
         }
         if (kind === 'recognition')
           await tx.recognitionTask.updateMany({ where, data: { ...data, errorCode: null } })
-        else if (kind === 'chat') await tx.chatTurn.updateMany({ where, data })
-        else await tx.exportTask.updateMany({ where, data })
+        else if (kind === 'chat') {
+          await tx.chatTurn.updateMany({ where, data })
+          await bumpChatTurn(tx, ownerId, id)
+        } else await tx.exportTask.updateMany({ where, data })
         return 'changed'
       }
       if (['failed', 'cancelled', 'completed'].includes(job.state)) {

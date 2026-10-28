@@ -328,6 +328,7 @@ model Favorite {
 }
 
 model Conversation {
+  revision         BigInt   @default(0)
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ownerId          String   @db.Uuid
   formulaVersionId String?  @db.Uuid
@@ -383,6 +384,7 @@ model DailyUsage {
 }
 
 model ChatTurn {
+  callAttempts   ChatCallAttempt[]
   id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ownerId        String            @db.Uuid
   conversationId String            @db.Uuid
@@ -432,4 +434,56 @@ model ExportTask {
   @@unique([ownerId, requestKey])
   @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("export_tasks")
+}
+
+enum ChatCallStatus {
+  PREPARED
+  IN_FLIGHT
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  UNKNOWN
+}
+
+enum ChatUsageSource {
+  UNKNOWN
+  PROVIDER_REPORTED
+  MOCK
+}
+
+model ChatCallAttempt {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId            String          @db.Uuid
+  turnId             String          @db.Uuid
+  workerAttempt      Int
+  callIndex          Int             @default(1)
+  queueJobId         String          @db.Uuid
+  provider           String          @db.VarChar(32)
+  model              String          @db.VarChar(100)
+  isMock             Boolean
+  status             ChatCallStatus  @default(PREPARED)
+  preparedAt         DateTime        @default(now()) @db.Timestamptz(3)
+  dispatchIntentAt   DateTime?       @db.Timestamptz(3)
+  transportInvokedAt DateTime?       @db.Timestamptz(3)
+  responseObservedAt DateTime?       @db.Timestamptz(3)
+  closedAt           DateTime?       @db.Timestamptz(3)
+  durationMs         Int?
+  providerRequestId  String?         @db.VarChar(200)
+  httpStatus         Int?
+  finishReason       String?         @db.VarChar(32)
+  errorCode          String?         @db.VarChar(64)
+  usageSource        ChatUsageSource @default(UNKNOWN)
+  inputTokens        Int?
+  outputTokens       Int?
+  totalTokens        Int?
+  resultCommittedAt  DateTime?       @db.Timestamptz(3)
+  resultDiscardedAt  DateTime?       @db.Timestamptz(3)
+  createdAt          DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime        @updatedAt @db.Timestamptz(3)
+  turn               ChatTurn        @relation(fields: [turnId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([turnId, workerAttempt, callIndex])
+  @@index([ownerId, createdAt(sort: Desc), id])
+  @@index([status, updatedAt, id])
+  @@map("chat_call_attempts")
 }

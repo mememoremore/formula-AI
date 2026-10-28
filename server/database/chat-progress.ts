@@ -1,3 +1,5 @@
+import { bumpChatTurn } from './chat-revision'
+import { lockTaskConversation } from './task-lifecycle'
 import type { PrismaClient } from '../generated/prisma/client'
 import type { PgBoss } from 'pg-boss'
 import { fromPrisma } from 'pg-boss'
@@ -13,6 +15,7 @@ export async function saveChatProgress(
   content: string,
 ) {
   await db.$transaction(async (tx) => {
+    await lockTaskConversation(tx, 'chat', job.data.ownerId, job.data.taskId)
     await touchClaim(boss, tx, job)
     const updated = await tx.chatTurn.updateMany({
       where: {
@@ -21,10 +24,26 @@ export async function saveChatProgress(
         queueJobId: job.id,
         status: 'PROCESSING',
         attemptCount: job.retryCount + 1,
+        partialContent: { not: content },
       },
       data: { partialContent: content },
     })
-    if (!updated.count) throw new LostJobClaim()
+    if (!updated.count) {
+      const unchanged = await tx.chatTurn.findFirst({
+        where: {
+          id: job.data.taskId,
+          ownerId: job.data.ownerId,
+          queueJobId: job.id,
+          status: 'PROCESSING',
+          attemptCount: job.retryCount + 1,
+          partialContent: content,
+        },
+        select: { id: true },
+      })
+      if (unchanged) return
+      throw new LostJobClaim()
+    }
+    await bumpChatTurn(tx, job.data.ownerId, job.data.taskId)
   })
 }
 
@@ -48,6 +67,7 @@ export async function cancelChatTurn(
     })
     if (!updated.count) return true
     await appendFailedAnswer(tx, ownerId, turnId, '已停止生成。')
+    await bumpChatTurn(tx, ownerId, turnId)
     return true
   })
 }

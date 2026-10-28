@@ -1,3 +1,6 @@
+import { readLegacyConversation } from '../tests/support/chat-baseline'
+import { readConversationForStream } from '../server/database/conversations'
+import { bumpConversation } from '../server/database/chat-revision'
 import { testEnvironment } from '../tests/support/integration.ts'
 import assert from 'node:assert/strict'
 import { randomUUID, createHash } from 'node:crypto'
@@ -162,6 +165,7 @@ try {
     ...afterReset,
     currentTurn: { ...afterReset.currentTurn!, attemptCount: 1, modelVersion: null },
   }
+  modelNew.revision = (BigInt(afterReset.revision!) + 1n).toString()
   const metadataRollbackAccepted = acceptConversationSnapshot(modelNew, modelOld) === modelOld
   const usage = await db.dailyUsage.findFirstOrThrow({ where: { ownerId, kind: 'CHAT' } })
   const findings = {
@@ -207,49 +211,68 @@ try {
         content: '测量问题',
       },
     })
-    for (const connections of [1, 4]) {
-      await readConversation(db, ownerId, item.id) // 不计一次预热
-      const latencies: number[] = [],
-        queryCounts: number[] = [],
-        sqlTimes: number[] = []
-      let frameBytes = 0,
-        visibleMessages = 0
-      for (let tick = 0; tick < 20; tick++) {
-        await db.chatTurn.update({
-          where: { id: current.id },
-          data: { partialContent: 'y'.repeat((tick + 1) * 64) },
-        })
-        statements = 0
-        databaseMs = 0
-        measuring = true
-        const start = performance.now()
-        const values = await Promise.all(
-          Array.from({ length: connections }, () => readConversation(db, owner.id, item.id)),
-        )
-        const elapsed = performance.now() - start
-        measuring = false
-        latencies.push(elapsed)
-        queryCounts.push(statements)
-        sqlTimes.push(databaseMs)
-        for (const value of values) {
-          visibleMessages = value.messages.length
-          frameBytes += Buffer.byteLength(`event: snapshot\ndata: ${JSON.stringify(value)}\n\n`)
+    for (const connections of [1, 4])
+      for (const scenario of ['updating', 'waiting'])
+        for (const mode of ['r13', 'consistent-full', 'revision-probe']) {
+          await readConversation(db, ownerId, item.id) // 不计一次预热
+          const previous: (SavedConversation | undefined)[] = Array.from({ length: connections })
+          const previousFrames = Array.from({ length: connections }, () => '')
+          const latencies: number[] = [],
+            queryCounts: number[] = [],
+            sqlTimes: number[] = []
+          let frameBytes = 0,
+            visibleMessages = 0
+          for (let tick = 0; tick < 20; tick++) {
+            if (scenario === 'updating')
+              await db.$transaction(async (tx) => {
+                await tx.chatTurn.update({
+                  where: { id: current.id },
+                  data: { partialContent: 'y'.repeat((tick + 1) * 64) },
+                })
+                await bumpConversation(tx, item.id)
+              })
+            statements = 0
+            databaseMs = 0
+            measuring = true
+            const start = performance.now()
+            const values = await Promise.all(
+              Array.from({ length: connections }, (_, index) =>
+                mode === 'r13'
+                  ? readLegacyConversation(db, owner.id, item.id)
+                  : mode === 'consistent-full'
+                    ? readConversation(db, owner.id, item.id)
+                    : readConversationForStream(db, owner.id, item.id, previous[index]),
+              ),
+            )
+            const elapsed = performance.now() - start
+            measuring = false
+            latencies.push(elapsed)
+            queryCounts.push(statements)
+            sqlTimes.push(databaseMs)
+            for (const [index, value] of values.entries()) {
+              visibleMessages = value.messages.length
+              const frame = `${mode === 'r13' ? '' : `id: ${value.revision}\n`}event: snapshot\ndata: ${JSON.stringify(value)}\n\n`
+              if (frame !== previousFrames[index]) frameBytes += Buffer.byteLength(frame)
+              previousFrames[index] = frame
+              previous[index] = value
+            }
+          }
+          latencies.sort((a, b) => a - b)
+          results.push({
+            historyMessages,
+            connections,
+            scenario,
+            mode,
+            ticks: 20,
+            visibleMessages,
+            sqlStatements: queryCounts.reduce((a, b) => a + b, 0),
+            statementsPerTick: queryCounts.reduce((a, b) => a + b, 0) / 20,
+            sqlDurationMs: sqlTimes.reduce((a, b) => a + b, 0),
+            tickMedianMs: Number(latencies[10]!.toFixed(2)),
+            tickP95Ms: Number(latencies[18]!.toFixed(2)),
+            uncompressedFrameBytes: frameBytes,
+          })
         }
-      }
-      latencies.sort((a, b) => a - b)
-      results.push({
-        historyMessages,
-        connections,
-        ticks: 20,
-        visibleMessages,
-        sqlStatements: queryCounts.reduce((a, b) => a + b, 0),
-        statementsPerTick: queryCounts.reduce((a, b) => a + b, 0) / 20,
-        sqlDurationMs: sqlTimes.reduce((a, b) => a + b, 0),
-        tickMedianMs: Number(latencies[10]!.toFixed(2)),
-        tickP95Ms: Number(latencies[18]!.toFixed(2)),
-        uncompressedFrameBytes: frameBytes,
-      })
-    }
   }
   const sourceFiles = [
     'server/worker/chat.ts',
@@ -265,15 +288,26 @@ try {
   const report = {
     baselineCommit: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     runId: testEnvironment.runId,
-    mode: 'old-schema controlled database baseline; no paid model',
+    mode: 'R14 controlled comparison with frozen R13 reader; no paid model',
     method:
-      'readConversation actual SQL events and UTF-8 snapshot frame bytes; no real-time pacing, auth queries/reconciliation/proxy compression excluded; no optimized implementation measured',
+      'same fixtures; actual SQL and snapshot bytes; full R13 vs consistent-full vs revision-probe; no pacing/auth/reconciliation/compression/heartbeat bytes',
     sourceHashes,
     findings,
     results,
   }
-  await writeFile('tmp/r14-baseline-report.json', JSON.stringify(report, null, 2))
-  console.log(JSON.stringify({ findings, results }, null, 2))
+  await writeFile('tmp/r14-comparison-report.json', JSON.stringify(report, null, 2))
+  assert.equal(failedQuestionIncluded, false)
+  assert.equal(stoppedQuestionIncluded, false)
+  assert.equal(resetRejected, false)
+  assert.equal(metadataRollbackAccepted, false)
+  assert.equal(findings.dailyChatUsage, 1)
+  console.log(
+    JSON.stringify({
+      findings,
+      samples: results.length,
+      evidence: 'tmp/r14-comparison-report.json',
+    }),
+  )
 } finally {
   measuring = false
   if (ownerId) {

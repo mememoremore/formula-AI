@@ -19,7 +19,7 @@ export function useAccountChat(id: string, ownerId: string) {
     submitting = ref(false),
     stopping = ref(false)
   function accept(value: SavedConversation) {
-    accepted = acceptConversationSnapshot(accepted, parseConversationSnapshot(value, id))
+    accepted = acceptConversationSnapshot(accepted, parseConversationSnapshot(value, id, true))
     return accepted
   }
   const events = useConversationEvents(
@@ -48,7 +48,7 @@ export function useAccountChat(id: string, ownerId: string) {
       async read(signal) {
         const value = await read<SavedConversation>(
           `/api/account/conversations/${encodeURIComponent(id)}`,
-          { signal, retry: 0, timeout: 15000 },
+          { signal, retry: 0, timeout: 15000, headers: { 'X-Conversation-Protocol': '2' } },
         )
         signal.throwIfAborted()
         if (disposed) throw new Error('页面已离开')
@@ -91,7 +91,13 @@ export function useAccountChat(id: string, ownerId: string) {
     try {
       const value = await $fetch<SavedConversation>(
         `/api/account/conversations/${id}/turns/${turn!.id}/cancel`,
-        { method: 'POST', retry: 0, timeout: 20000, signal: controller.signal },
+        {
+          method: 'POST',
+          retry: 0,
+          timeout: 20000,
+          signal: controller.signal,
+          headers: { 'X-Conversation-Protocol': '2' },
+        },
       )
       if (disposed || controller.signal.aborted) return
       request.data.value = accept(value)

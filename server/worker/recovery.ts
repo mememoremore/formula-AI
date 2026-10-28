@@ -1,3 +1,4 @@
+import { reconcileChatCalls } from '../database/chat-calls'
 import type { PrismaClient } from '../generated/prisma/client'
 import type { PgBoss } from 'pg-boss'
 import type { JobKind } from '../../shared/types/tasks'
@@ -40,6 +41,7 @@ export async function startTaskRecovery(
   )
     throw new Error('Invalid recovery options')
   const cursors: Partial<Record<JobKind, string>> = {}
+  let callCursor: string | undefined
   let stopped = false,
     timer: NodeJS.Timeout | undefined,
     pending: Promise<void> | undefined
@@ -81,6 +83,7 @@ export async function startTaskRecovery(
       }
       if (tasks.length < options.batchSize) delete cursors[kind]
     }
+    if (!isStopped()) callCursor = await reconcileChatCalls(db, options.batchSize, callCursor)
     if (changed || unresolved)
       console.info(`任务核对：修复${changed}项，待人工核对${unresolved}项。`)
   }

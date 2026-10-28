@@ -1,5 +1,6 @@
 import type { PgBoss } from 'pg-boss'
-import type { PrismaClient } from '../generated/prisma/client'
+import { bumpConversation } from './chat-revision'
+import { Prisma, type PrismaClient } from '../generated/prisma/client'
 import { WorkspaceError } from '../services/workspace-error'
 import { hasValidResourceIdentity } from './private-resources'
 import { idempotentTask } from './idempotent-task'
@@ -8,7 +9,7 @@ import { enqueueTask } from '../queue/enqueue'
 import type { SavedConversation, VersionContext } from '../../shared/types/tasks'
 
 export async function readVersionContext(
-  db: PrismaClient,
+  db: Prisma.TransactionClient,
   ownerId: string,
   id: string,
 ): Promise<VersionContext> {
@@ -41,17 +42,43 @@ export async function createConversation(
     return existing
   }
   return idempotentTask(read, async () => {
-    const context = formulaVersionId
-      ? await readVersionContext(db, ownerId, formulaVersionId)
-      : null
-    return db.conversation.create({
-      data: {
-        ownerId,
-        formulaVersionId,
-        requestKey,
-        title: context ? `${context.title} · v${context.number}`.slice(0, 100) : '普通对话',
-      },
-    })
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        return await db.$transaction(
+          async (tx) => {
+            if (formulaVersionId) {
+              if (!hasValidResourceIdentity(ownerId, formulaVersionId))
+                throw new WorkspaceError(404, '未找到这个公式版本。')
+              // 与标题UPDATE互斥；Serializable同时捕获触发器快照遗漏新会话的phantom竞争。
+              const rows = await tx.$queryRaw<
+                { id: string }[]
+              >`SELECT f.id FROM formulas f JOIN formula_versions v ON v."formulaId"=f.id AND v."ownerId"=f."ownerId" WHERE v.id=${formulaVersionId}::uuid AND v."ownerId"=${ownerId}::uuid FOR SHARE OF f`
+              if (!rows.length) throw new WorkspaceError(404, '未找到这个公式版本。')
+            }
+            const context = formulaVersionId
+              ? await readVersionContext(tx, ownerId, formulaVersionId)
+              : null
+            return tx.conversation.create({
+              data: {
+                ownerId,
+                formulaVersionId,
+                requestKey,
+                title: context ? `${context.title} · v${context.number}`.slice(0, 100) : '普通对话',
+              },
+            })
+          },
+          { isolationLevel: 'Serializable' },
+        )
+      } catch (error) {
+        if (
+          !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+          error.code !== 'P2034' ||
+          attempt === 2
+        )
+          throw error
+      }
+    }
+    throw new Error('未能完成会话创建事务。')
   })
 }
 export async function readConversation(
@@ -60,6 +87,32 @@ export async function readConversation(
   id: string,
 ): Promise<SavedConversation> {
   if (!hasValidResourceIdentity(ownerId, id)) throw new WorkspaceError(404, '未找到这段对话。')
+  return db.$transaction((tx) => readConversationSnapshot(tx, ownerId, id), {
+    isolationLevel: 'RepeatableRead',
+  })
+}
+/** 探测不会拼装DTO；变化时再在一致性事务中读取完整权威快照。 */
+export async function readConversationForStream(
+  db: PrismaClient,
+  ownerId: string,
+  id: string,
+  previous?: SavedConversation,
+) {
+  if (!previous) return readConversation(db, ownerId, id)
+  if (!hasValidResourceIdentity(ownerId, id)) throw new WorkspaceError(404, '未找到这段对话。')
+  const row = await db.conversation.findFirst({
+    where: { id, ownerId },
+    select: { revision: true },
+  })
+  if (!row) throw new WorkspaceError(404, '未找到这段对话。')
+  if (previous?.id === id && previous.revision === row.revision.toString()) return previous
+  return readConversation(db, ownerId, id)
+}
+async function readConversationSnapshot(
+  db: Prisma.TransactionClient,
+  ownerId: string,
+  id: string,
+): Promise<SavedConversation> {
   const conversation = await db.conversation.findFirst({
     where: { id, ownerId },
     include: {
@@ -84,6 +137,8 @@ export async function readConversation(
   const turn = conversation.turns[0]
   return {
     id,
+    protocolVersion: 2,
+    revision: conversation.revision.toString(),
     title: conversation.title,
     context: conversation.formulaVersionId
       ? await readVersionContext(db, ownerId, conversation.formulaVersionId)
@@ -166,10 +221,7 @@ export async function submitChatTurn(
         taskId: turn.id,
         ownerId: input.ownerId,
       })
-      await tx.conversation.update({
-        where: { id: input.conversationId },
-        data: { updatedAt: new Date() },
-      })
+      await bumpConversation(tx, input.conversationId)
       return tx.chatTurn.update({ where: { id: turn.id }, data: { queueJobId } })
     }),
   )

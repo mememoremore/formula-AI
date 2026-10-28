@@ -56,6 +56,9 @@ export interface ChatTurnState extends TaskState {
   modelVersion: string | null
 }
 export interface SavedConversation {
+  /** 老客户端/旧fixtures可缺省；v2读入口运行时要求两者齐全。 */
+  protocolVersion?: 2
+  revision?: string
   id: string
   title: string
   context: VersionContext | null

@@ -9,15 +9,19 @@ export function buildChatMessages(
   const formula = input.formula
     ? `本次对话固定公式版本 ${input.formula.versionId}，LaTeX 数据如下：\n${input.formula.latex}`
     : '本次对话没有绑定公式，请依据用户实际提供的信息回答。'
-  const history = input.messages.slice(-19)
+  const question = input.messages.at(-1)
+  if (!question || question.role !== 'user') throw new Error('缺少当前提问')
+  const history = input.messages.slice(0, -1)
   const selected: typeof history = []
-  let budget = 20_000
-  for (let index = history.length - 1; index >= 0; index--) {
-    const message = history[index]!
-    if (message.content.length > budget) break
-    selected.unshift(message)
-    budget -= message.content.length
+  let budget = 20_000 - question.content.length
+  for (let index = history.length - 2; index >= 0 && selected.length < 18; index -= 2) {
+    const user = history[index]!,
+      assistant = history[index + 1]!
+    if (user.role !== 'user' || assistant.role !== 'assistant') continue
+    const size = user.content.length + assistant.content.length
+    if (size > budget) break
+    selected.unshift(user, assistant)
+    budget -= size
   }
-  while (selected[0]?.role === 'assistant') selected.shift()
-  return [{ role: 'system', content: system + '\n\n' + formula }, ...selected]
+  return [{ role: 'system', content: system + '\n\n' + formula }, ...selected, question]
 }

@@ -1,3 +1,4 @@
+import { bumpChatTurn } from '../database/chat-revision'
 import { fromPrisma, type PgBoss } from 'pg-boss'
 import type { PrismaClient } from '../generated/prisma/client'
 import type { JobKind } from '../../shared/types/tasks'
@@ -42,7 +43,11 @@ export async function beginAttempt(db: PrismaClient, kind: JobKind, job: Running
         (await tx.recognitionTask.updateMany({ where, data: { ...data, errorCode: null } })).count >
         0
       )
-    if (kind === 'chat') return (await tx.chatTurn.updateMany({ where, data })).count > 0
+    if (kind === 'chat') {
+      const changed = (await tx.chatTurn.updateMany({ where, data })).count > 0
+      if (changed) await bumpChatTurn(tx, job.data.ownerId, job.data.taskId)
+      return changed
+    }
     return (await tx.exportTask.updateMany({ where, data })).count > 0
   })
 }
