@@ -7,6 +7,7 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
   unit: {
     files: [
       'tests/test-environment.test.ts',
+      'tests/ci-policy.test.ts',
       'tests/public-assets.test.ts',
       'tests/navigation.test.ts',
       'tests/home.test.ts',

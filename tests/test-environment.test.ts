@@ -10,6 +10,7 @@ import {
   type TestEnvironment,
 } from './support/test-environment.ts'
 import { installTestNetworkGuard, isNuxtDevelopmentIpc } from './support/network-guard.ts'
+import { cleanupPlan } from './support/cleanup-plan.ts'
 
 function fixture(): TestEnvironment {
   const runId = '12345678-1234-4123-8123-123456789abc'
@@ -65,6 +66,36 @@ function container(config: TestEnvironment, kind: 'postgres' | 'storage') {
     Mounts: [{ Type: 'tmpfs' }],
   }
 }
+
+test('清理计划支持部分创建和已停止 tmpfs，但运行守卫继续拒绝它们', async () => {
+  const config = fixture()
+  const stopped = container(config, 'postgres')
+  stopped.State.Running = false
+  assert.deepEqual(
+    cleanupPlan({ ...config, containers: { postgres: '', storage: '' } }, [stopped]).ids,
+    [stopped.Id],
+  )
+  await assert.rejects(
+    verifyTestTargets(
+      config,
+      {},
+      () => stopped,
+      async () => ({}),
+    ),
+  )
+  assert.deepEqual(cleanupPlan(config, []).ids, [])
+})
+test('清理前全量核验：拒绝开发标签、挂载、替换、重复目标，尚未授权任何删除', () => {
+  const config = fixture()
+  const good = container(config, 'postgres')
+  const bad = container(config, 'storage')
+  bad.Config.Labels['io.formula-ai.test-run'] = 'development'
+  assert.throws(() => cleanupPlan(config, [good, bad]))
+  const mounted = { ...good, Mounts: [{ Type: 'bind' }] }
+  assert.throws(() => cleanupPlan(config, [mounted]))
+  assert.throws(() => cleanupPlan(config, [{ ...good, Id: '3'.repeat(64) }]))
+  assert.throws(() => cleanupPlan(config, [good, good]))
+})
 
 test('完整受控身份通过；核对顺序为容器再 API，未调用资源写入', async () => {
   const config = fixture(),

@@ -1,7 +1,7 @@
 # 只允许 scripts/test-environment.ts 提供本次随机运行配置；不读取开发 Compose。
 services:
   postgres:
-    image: postgres:17-alpine
+    image: postgres:17-alpine@sha256:b0f9560a2de083e2cc7382e75f808c7381a32852a7ec49117deedb300e552b24
     labels:
       io.formula-ai.test-run: ${FORMULA_TEST_RUN_ID:?}
       io.formula-ai.test-fingerprint: ${FORMULA_TEST_FINGERPRINT:?}
@@ -17,7 +17,7 @@ services:
       timeout: 3s
       retries: 30
   storage:
-    image: chrislusf/seaweedfs:4.48
+    image: chrislusf/seaweedfs:4.48@sha256:4e61d15fd35994cb1e43e1e553dff106794841fd9a99ade2fc8c8bfce4d7872d
     labels:
       io.formula-ai.test-run: ${FORMULA_TEST_RUN_ID:?}
       io.formula-ai.test-fingerprint: ${FORMULA_TEST_FINGERPRINT:?}
