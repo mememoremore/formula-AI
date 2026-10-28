@@ -46,3 +46,8 @@ credentials*.json
 *.ckpt
 *.h5
 *.hdf5
+
+# 本机设计与验收证据不进入 GitHub 源码发布；既有本地历史由发布过滤保留
+/docs/设计稿/
+/docs/验收证据/
+/docs/R*验收记录.json

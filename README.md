@@ -6,10 +6,10 @@
 
 Nuxt 固定为 4.6.2，Prisma 为 7.10.1，Better Auth 为 1.7.12。Node 版本要求：22.x 至少 22.22.3，24.x 至少 24.15.0，或 26+。
 
-本机已经在项目 `.tools/` 放置官方 Node 24.22.0 便携版并校验 SHA256；启动脚本在全局 Node 版本不足时自动选择它，没有修改全局 Node。其他电脑应安装符合要求的 Node，便携目录不纳入 Git。
+请安装符合要求的 Node。启动脚本也支持本机 `.tools/` 中的便携版，但该目录不纳入 Git，其他电脑不能依赖它已经存在。
 
 ```powershell
-npm install
+npm ci
 npm run dev
 ```
 
@@ -31,7 +31,7 @@ npm run worker:setup
 npm run dev
 ```
 
-另一个终端运行 `npm run worker`，消费识别、对话和导出任务。打开 `/login` 创建自己的账号，进入 `/upload` 上传图片；账号空间在 `/account`，历史在 `/account/history`，公式库在 `/account/library`，收藏在 `/account/favorites`。种子用户没有密码，不能直接登录。
+另一个终端运行 `npm run worker`，消费识别、对话和导出任务。打开 `/login` 创建自己的账号，进入 `/upload` 上传图片；个人中心在 `/profile`，公式库在 `/library?space=account`，最近识别和收藏分别使用 `view=recent`、`view=favorites`。旧 `/account/*` 地址仍保留兼容跳转。种子用户没有密码，不能直接登录。
 
 ```powershell
 npm run typecheck
@@ -39,7 +39,7 @@ npm run build
 npm run preview
 ```
 
-`npm run preview` 启动构建后的应用；保持服务运行，在另一个终端执行 `npm run test:api` 验证模拟接口。
+`npm run preview` 启动构建后的应用。`npm run test:unit` 可以独立执行；`test:api` 等集成测试必须使用下文 R1 的专用隔离环境，不能连接普通开发或预览服务。
 
 ## 先看这些文档
 
@@ -113,6 +113,12 @@ scripts/             本机配置和数据库检查
 ## R1 安全测试入口
 
 测试不再加载开发 `.env`，集成测试必须显式提供专用环境清单；缺失配置直接拒绝执行。请先阅读 [R1 测试隔离与验收说明](docs/R1测试隔离与验收说明.md)。`npm run test:unit` 可独立执行，集成测试不能直接复用正在运行的开发服务。`test:ui` 是逻辑测试，不代表浏览器视觉验收。
+
+## GitHub 源码范围
+
+发布保留开发与重构提交历史、源码、锁文件、配置模板和文字文档。`docs/设计稿/`、`docs/验收证据/`及阶段验收 JSON 属于本机过程材料，不随 GitHub 源码发布；阶段报告中的这些素材路径仅供持有本地证据时查阅。运行界面的必要 SVG 位于 `public/images/`，仍随源码提供。
+
+密钥、数据库/对象存储数据、便携工具、生成目录和模型权重不进入仓库。Python 服务代码和模型配置说明保留；真实权重需另行提供，并按模型手册配置挂载路径。源码发布不等于已部署生产环境，也不会自动运行模型或执行迁移。
 
 ## 服务端配置
 
