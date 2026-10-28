@@ -1,11 +1,18 @@
 import { WorkspaceError } from '../services/workspace-error'
 import { DatabaseOperationError } from '../database/errors'
+import { ResourceLimitError } from '../resources/policy'
 
 /** 只输出可展示的业务错误，不泄漏 SQL、对象存储地址或凭据。 */
 export async function workspaceOperation<T>(operation: () => Promise<T>): Promise<T> {
   try {
     return await operation()
   } catch (error) {
+    if (error instanceof ResourceLimitError)
+      throw createError({
+        statusCode: error.statusCode,
+        message: error.message,
+        data: { code: error.code },
+      })
     if (error instanceof WorkspaceError)
       throw createError({ statusCode: error.statusCode, message: error.message })
     if (error instanceof DatabaseOperationError) {

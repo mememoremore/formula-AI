@@ -1,27 +1,24 @@
 import type { H3Event } from 'h3'
-
-/** 逐块计数，也限制未提供 Content-Length 的请求；超限后丢弃后续内容。 */
+import { resourcePolicy } from '../resources/policy'
+import { readBoundedStream, BodyReadError } from '../resources/body'
 export async function readLimitedBody(event: H3Event, maxBytes: number) {
-  const declaredSize = Number(getHeader(event, 'content-length'))
-  if (Number.isFinite(declaredSize) && declaredSize > maxBytes) {
+  const req = event.node.req
+  const tooLarge = () => {
     setResponseHeader(event, 'Connection', 'close')
-    event.node.req.resume()
-    throw createError({ statusCode: 413, message: '上传内容过大，请缩小后重试。' })
+    req.resume()
+    return createError({ statusCode: 413, message: '上传内容过大，请缩小后重试。' })
   }
-  const chunks: Buffer[] = []
-  let size = 0
-  for await (const value of event.node.req.iterator({ destroyOnReturn: false })) {
-    const chunk = Buffer.isBuffer(value) ? value : Buffer.from(value)
-    size += chunk.length
-    if (size > maxBytes) {
-      setResponseHeader(event, 'Connection', 'close')
-      event.node.req.resume()
-      throw createError({ statusCode: 413, message: '上传内容过大，请缩小后重试。' })
-    }
-    chunks.push(chunk)
+  const declaredSize = Number(getHeader(event, 'content-length'))
+  if (Number.isFinite(declaredSize) && declaredSize > maxBytes) throw tooLarge()
+  try {
+    return await readBoundedStream(req, maxBytes, resourcePolicy().bodySeconds * 1000)
+  } catch (error) {
+    if (!(error instanceof BodyReadError)) throw error
+    if (error.kind === 'TOO_LARGE') throw tooLarge()
+    if (error.kind === 'TIMEOUT')
+      throw createError({ statusCode: 408, message: '上传读取超时，请安全重试。' })
+    throw createError({ statusCode: 400, message: '上传内容不能为空。' })
   }
-  if (!size) throw createError({ statusCode: 400, message: '上传内容不能为空。' })
-  return Buffer.concat(chunks, size)
 }
 export async function readWorkspaceJson(event: H3Event) {
   if (getHeader(event, 'content-type')?.split(';')[0] !== 'application/json')

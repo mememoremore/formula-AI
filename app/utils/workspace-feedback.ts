@@ -3,7 +3,7 @@ export function workspaceFeedback(error: unknown, fallback = '暂时无法保存
   const failure = error as { statusCode?: number; data?: { message?: string } }
   if (failure?.statusCode === 401) return '登录已过期，请重新登录后再操作。'
   if (
-    [400, 404, 409, 429].includes(failure?.statusCode ?? 0) &&
+    [400, 404, 409, 413, 429].includes(failure?.statusCode ?? 0) &&
     typeof failure.data?.message === 'string'
   )
     return failure.data.message

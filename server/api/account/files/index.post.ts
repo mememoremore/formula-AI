@@ -5,7 +5,8 @@ import { readLimitedBody } from '../../../utils/request-body'
 import { workspaceOperation } from '../../../utils/workspace-operation'
 import { hasValidResourceIdentity } from '../../../database/private-resources'
 import { MAX_IMAGE_BYTES } from '../../../images/normalize-image'
-import { uploadPrivateImage } from '../../../services/image-upload'
+import { beginImageUpload, uploadPrivateImage } from '../../../services/image-upload'
+import { releaseUnbound } from '../../../resources/leases'
 
 export default defineEventHandler((event) =>
   workspaceOperation(async () => {
@@ -22,15 +23,31 @@ export default defineEventHandler((event) =>
     } catch {
       throw createError({ statusCode: 400, message: '图片名称编码无效。' })
     }
-    const data = await readLimitedBody(event, MAX_IMAGE_BYTES)
-    return {
-      image: await uploadPrivateImage(getDatabase(), getObjectStore(), {
-        ownerId: user.id,
-        uploadKey,
-        name,
-        mimeType,
-        data,
-      }),
+    const db = getDatabase()
+    const lease = await beginImageUpload(
+      db,
+      user.id,
+      uploadKey,
+      Number(getHeader(event, 'content-length')),
+    )
+    try {
+      const data = await readLimitedBody(event, MAX_IMAGE_BYTES)
+      return {
+        image: await uploadPrivateImage(
+          db,
+          getObjectStore(),
+          {
+            ownerId: user.id,
+            uploadKey,
+            name,
+            mimeType,
+            data,
+          },
+          lease,
+        ),
+      }
+    } finally {
+      await releaseUnbound(db, lease).catch(() => {})
     }
   }),
 )

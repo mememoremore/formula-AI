@@ -15,6 +15,7 @@
     "server/database/**/*.ts",
     "server/auth/**/*.ts",
     "server/storage/**/*.ts",
+    "server/resources/**/*.ts",
     "server/images/**/*.ts",
     "server/queue/**/*.ts",
     "server/worker/**/*.ts",

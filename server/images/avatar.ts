@@ -1,3 +1,4 @@
+import { MAX_AVATAR_BYTES } from '../resources/policy'
 import sharp from 'sharp'
 import { normalizeImage } from './normalize-image'
 import { WorkspaceError } from '../services/workspace-error'
@@ -9,5 +10,10 @@ export async function normalizeAvatar(dataUrl: string) {
   if (!bytes.length || bytes.length > 1_000_000)
     throw new WorkspaceError(413, '头像过大，请重新裁剪。')
   const image = await normalizeImage(bytes, match[1]!)
-  return sharp(image.data).resize(512, 512, { fit: 'cover' }).webp({ quality: 85 }).toBuffer()
+  const output = await sharp(image.data)
+    .resize(512, 512, { fit: 'cover' })
+    .webp({ quality: 85 })
+    .toBuffer()
+  if (output.length > MAX_AVATAR_BYTES) throw new WorkspaceError(413, '头像过大，请重新裁剪。')
+  return output
 }

@@ -4,6 +4,8 @@ import {
   GetObjectCommand,
   DeleteObjectCommand,
   HeadBucketCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
 } from '@aws-sdk/client-s3'
 
 export interface StorageConfiguration {
@@ -19,6 +21,10 @@ export interface PrivateObjectStore {
   get(key: string): Promise<Buffer>
   remove(key: string): Promise<void>
   check(): Promise<void>
+  head?(key: string): Promise<{ size: number; modifiedAt: Date } | null>
+  list?(
+    cursor?: string,
+  ): Promise<{ objects: { key: string; size: number; modifiedAt: Date }[]; cursor?: string }>
 }
 
 /** 业务只依赖此接口；更换 S3 兼容服务无需改图片与公式代码。 */
@@ -41,6 +47,42 @@ export function createObjectStore(config: StorageConfiguration): PrivateObjectSt
   })
   return {
     bucket: config.bucket,
+    async head(key) {
+      try {
+        const value = await client.send(new HeadObjectCommand({ Bucket: config.bucket, Key: key }))
+        if (value.ContentLength === undefined || !value.LastModified)
+          throw new Error('Incomplete object metadata')
+        return { size: value.ContentLength, modifiedAt: value.LastModified }
+      } catch (error) {
+        if (
+          error instanceof Error &&
+          '$metadata' in error &&
+          (error.$metadata as { httpStatusCode?: number }).httpStatusCode === 404
+        )
+          return null
+        throw error
+      }
+    },
+    async list(cursor) {
+      const page = await client.send(
+        new ListObjectsV2Command({
+          Bucket: config.bucket,
+          ContinuationToken: cursor,
+          MaxKeys: 500,
+        }),
+      )
+      if (
+        page.IsTruncated &&
+        (!page.NextContinuationToken || page.NextContinuationToken === cursor)
+      )
+        throw new Error('Invalid inventory cursor')
+      const objects = (page.Contents ?? []).map((object) => {
+        if (!object.Key || object.Size === undefined || !object.LastModified)
+          throw new Error('Incomplete object inventory')
+        return { key: object.Key, size: object.Size, modifiedAt: object.LastModified }
+      })
+      return { objects, cursor: page.IsTruncated ? page.NextContinuationToken : undefined }
+    },
     async put(key, data, contentType) {
       await client.send(
         new PutObjectCommand({
