@@ -52,6 +52,7 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
   async function recognize(file: File | null, mode: RecognitionMode) {
     const owner = ownerId.value
     if (!owner || controller || disposed) throw new Error('当前不能提交')
+    draft.requireRecovery()
     const active = new AbortController()
     controller = active
     try {
@@ -119,6 +120,7 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
     const owner = ownerId.value
     if (!owner || controller || disposed || task.status !== 'FAILED')
       throw new Error('当前不能重试')
+    draft.requireRecovery()
     const active = new AbortController()
     controller = active
     try {
@@ -139,5 +141,14 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
       }
     }
   }
-  return { stage, receipt, uncertain, recognize, retry, retryReceipt, cancel }
+  return {
+    stage,
+    receipt,
+    uncertain,
+    recognize,
+    retry,
+    retryReceipt,
+    cancel,
+    recoveryReady: draft.recoveryReady,
+  }
 }

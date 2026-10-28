@@ -1,4 +1,5 @@
 import type { RecognitionTaskState } from '../../shared/types/tasks'
+import { formulaViewsInvalidated, usageInvalidated } from './account-cache'
 export interface RecognitionReceipt {
   ownerId: string
   fileId: string
@@ -13,12 +14,12 @@ export function receiptIdentity(value: RecognitionReceipt) {
 export function parseRecognitionReceipts(raw: string | null): RecognitionReceipt[] {
   try {
     const rows: unknown = JSON.parse(raw ?? '[]')
-    if (!Array.isArray(rows) || rows.length > 20) return []
+    if (!Array.isArray(rows) || rows.length > 20) throw new Error('无效识别恢复记录')
     const text = (value: unknown): value is string =>
       typeof value === 'string' && value.length > 0 && value.length <= 100
     const result: RecognitionReceipt[] = []
     for (const item of rows as unknown[]) {
-      if (!item || typeof item !== 'object') return []
+      if (!item || typeof item !== 'object') throw new Error('无效识别恢复记录')
       const row = item as Record<string, unknown>
       if (
         !text(row.ownerId) ||
@@ -27,7 +28,7 @@ export function parseRecognitionReceipts(raw: string | null): RecognitionReceipt
         (row.mode !== 'handwritten' && row.mode !== 'printed') ||
         (row.sourceTaskId !== undefined && !text(row.sourceTaskId))
       )
-        return []
+        throw new Error('无效识别恢复记录')
       const value: RecognitionReceipt = {
         ownerId: row.ownerId,
         fileId: row.fileId,
@@ -35,12 +36,13 @@ export function parseRecognitionReceipts(raw: string | null): RecognitionReceipt
         mode: row.mode,
         ...(row.sourceTaskId ? { sourceTaskId: row.sourceTaskId } : {}),
       }
-      if (result.some((item) => receiptIdentity(item) === receiptIdentity(value))) return []
+      if (result.some((item) => receiptIdentity(item) === receiptIdentity(value)))
+        throw new Error('重复识别恢复记录')
       result.push(value)
     }
     return result
   } catch {
-    return []
+    throw new Error('无法安全读取识别恢复记录')
   }
 }
 /** 不把合法的自动重试（PROCESSING -> QUEUED）误判成旧响应。 */
@@ -62,10 +64,8 @@ export function acceptRecognitionSnapshot(
 export function recognitionInvalidates(key: string, event: 'submitted' | 'changed' | 'completed') {
   return (
     key.startsWith('account-history') ||
-    (event === 'submitted' && (key.startsWith('account-usage') || key === 'account-overview')) ||
-    (event === 'completed' &&
-      (key.startsWith('account-library-') ||
-        ['home-recent', 'account-categories', 'account-overview'].includes(key)))
+    (event === 'submitted' && (usageInvalidated(key) || key === 'account-overview')) ||
+    (event === 'completed' && (formulaViewsInvalidated(key) || key === 'account-overview'))
   )
 }
 /** 计算上传前的候选入口；调用方继续使用共享导航校验，不改变全局规则。 */

@@ -35,7 +35,6 @@ async function save() {
       },
     )
     if (disposed) return
-    clearNuxtData(`saved-formula-${props.formulaId}`)
     emit('saved', formula)
     emit('close')
   } catch (error) {

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usageInvalidated } from '~/utils/account-cache'
 import type { ExportTaskState } from '#shared/types/tasks'
 import {
   acceptExportSnapshot,
@@ -49,7 +50,7 @@ watch(
     if (!value) return
     accepted = value
     if (import.meta.client && previous && value.status !== previous.status)
-      clearNuxtData((key) => key.startsWith('account-usage'))
+      clearNuxtData(usageInvalidated)
   },
   { immediate: true },
 )
@@ -105,7 +106,7 @@ async function retry() {
     } catch {
       /* 已确认结果仍可安全打开。 */
     }
-    clearNuxtData((key) => key.startsWith('account-usage'))
+    clearNuxtData(usageInvalidated)
     await navigateTo('/exports/' + encodeURIComponent(next.id), { replace: true })
   } catch (cause) {
     if (current())

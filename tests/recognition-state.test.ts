@@ -56,7 +56,7 @@ test('恢复数据损坏、重复、过多或类型错误时拒绝使用', () =>
       JSON.stringify([{ ...receipt, [key]: 5 }]),
     ),
   ])
-    assert.deepEqual(parseRecognitionReceipts(raw), [])
+    assert.throws(() => parseRecognitionReceipts(raw))
   assert.deepEqual(parseRecognitionReceipts(null), [])
 })
 test('任务终态和较旧尝试快照不能覆盖当前状态', () => {

@@ -20,9 +20,14 @@ export default defineNuxtPlugin(() => {
     uncertain: boolean
   } | null>(null)
   const receipts = shallowRef<RecognitionReceipt[]>([]),
-    recoveryWarning = ref('')
-  let initialized = import.meta.server
+    recoveryWarning = ref(''),
+    recoveryReady = ref(false)
   let confirmedOwner: string | null | undefined
+  function requireRecovery() {
+    if (recoveryReady.value) return
+    const message = recoveryWarning.value || '识别恢复记录正在读取，请稍后再试。'
+    throw createError({ statusCode: 400, message, data: { message } })
+  }
   function persist() {
     if (import.meta.server) return true
     try {
@@ -35,6 +40,7 @@ export default defineNuxtPlugin(() => {
     }
   }
   function putReceipt(value: RecognitionReceipt) {
+    requireRecovery()
     const rows = receipts.value.filter((row) => receiptIdentity(row) !== receiptIdentity(value))
     if (rows.length >= 20)
       throw createError({
@@ -59,7 +65,7 @@ export default defineNuxtPlugin(() => {
       ownerId.value = null
       useUploadPreview().replacePreview(null)
     }
-    if (initialized) {
+    if (recoveryReady.value) {
       receipts.value = receipts.value.filter((row) => row.ownerId === id)
       persist()
     }
@@ -71,7 +77,7 @@ export default defineNuxtPlugin(() => {
     ownerId.value = null
     receipts.value = []
     useUploadPreview().replacePreview(null)
-    if (initialized) persist()
+    if (recoveryReady.value) persist()
   }
   watch(
     file,
@@ -85,9 +91,11 @@ export default defineNuxtPlugin(() => {
       try {
         receipts.value = parseRecognitionReceipts(sessionStorage.getItem(RECOGNITION_RECOVERY_KEY))
       } catch {
-        recoveryWarning.value = '恢复信息暂时无法读取，请到最近识别中核对。'
+        recoveryWarning.value =
+          '识别恢复记录无法安全读取，已暂停上传和提交。请先到最近识别核对已有任务，检查会话存储后重新加载；不要盲目重新提交。'
+        return
       }
-      initialized = true
+      recoveryReady.value = true
       if (confirmedOwner !== undefined) confirmOwner(confirmedOwner)
     })
   return {
@@ -99,6 +107,8 @@ export default defineNuxtPlugin(() => {
         transfer,
         receipts,
         recoveryWarning,
+        recoveryReady,
+        requireRecovery,
         putReceipt,
         removeReceipt,
         confirmOwner,

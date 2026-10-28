@@ -33,7 +33,11 @@ const pending = ref(false),
 const feedback = computed(() => selectionError.value || error.value)
 const blocked = computed(
   () =>
-    pending.value || checking.value || sessionStatus.value !== 'success' || !!sessionError.value,
+    pending.value ||
+    checking.value ||
+    sessionStatus.value !== 'success' ||
+    !!sessionError.value ||
+    (accountFlow.value && !flow.recoveryReady.value),
 )
 const selectionLocked = computed(() => blocked.value || (accountFlow.value && flow.uncertain.value))
 let sequence = 0,

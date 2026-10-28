@@ -145,7 +145,7 @@ await request
     <button
       v-if="task.status === 'FAILED'"
       class="button button-primary button-block section"
-      :disabled="busy || !!error || status === 'pending'"
+      :disabled="busy || !!error || status === 'pending' || !flow.recoveryReady.value"
       :aria-busy="busy"
       @click="retry"
     >

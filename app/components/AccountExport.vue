@@ -2,6 +2,7 @@
 import type { SavedFormula } from '#shared/types/workspace'
 import type { ExportTaskState } from '#shared/types/tasks'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+import { usageInvalidated } from '~/utils/account-cache'
 const props = defineProps<{ formula: SavedFormula }>()
 const selected = ref(props.formula.versions.at(-1)?.id ?? '')
 const busy = ref(false),
@@ -42,7 +43,7 @@ async function submit() {
       signal: controller.signal,
     })
     if (disposed) return
-    clearNuxtData('account-usage')
+    clearNuxtData(usageInvalidated)
     await navigateTo(`/exports/${task.id}`)
   } catch (error) {
     if (!disposed)

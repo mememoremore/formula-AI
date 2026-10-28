@@ -1,5 +1,6 @@
 import type { SavedConversation } from '#shared/types/tasks'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+import { chatSubmissionInvalidated } from '~/utils/account-cache'
 import {
   acceptConversationSnapshot,
   parseConversationSnapshot,
@@ -143,12 +144,7 @@ export function useAccountChat(id: string, ownerId: string) {
       })
       if (disposed || controller.signal.aborted) return false
       intents.remove(intent)
-      clearNuxtData(
-        (key) =>
-          key.startsWith('account-conversations') ||
-          key.startsWith('account-usage') ||
-          key === 'home-recent',
-      )
+      clearNuxtData(chatSubmissionInvalidated)
       await request.refresh()
       return !disposed
     } catch (error) {

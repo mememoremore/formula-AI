@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { chatSubmissionInvalidated } from '~/utils/account-cache'
 import type { SavedConversation, VersionContext } from '#shared/types/tasks'
 import type { SavedFormula } from '#shared/types/workspace'
 import type { FormulaLibraryItem } from '#shared/types/library'
@@ -147,12 +148,7 @@ async function send() {
       signal: controller.signal,
     })
     if (disposed || current !== sequence) return
-    clearNuxtData(
-      (key) =>
-        key.startsWith('account-conversations') ||
-        key.startsWith('account-usage') ||
-        key === 'home-recent',
-    )
+    clearNuxtData(chatSubmissionInvalidated)
     draft.value = ''
     // 先完成导航，再清掉用于离开守卫和刷新恢复的请求意图。
     await navigateTo('/ai/' + intent.conversationId, { replace: true })

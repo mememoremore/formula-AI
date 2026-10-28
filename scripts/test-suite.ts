@@ -16,6 +16,7 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
       'tests/chat-state.test.ts',
       'tests/chat-content.test.ts',
       'tests/account-state.test.ts',
+      'tests/account-cache.test.ts',
       'tests/profile.test.ts',
       'tests/export-state.test.ts',
     ],
