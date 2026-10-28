@@ -7,7 +7,7 @@ import {
   docxMimeType,
   type FormulaDocumentConverter,
 } from '../documents/formula-document'
-import { completeClaim, type RunningJob } from '../queue/claim'
+import { completeClaim, touchClaim, LostJobClaim, type RunningJob } from '../queue/claim'
 import { runTask } from './lifecycle'
 import { reserveResource, releaseUnbound } from '../resources/leases'
 import { prepareFile, putAndPublish } from '../resources/files'
@@ -51,10 +51,18 @@ export async function processExport(
         sizeBytes: bytes.length,
       })
       await putAndPublish(db, store, lease, file, bytes, async (tx) => {
-        await tx.exportTask.update({
-          where: { id: task.id },
+        await touchClaim(boss, tx, job)
+        const changed = await tx.exportTask.updateMany({
+          where: {
+            id: task.id,
+            ownerId: task.ownerId,
+            queueJobId: job.id,
+            status: 'PROCESSING',
+            attemptCount: job.retryCount + 1,
+          },
           data: { status: 'COMPLETED', fileId, finishedAt: new Date(), errorMessage: null },
         })
+        if (!changed.count) throw new LostJobClaim()
         await completeClaim(boss, tx, job)
       })
     } finally {

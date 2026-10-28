@@ -19,9 +19,18 @@ export async function processChat(
       where: { id: job.data.taskId, ownerId: job.data.ownerId, queueJobId: job.id },
       include: { conversation: { include: { formulaVersion: true } } },
     })
-    const initialized = await db.chatTurn.updateMany({
-      where: { id: turn.id, status: 'PROCESSING', attemptCount: job.retryCount + 1 },
-      data: { partialContent: '', responseIsMock: adapter.isMock, responseModel: adapter.model },
+    const initialized = await db.$transaction(async (tx) => {
+      await touchClaim(boss, tx, job)
+      return tx.chatTurn.updateMany({
+        where: {
+          id: turn.id,
+          ownerId: turn.ownerId,
+          queueJobId: job.id,
+          status: 'PROCESSING',
+          attemptCount: job.retryCount + 1,
+        },
+        data: { partialContent: '', responseIsMock: adapter.isMock, responseModel: adapter.model },
+      })
     })
     if (!initialized.count) throw new LostJobClaim()
     const messages = await db.chatMessage.findMany({
@@ -42,6 +51,7 @@ export async function processChat(
           where: {
             id: turn.id,
             ownerId: turn.ownerId,
+            queueJobId: job.id,
             status: 'PROCESSING',
             attemptCount: job.retryCount + 1,
           },
@@ -93,7 +103,13 @@ export async function processChat(
         await tx.$queryRaw`SELECT id FROM conversations WHERE id=${turn.conversationId}::uuid AND "ownerId"=${turn.ownerId}::uuid FOR UPDATE`
         await touchClaim(boss, tx, job)
         const active = await tx.chatTurn.findFirst({
-          where: { id: turn.id, status: 'PROCESSING', attemptCount: job.retryCount + 1 },
+          where: {
+            id: turn.id,
+            ownerId: turn.ownerId,
+            queueJobId: job.id,
+            status: 'PROCESSING',
+            attemptCount: job.retryCount + 1,
+          },
         })
         if (!active) throw new LostJobClaim()
         const question = await tx.chatMessage.findFirstOrThrow({

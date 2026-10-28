@@ -1,10 +1,8 @@
-import type { PgBoss } from 'pg-boss'
 import type { PrismaClient } from '../generated/prisma/client'
-import { queues } from '../queue/client'
+export { reconcileTask } from './task-reconciliation'
 import { hasValidResourceIdentity } from './private-resources'
 import { WorkspaceError } from '../services/workspace-error'
 import type {
-  JobKind,
   TaskState,
   RecognitionTaskState,
   ExportTaskState,
@@ -57,89 +55,6 @@ export async function readRecognitionHistory(
   }
 }
 
-/** Worker 在最后一次尝试中崩溃时，由持久化队列状态修复业务状态，不依赖进程内定时器。 */
-export async function reconcileTask(
-  db: PrismaClient,
-  boss: PgBoss,
-  kind: JobKind,
-  ownerId: string,
-  id: string,
-) {
-  if (!hasValidResourceIdentity(ownerId, id)) throw new WorkspaceError(404, '未找到这个任务。')
-  // 三类任务具有相同的状态列；分开查询以保留 Prisma 生成类型约束。
-  const task =
-    kind === 'recognition'
-      ? await db.recognitionTask.findFirst({ where: { id, ownerId } })
-      : kind === 'chat'
-        ? await db.chatTurn.findFirst({ where: { id, ownerId } })
-        : await db.exportTask.findFirst({ where: { id, ownerId } })
-  if (!task) throw new WorkspaceError(404, '未找到这个任务。')
-  if (task.queueJobId && ['QUEUED', 'PROCESSING'].includes(task.status)) {
-    const [job] = await boss.findJobs(queues[kind], { id: task.queueJobId })
-    if (!job || ['failed', 'cancelled'].includes(job.state)) {
-      const data = {
-        status: 'FAILED' as const,
-        finishedAt: new Date(),
-        errorMessage: '任务处理已中断，请重新提交。',
-        ...(kind === 'recognition' ? { errorCode: 'WORKER_INTERRUPTED' } : {}),
-      }
-      const where = {
-        id,
-        ownerId,
-        queueJobId: task.queueJobId,
-        status: { in: ['QUEUED', 'PROCESSING'] as ('QUEUED' | 'PROCESSING')[] },
-      }
-      if (kind === 'recognition') await db.recognitionTask.updateMany({ where, data })
-      else if (kind === 'chat')
-        await db.$transaction(async (tx) => {
-          const turn = await tx.chatTurn.findFirst({ where: { id, ownerId } })
-          if (!turn) return
-          await tx.$queryRaw`SELECT id FROM conversations WHERE id=${turn.conversationId}::uuid AND "ownerId"=${ownerId}::uuid FOR UPDATE`
-          const updated = await tx.chatTurn.updateMany({ where, data })
-          if (!updated.count) return
-          const question = await tx.chatMessage.findFirst({
-            where: { turnId: id, ownerId, role: 'USER' },
-          })
-          if (question)
-            await tx.chatMessage.createMany({
-              data: [
-                {
-                  ownerId,
-                  conversationId: turn.conversationId,
-                  turnId: id,
-                  role: 'ASSISTANT',
-                  position: question.position + 1,
-                  content: turn.partialContent
-                    ? `${turn.partialContent}\n\n【回答未完成】${data.errorMessage}`
-                    : data.errorMessage,
-                  status: 'FAILED',
-                  isMock: turn.responseIsMock,
-                  modelVersion: turn.responseModel,
-                },
-              ],
-              skipDuplicates: true,
-            })
-        })
-      else await db.exportTask.updateMany({ where, data })
-    } else if (['created', 'retry'].includes(job.state) && task.status === 'PROCESSING') {
-      const where = {
-        id,
-        ownerId,
-        queueJobId: task.queueJobId,
-        status: 'PROCESSING' as const,
-        attemptCount: { lte: job.retryCount + 1 },
-      }
-      const data = {
-        status: 'QUEUED' as const,
-        finishedAt: null,
-        errorMessage: '上次处理已中断，正在等待重试。',
-      }
-      if (kind === 'recognition') await db.recognitionTask.updateMany({ where, data })
-      else if (kind === 'chat') await db.chatTurn.updateMany({ where, data })
-      else await db.exportTask.updateMany({ where, data })
-    }
-  }
-}
 export async function readRecognitionTask(
   db: PrismaClient,
   ownerId: string,

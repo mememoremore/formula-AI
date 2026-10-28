@@ -95,7 +95,7 @@ export function cleanTestProcessEnvironment(): NodeJS.ProcessEnv {
   const env = { ...process.env }
   for (const key of Object.keys(env))
     if (
-      /^(NUXT_|NITRO_|PG|AWS_|DOTENV_|FORMULA_TEST_|FORMULA_RESOURCE_|RECOGNITION_|OPENAI_|DEEPSEEK_|BASE_URL$|TEST_BASE_URL$|DATABASE_URL$|NODE_OPTIONS$)/i.test(
+      /^(NUXT_|NITRO_|PG|AWS_|DOTENV_|FORMULA_TEST_|FORMULA_RESOURCE_|FORMULA_WORKER_|RECOGNITION_|OPENAI_|DEEPSEEK_|BASE_URL$|TEST_BASE_URL$|DATABASE_URL$|NODE_OPTIONS$)/i.test(
         key,
       )
     )

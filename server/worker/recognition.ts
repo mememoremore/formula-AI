@@ -3,7 +3,7 @@ import type { PrismaClient } from '../generated/prisma/client'
 import type { PrivateObjectStore } from '../storage/object-store'
 import { createFormulaInTransaction } from '../database/formulas'
 import { mockRecognitionAdapter, type RecognitionAdapter } from '../services/recognition-adapter'
-import { completeClaim, type RunningJob } from '../queue/claim'
+import { completeClaim, touchClaim, LostJobClaim, type RunningJob } from '../queue/claim'
 import { runTask } from './lifecycle'
 import { withInferenceDeadline } from '../inference/deadline'
 
@@ -36,6 +36,18 @@ export async function processRecognition(
       job.signal,
     )
     await db.$transaction(async (tx) => {
+      await touchClaim(boss, tx, job)
+      const changed = await tx.recognitionTask.updateMany({
+        where: {
+          id: task.id,
+          ownerId: task.ownerId,
+          queueJobId: job.id,
+          status: 'PROCESSING',
+          attemptCount: job.retryCount + 1,
+        },
+        data: { status: 'COMPLETED', finishedAt: new Date(), errorCode: null, errorMessage: null },
+      })
+      if (!changed.count) throw new LostJobClaim()
       await createFormulaInTransaction(tx, {
         ownerId: task.ownerId,
         title: task.inputFile.name.replace(/\.[^.]+$/, '').slice(0, 100) || '未命名公式',
@@ -44,10 +56,6 @@ export async function processRecognition(
         origin: 'RECOGNITION',
         modelVersion: result.modelVersion,
         isMock: result.isMock,
-      })
-      await tx.recognitionTask.update({
-        where: { id: task.id },
-        data: { status: 'COMPLETED', finishedAt: new Date(), errorCode: null, errorMessage: null },
       })
       await completeClaim(boss, tx, job)
     })
