@@ -2,14 +2,14 @@ import { requireAccountWriter } from '../../../utils/auth'
 import { getDatabase } from '../../../utils/database'
 import { getObjectStore } from '../../../utils/storage'
 import { readLimitedBody } from '../../../utils/request-body'
-import { workspaceOperation } from '../../../utils/workspace-operation'
+import { workspaceRequest } from '../../../utils/workspace-operation'
 import { hasValidResourceIdentity } from '../../../database/private-resources'
 import { MAX_IMAGE_BYTES } from '../../../images/normalize-image'
 import { beginImageUpload, uploadPrivateImage } from '../../../services/image-upload'
 import { releaseUnbound } from '../../../resources/leases'
 
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     const user = await requireAccountWriter(event)
     const uploadKey = getHeader(event, 'x-upload-key') ?? ''
     if (!hasValidResourceIdentity(user.id, uploadKey))

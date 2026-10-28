@@ -3,14 +3,14 @@ import { createEventStream } from 'h3'
 import { getAuthentication, requireAccountUser } from '../../../../utils/auth'
 import { getDatabase } from '../../../../utils/database'
 import { getQueue } from '../../../../utils/queue'
-import { workspaceOperation } from '../../../../utils/workspace-operation'
+import { workspaceRequest } from '../../../../utils/workspace-operation'
 import type { SavedConversation } from '#shared/types/tasks'
 import { readConversation, readConversationForStream } from '../../../../database/conversations'
 import { reconcileTask } from '../../../../database/task-queries'
 
 /** 读取持久化快照，连接或重连均不启动模型、不扣额度。 */
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     const user = await requireAccountUser(event)
     const id = getRouterParam(event, 'id') ?? ''
     const initial = await readConversation(getDatabase(), user.id, id)

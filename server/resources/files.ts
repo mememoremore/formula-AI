@@ -1,3 +1,4 @@
+import { diagnostic } from '../diagnostics/operations'
 import { createHash, randomUUID } from 'node:crypto'
 import type { PrismaClient, ResourceLease, StoredFile, Prisma } from '../generated/prisma/client'
 import type { PrivateObjectStore } from '../storage/object-store'
@@ -21,7 +22,7 @@ export async function audit(
   outcome: string,
   operationId = randomUUID(),
 ) {
-  await tx.storageCleanupAudit.create({
+  const record = await tx.storageCleanupAudit.create({
     data: {
       operationId,
       fileId: file.id,
@@ -29,6 +30,15 @@ export async function audit(
       action,
       outcome,
     },
+  })
+  diagnostic('storage.audit', {
+    fileId: file.id,
+    auditId: record.id,
+    operationId,
+    auditAction: action,
+    auditOutcome: outcome,
+    stage: 'audit',
+    outcome: 'observed',
   })
 }
 export async function fileReferenced(tx: ResourceTransaction, file: StoredFile) {
@@ -45,7 +55,7 @@ export async function prepareFile(
   data: Omit<Prisma.StoredFileUncheckedCreateInput, 'ownerId' | 'status'>,
   existingId?: string,
 ) {
-  return resourceTransaction(db, lease.ownerId, async (tx) => {
+  const prepared = await resourceTransaction(db, lease.ownerId, async (tx) => {
     const current = await requireLease(tx, lease)
     if (current.fileId) throw new WorkspaceError(409, '请求已经绑定文件。')
     const delta = BigInt(data.sizeBytes) - current.reservedBytes
@@ -70,6 +80,13 @@ export async function prepareFile(
     })
     return file
   })
+  diagnostic('resource.file', {
+    ownerId: lease.ownerId,
+    leaseId: lease.id,
+    fileId: prepared.id,
+    outcome: 'committed',
+  })
+  return prepared
 }
 /** READY、账号资料/任务结果和许可释放一次提交；回调仅包含数据库操作。 */
 export async function publishFile<T>(

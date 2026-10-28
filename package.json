@@ -25,6 +25,7 @@
     "test:db:migrate": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-migrate.ts",
     "resources:audit:test": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/resource-audit.ts",
     "test:resources": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts resources",
+    "test:lease-recovery": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts lease-recovery",
     "test:recovery": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts recovery",
     "test:jobs": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts jobs",
     "test:inference": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts protocols",

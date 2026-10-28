@@ -1,3 +1,5 @@
+import { diagnostic } from '../server/diagnostics/operations'
+import { leaseRecoveryPolicy, startLeaseRecovery } from '../server/resources/lease-recovery'
 import 'dotenv/config'
 import { createDatabaseClient } from '../server/database/client'
 import { createQueueClient } from '../server/queue/client'
@@ -5,6 +7,7 @@ import { createObjectStore } from '../server/storage/object-store'
 import { registerWorkers } from '../server/worker/start'
 import { recoveryPolicy, startTaskRecovery } from '../server/worker/recovery'
 const recoveryOptions = recoveryPolicy()
+const leaseOptions = leaseRecoveryPolicy()
 const db = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
 const boss = createQueueClient(process.env.NUXT_DATABASE_URL ?? '', { worker: true })
 const store = createObjectStore({
@@ -19,6 +22,7 @@ let stopping = false,
   startup: Promise<void> | undefined,
   shutdown: Promise<void> | undefined
 let recovery: Awaited<ReturnType<typeof startTaskRecovery>> | undefined
+let leaseRecovery: Awaited<ReturnType<typeof startLeaseRecovery>> | undefined
 function stop() {
   if (shutdown) return shutdown
   stopping = true
@@ -26,7 +30,7 @@ function stop() {
   shutdown = (async () => {
     // 启动中的核对观察signal后退出；不在异步初始化尚未结束时断开数据库。
     await startup?.catch(() => {})
-    await recovery?.stop()
+    await Promise.all([recovery?.stop(), leaseRecovery?.stop()])
     try {
       await boss.stop({ graceful: true, timeout: 25000 })
     } finally {
@@ -40,7 +44,7 @@ for (const signal of ['SIGINT', 'SIGTERM'])
     void stop()
       .then(() => process.exit(0))
       .catch(() => {
-        console.error('Worker停止未完成，请检查进程与队列。')
+        diagnostic('worker.lifecycle', { outcome: 'unconfirmed', code: 'WORKER_STOP_FAILED' })
         process.exitCode = 1
       })
   })
@@ -56,17 +60,22 @@ async function start() {
     signal: shutdownSignal.signal,
   })
   if (stopping) return
+  leaseRecovery = await startLeaseRecovery(db, store, {
+    ...leaseOptions,
+    signal: shutdownSignal.signal,
+  })
+  if (stopping) return
   await registerWorkers(db, boss, store)
   if (!stopping)
     console.log(
-      `Worker 已启动：识别（${process.env.NUXT_RECOGNITION_PROVIDER === 'python' ? 'Python' : '模拟'}）、对话（${process.env.NUXT_AI_PROVIDER === 'deepseek' ? 'DeepSeek' : '模拟'}）与 Word 导出；后台任务核对${recoveryOptions.enabled ? '开启' : '关闭'}。`,
+      `Worker 已启动：识别（${process.env.NUXT_RECOGNITION_PROVIDER === 'python' ? 'Python' : '模拟'}）、对话（${process.env.NUXT_AI_PROVIDER === 'deepseek' ? 'DeepSeek' : '模拟'}）与 Word 导出；后台任务核对${recoveryOptions.enabled ? '开启' : '关闭'}；独立租约核对${leaseOptions.enabled ? '开启' : '关闭'}。`,
     )
 }
 startup = start()
 try {
   await startup
 } catch {
-  console.error('Worker 无法启动，请检查数据库、队列、存储及识别/对话服务配置。')
+  diagnostic('worker.lifecycle', { outcome: 'unconfirmed', code: 'WORKER_START_FAILED' })
   await stop()
   process.exitCode = 1
 }

@@ -1,3 +1,4 @@
+import { diagnostic, safeDiagnosticCode } from '../diagnostics/operations'
 import { bumpConversation } from '../database/chat-revision'
 import { lockTaskConversation } from '../database/task-lifecycle'
 import { readPromptHistory } from '../database/chat-history'
@@ -52,6 +53,7 @@ export async function processChat(
         },
       })
     })
+    diagnostic('chat.call', { callId: call.id, stage: 'prepared', outcome: 'committed' })
     const messages = await readPromptHistory(db, turn.ownerId, turn.conversationId)
     const context = turn.conversation.formulaVersion
     const controller = new AbortController()
@@ -202,6 +204,7 @@ export async function processChat(
         })
         await completeClaim(boss, tx, job)
       })
+      diagnostic('chat.call', { callId: call.id, outcome: 'committed' })
     } catch (error) {
       const stopped = await db.chatTurn
         .findFirst({
@@ -224,6 +227,12 @@ export async function processChat(
         ...(usage ? { usageSource: 'PROVIDER_REPORTED', ...usage } : {}),
       }).catch(() => {
         /* 后台根据真实队列事实核对，不能把未知调用当成未调用。 */
+      })
+      diagnostic('chat.call', {
+        callId: call.id,
+        stage: 'finished',
+        outcome: 'unconfirmed',
+        code: error instanceof LostJobClaim ? 'LOST_CLAIM' : safeDiagnosticCode(error),
       })
       throw error
     } finally {

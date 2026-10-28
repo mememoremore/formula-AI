@@ -1,14 +1,14 @@
 import { requireAccountWriter } from '../../../../utils/auth'
 import { getDatabase } from '../../../../utils/database'
 import { readWorkspaceJson } from '../../../../utils/request-body'
-import { workspaceOperation } from '../../../../utils/workspace-operation'
+import { workspaceRequest } from '../../../../utils/workspace-operation'
 import { isRecord, isText } from '../../../../utils/validate-body'
 import { hasValidResourceIdentity } from '../../../../database/private-resources'
 import { appendFormulaVersion } from '../../../../database/formulas'
 import { readSavedFormula } from '../../../../database/formula-queries'
 
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     const user = await requireAccountWriter(event)
     const id = getRouterParam(event, 'id') ?? ''
     // 先判断记录归属，外部资源与不存在资源保持一致的 404。

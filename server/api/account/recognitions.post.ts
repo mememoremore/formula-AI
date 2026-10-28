@@ -1,7 +1,7 @@
 import { requireAccountWriter } from '../../utils/auth'
 import { getDatabase } from '../../utils/database'
 import { readWorkspaceJson } from '../../utils/request-body'
-import { workspaceOperation } from '../../utils/workspace-operation'
+import { workspaceRequest } from '../../utils/workspace-operation'
 import { isRecord } from '../../utils/validate-body'
 import { hasValidResourceIdentity } from '../../database/private-resources'
 import { submitRecognition } from '../../database/task-submissions'
@@ -9,7 +9,7 @@ import { readRecognitionTask } from '../../database/task-queries'
 import { getQueue, getUsageLimits } from '../../utils/queue'
 
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     const user = await requireAccountWriter(event)
     const body = await readWorkspaceJson(event)
     if (

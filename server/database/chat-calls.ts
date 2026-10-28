@@ -2,6 +2,7 @@ import type { Prisma, PrismaClient } from '../generated/prisma/client'
 import { lockQueueRecord, queueOwnsTask } from '../queue/record'
 import { queues } from '../queue/client'
 import { lockTaskConversation } from './task-lifecycle'
+import { diagnostic } from '../diagnostics/operations'
 
 export async function recordCallObservation(
   db: PrismaClient,
@@ -24,7 +25,7 @@ export async function reconcileChatCalls(db: PrismaClient, limit: number, after?
     take: limit,
   })
   for (const row of rows) {
-    await db.$transaction(async (tx) => {
+    const changed = await db.$transaction(async (tx) => {
       await lockTaskConversation(tx, 'chat', row.ownerId, row.turnId)
       const job = await lockQueueRecord(tx, queues.chat, row.queueJobId)
       if (
@@ -35,7 +36,7 @@ export async function reconcileChatCalls(db: PrismaClient, limit: number, after?
         job.retryCount + 1 === row.workerAttempt
       )
         return
-      await tx.chatCallAttempt.updateMany({
+      const result = await tx.chatCallAttempt.updateMany({
         where: {
           id: row.id,
           resultCommittedAt: null,
@@ -43,7 +44,20 @@ export async function reconcileChatCalls(db: PrismaClient, limit: number, after?
         },
         data: { status: 'UNKNOWN', closedAt: new Date() },
       })
+      return result.count
     })
+    if (changed)
+      diagnostic('chat.call', {
+        operation: 'chat',
+        ownerId: row.ownerId,
+        taskId: row.turnId,
+        jobId: row.queueJobId,
+        attempt: row.workerAttempt,
+        callId: row.id,
+        stage: 'reconcile',
+        outcome: 'unconfirmed',
+        code: 'CALL_OUTCOME_UNKNOWN',
+      })
   }
   return rows.length === limit ? rows.at(-1)?.id : undefined
 }

@@ -4,6 +4,7 @@ import { resourceTransaction } from './leases'
 import { audit, fileReferenced, objectFingerprint } from './files'
 import { randomUUID } from 'node:crypto'
 import { resourcePolicy } from './policy'
+import { diagnostic } from '../diagnostics/operations'
 export type InventoryFinding = {
   fileId?: string
   leaseId?: string
@@ -99,22 +100,32 @@ export function cleanupAgeEligible(
   return now - file.updatedAt.getTime() >= grace
 }
 /** 撤销过期执行 token，但不释放字节或槽位；TTL 本身不能证明对象不存在。 */
-export async function reconcileExpiredLeases(db: PrismaClient, now = new Date()) {
+export async function reconcileExpiredLeases(
+  db: PrismaClient,
+  now = new Date(),
+  options: { batchSize?: number; signal?: AbortSignal } = {},
+) {
+  const batchSize = options.batchSize ?? 500
+  if (!Number.isSafeInteger(batchSize) || batchSize < 1 || batchSize > 500)
+    throw new Error('Invalid lease reconciliation batch')
+  if (options.signal?.aborted) return { reviewed: 0, releasedBytes: 0 }
   const leases = await db.resourceLease.findMany({
     where: { status: 'ACTIVE', expiresAt: { lte: now } },
     select: { id: true, ownerId: true },
-    take: 500,
+    take: batchSize,
+    orderBy: { id: 'asc' },
   })
   let reviewed = 0
-  for (const lease of leases)
+  for (const lease of leases) {
+    if (options.signal?.aborted) break
     await resourceTransaction(db, lease.ownerId, async (tx) => {
       const result = await tx.resourceLease.updateMany({
         where: { id: lease.id, status: 'ACTIVE', expiresAt: { lte: now } },
         data: { status: 'REVIEW_REQUIRED', executionToken: randomUUID() },
       })
       reviewed += result.count
-      if (result.count)
-        await tx.storageCleanupAudit.create({
+      if (result.count) {
+        const record = await tx.storageCleanupAudit.create({
           data: {
             operationId: lease.id,
             objectFingerprint: objectFingerprint('lease', lease.id),
@@ -122,10 +133,24 @@ export async function reconcileExpiredLeases(db: PrismaClient, now = new Date())
             outcome: 'REVIEW_REQUIRED',
           },
         })
+        diagnostic('storage.audit', {
+          ownerId: lease.ownerId,
+          leaseId: lease.id,
+          auditId: record.id,
+          operationId: lease.id,
+          auditAction: 'LEASE_REVOKE',
+          auditOutcome: 'REVIEW_REQUIRED',
+          stage: 'audit',
+          outcome: 'observed',
+        })
+      }
     })
+    // 上面的持久审计仍与token撤销同事务；这里才表示该项事务已返回。
+    diagnostic('resource.lease', { ownerId: lease.ownerId, leaseId: lease.id, outcome: 'returned' })
+  }
   return { reviewed, releasedBytes: 0 }
 }
-/** apply 只能由已完成 R1 身份核验的入口调用；没有后台调度器或 GET 隐式清理。 */
+/** apply 只能由已完成 R1 身份核验的入口调用；文件删除没有后台调度器或 GET 隐式清理。 */
 export async function cleanupFile(
   db: PrismaClient,
   store: PrivateObjectStore,

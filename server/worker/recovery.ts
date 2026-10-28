@@ -1,3 +1,4 @@
+import { diagnostic, safeDiagnosticCode } from '../diagnostics/operations'
 import { reconcileChatCalls } from '../database/chat-calls'
 import type { PrismaClient } from '../generated/prisma/client'
 import type { PgBoss } from 'pg-boss'
@@ -76,7 +77,28 @@ export async function startTaskRecovery(
       }
       for (const task of tasks) {
         if (isStopped()) break
-        const outcome = await reconcileTask(db, boss, kind, task.ownerId, task.id)
+        const outcome = await reconcileTask(db, boss, kind, task.ownerId, task.id).catch(
+          (error) => {
+            diagnostic('task.recovery', {
+              operation: kind,
+              ownerId: task.ownerId,
+              taskId: task.id,
+              stage: 'reconcile',
+              outcome: 'unconfirmed',
+              code: safeDiagnosticCode(error),
+            })
+            throw error
+          },
+        )
+        if (outcome !== 'unchanged')
+          diagnostic('task.recovery', {
+            operation: kind,
+            ownerId: task.ownerId,
+            taskId: task.id,
+            stage: 'reconcile',
+            outcome: outcome === 'changed' ? 'committed' : 'unconfirmed',
+            code: outcome === 'unresolved' ? 'TASK_RECONCILIATION_UNRESOLVED' : undefined,
+          })
         if (outcome === 'changed') changed++
         if (outcome === 'unresolved') unresolved++
         cursors[kind] = task.id
@@ -85,13 +107,23 @@ export async function startTaskRecovery(
     }
     if (!isStopped()) callCursor = await reconcileChatCalls(db, options.batchSize, callCursor)
     if (changed || unresolved)
-      console.info(`任务核对：修复${changed}项，待人工核对${unresolved}项。`)
+      diagnostic('task.recovery', {
+        operation: 'task-recovery',
+        reviewed: changed,
+        outcome: unresolved ? 'unconfirmed' : 'returned',
+      })
   }
   function schedule() {
     if (isStopped()) return
     timer = setTimeout(() => {
       pending = sweep()
-        .catch(() => console.warn('任务后台核对失败，保留状态并等待下次核对。'))
+        .catch(() =>
+          diagnostic('task.recovery', {
+            operation: 'task-recovery',
+            code: 'TASK_RECONCILIATION_FAILED',
+            outcome: 'unconfirmed',
+          }),
+        )
         .finally(schedule)
     }, options.intervalMs)
     timer.unref()

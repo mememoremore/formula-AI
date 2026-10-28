@@ -1,14 +1,14 @@
 import { requireAccountUser } from '../../utils/auth'
 import { getDatabase } from '../../utils/database'
 import { getObjectStore } from '../../utils/storage'
-import { workspaceOperation } from '../../utils/workspace-operation'
+import { workspaceRequest } from '../../utils/workspace-operation'
 import { getChatSettings } from '../../utils/chat-settings'
 import { readRecognitionSettings } from '../../recognition/settings'
 import type { ServiceStatusResponse } from '../../../shared/types/services'
 
 /** 设置页显式展开时才探测；只返回状态，不输出密钥、连接串或内部地址。 */
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     await requireAccountUser(event)
     const config = useRuntimeConfig()
     async function check(id: string, name: string, operation: () => Promise<unknown>) {

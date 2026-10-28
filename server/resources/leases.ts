@@ -1,3 +1,4 @@
+import { diagnostic } from '../diagnostics/operations'
 import { randomUUID } from 'node:crypto'
 import type {
   PrismaClient,
@@ -72,7 +73,7 @@ export async function reserveResource(
     input.requestKey.length > 100
   )
     throw new Error('Invalid resource reservation')
-  return resourceTransaction(db, input.ownerId, async (tx) => {
+  const lease = await resourceTransaction(db, input.ownerId, async (tx) => {
     const duplicate = await tx.resourceLease.findFirst({
       where: {
         ownerId: input.ownerId,
@@ -117,6 +118,13 @@ export async function reserveResource(
       },
     })
   })
+  diagnostic('resource.lease', {
+    ownerId: lease.ownerId,
+    leaseId: lease.id,
+    requestKey: input.requestKey,
+    outcome: 'committed',
+  })
+  return lease
 }
 export async function requireLease(
   tx: ResourceTransaction,

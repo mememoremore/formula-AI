@@ -1,12 +1,12 @@
 import { requireAccountWriter } from '../../../utils/auth'
 import { getDatabase } from '../../../utils/database'
-import { workspaceOperation } from '../../../utils/workspace-operation'
+import { workspaceRequest } from '../../../utils/workspace-operation'
 import { readWorkspaceJson } from '../../../utils/request-body'
 import { isRecord } from '../../../utils/validate-body'
 import { hasValidResourceIdentity } from '../../../database/private-resources'
 import { createConversation, readConversation } from '../../../database/conversations'
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     const user = await requireAccountWriter(event)
     const body = await readWorkspaceJson(event)
     if (
