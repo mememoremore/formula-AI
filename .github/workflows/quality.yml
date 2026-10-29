@@ -41,8 +41,14 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: sudo apt-get update -qq && sudo apt-get install -y pandoc
+      - name: Probe system Pandoc with public fixture
+        run: |
+          pandoc --version
+          printf '$x^2$' | pandoc --from=markdown --to=docx --output="$RUNNER_TEMP/r16-probe.docx" --sandbox --fail-if-warnings
       - run: npm run test:isolated
+        if: ${{ !cancelled() }}
       - run: npm run test:documents
+        if: ${{ !cancelled() }}
       - run: npm run test:isolated:cleanup
         if: always()
       - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6

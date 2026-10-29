@@ -1,7 +1,16 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { safeTestDiagnostics } from './support/test-diagnostics'
+import { safeTestDiagnostics, safeRuntimeSignals } from './support/test-diagnostics'
+
+test('运行信号仅发布固定错误分类，绝不复制原始异常与 URL', () => {
+  assert.deepEqual(
+    safeRuntimeSignals(
+      '测试网络策略拒绝非受控连接 http://private-token@host/secret\nCannot find module password',
+    ),
+    ['TEST_NETWORK_DENIED', 'MODULE_MISSING'],
+  )
+})
 
 test('失败诊断仅发布静态源码测试名，不暴露断言/凭据/请求内容', () => {
   const secret = 'fixture-private-cookie-never-publish'

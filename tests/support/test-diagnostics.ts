@@ -35,5 +35,29 @@ export function safeTestDiagnostics(log: string, sources: Record<string, string>
     'EACCES',
     'EPERM',
   ].filter((code) => new RegExp(`\\b${code}\\b`).test(clean))
-  return { counts, failures, files, codes, unpublishedFailureNames: failed.size - failures.length }
+  const numericAssertions = [...clean.matchAll(/^\s*(actual|expected): (\d{1,6})[,\s]*$/gm)].map(
+    (match) => ({ field: match[1]!, value: Number(match[2]) }),
+  )
+  return {
+    counts,
+    failures,
+    files,
+    codes,
+    numericAssertions,
+    unpublishedFailureNames: failed.size - failures.length,
+  }
+}
+
+export function safeRuntimeSignals(log: string) {
+  const rules = {
+    TEST_NETWORK_DENIED: '测试网络策略拒绝非受控连接',
+    MODULE_MISSING: 'Cannot find module',
+    PACKAGE_MISSING: 'Cannot find package',
+    VITE_LOAD_FAILED: 'Failed to load url',
+    PANDOC_MISSING: 'Word 转换工具未配置',
+    PANDOC_CONVERSION_REJECTED: '这个 LaTeX 暂时无法完整转换',
+  }
+  return Object.entries(rules)
+    .filter(([, marker]) => log.includes(marker))
+    .map(([code]) => code)
 }

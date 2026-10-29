@@ -6,7 +6,7 @@ import { createEnvironment, launchApi } from './test-environment.ts'
 import { cleanupEnvironment } from './test-cleanup.ts'
 import { loadTestManifest, isolatedChildEnvironment } from '../tests/support/test-runtime.ts'
 import { verifyApiIdentity } from '../tests/support/test-environment.ts'
-import { safeTestDiagnostics } from '../tests/support/test-diagnostics.ts'
+import { safeTestDiagnostics, safeRuntimeSignals } from '../tests/support/test-diagnostics.ts'
 
 const mode = process.argv[2]
 const viewport = process.argv[3]
@@ -25,6 +25,7 @@ let workerRestarts = 0
 let testChild: ChildProcess | undefined
 let workerFailed = false
 let diagnostics: ReturnType<typeof safeTestDiagnostics> | undefined
+let runtimeSignals: string[] = []
 let interrupting: Promise<unknown> | undefined
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.once(signal, () => {
@@ -179,7 +180,11 @@ try {
   }
   readSources('tests')
   diagnostics = safeTestDiagnostics(readFileSync(logPath, 'utf8'), sources)
+  runtimeSignals = safeRuntimeSignals(
+    readFileSync(resolve(directory, 'api.log'), 'utf8') + '\n' + readFileSync(logPath, 'utf8'),
+  )
   if (process.exitCode !== 0) console.error('安全失败诊断：' + JSON.stringify(diagnostics))
+  if (process.exitCode !== 0) console.error('安全运行信号：' + JSON.stringify(runtimeSignals))
   console.log(
     `R16 ${mode}: exit=${process.exitCode}, ${Math.round((Date.now() - started) / 1000)}s; 私有日志已保存`,
   )
@@ -219,6 +224,7 @@ try {
         workerRestarts,
         durationMs: Date.now() - started,
         diagnostics,
+        runtimeSignals,
       }),
     )
   }
