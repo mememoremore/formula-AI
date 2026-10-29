@@ -42,6 +42,7 @@ export interface VersionContext {
   latex: string
 }
 export interface AccountMessage {
+  structuredContent?: import('../explanation').FormulaExplanation | null
   id: string
   role: 'USER' | 'ASSISTANT'
   content: string
@@ -51,11 +52,38 @@ export interface AccountMessage {
   position: number
 }
 export interface ChatTurnState extends TaskState {
+  responseKind?: 'TEXT' | 'FORMULA_EXPLANATION'
   partialContent: string
   isMock: boolean
   modelVersion: string | null
 }
+export interface BaseExplanation {
+  isMock: boolean
+  modelVersion: string | null
+  messageId: string
+  turnId: string
+  createdAt: string
+  content: string
+  structured: import('../explanation').FormulaExplanation
+  promptVersion: string
+}
+export interface ExplanationHistoryPage {
+  items: {
+    id: string
+    versionId: string
+    versionNumber: number
+    isMock: boolean
+    modelVersion: string | null
+    createdAt: string
+    status: JobStatus
+    errorMessage: string | null
+    promptVersion: string | null
+  }[]
+  nextCursor: string | null
+}
 export interface SavedConversation {
+  purpose?: 'CHAT' | 'EXPLANATION'
+  baseExplanation?: BaseExplanation | null
   /** 老客户端/旧fixtures可缺省；v2读入口运行时要求两者齐全。 */
   protocolVersion?: 2
   revision?: string

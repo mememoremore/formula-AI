@@ -1,3 +1,12 @@
+import {
+  decodeExplanation,
+  explanationText,
+  EXPLANATION_QUESTION,
+  EXPLANATION_PROMPT_VERSION,
+} from '../../shared/explanation'
+import { readBaseExplanation } from '../database/explanation-queries'
+import type { FormulaExplanation } from '../../shared/explanation'
+import type { Prisma } from '../generated/prisma/client'
 import { diagnostic, safeDiagnosticCode } from '../diagnostics/operations'
 import { bumpConversation } from '../database/chat-revision'
 import { lockTaskConversation } from '../database/task-lifecycle'
@@ -54,7 +63,14 @@ export async function processChat(
       })
     })
     diagnostic('chat.call', { callId: call.id, stage: 'prepared', outcome: 'committed' })
-    const messages = await readPromptHistory(db, turn.ownerId, turn.conversationId)
+    const structuredTurn = turn.responseKind === 'FORMULA_EXPLANATION'
+    const base =
+      !structuredTurn && turn.conversation.purpose === 'EXPLANATION'
+        ? await readBaseExplanation(db, turn.ownerId, turn.conversationId)
+        : null
+    const messages = structuredTurn
+      ? []
+      : await readPromptHistory(db, turn.ownerId, turn.conversationId, base?.turnId)
     const context = turn.conversation.formulaVersion
     const controller = new AbortController()
     const parent = job.signal ? AbortSignal.any([job.signal, controller.signal]) : controller.signal
@@ -120,11 +136,27 @@ export async function processChat(
       },
     }
     try {
+      if (
+        (structuredTurn && turn.promptVersion !== EXPLANATION_PROMPT_VERSION) ||
+        (!structuredTurn && turn.promptVersion && turn.promptVersion !== 'formula-followup-v1')
+      )
+        throw new InferenceFailure(
+          'CONFIGURATION',
+          '当前服务不支持这个Prompt版本，请联系管理员。',
+          false,
+        )
+      if (!structuredTurn && turn.conversation.purpose === 'EXPLANATION' && !base)
+        throw new InferenceFailure('INVALID_INPUT', '基础解释尚未成功，不能继续追问。', false)
       // 替身不经过HTTP；仅记录意图，绝不虚构供应商transport/用量。
       if (adapter.isMock) await observer.beforeDispatch()
       await withInferenceDeadline(async (signal) => {
         for await (const delta of adapter.stream(
           {
+            responseKind: turn.responseKind,
+            promptVersion: turn.promptVersion,
+            ...(base
+              ? { baseExplanation: { question: EXPLANATION_QUESTION, answer: base.content } }
+              : {}),
             formula: context ? { versionId: context.id, latex: context.latex } : undefined,
             messages: [...messages, { role: 'user', content: turn.question }],
           },
@@ -141,14 +173,14 @@ export async function processChat(
               false,
             )
           if (delta.finishReason) finishReason = delta.finishReason
-          if (Date.now() - lastSaved >= 250 && delta.text) {
+          if (!structuredTurn && Date.now() - lastSaved >= 250 && delta.text) {
             await saveChatProgress(db, boss, job, content)
             lastSaved = Date.now()
           }
         }
         signal.throwIfAborted()
         if (finishReason !== 'stop' || !content.trim()) {
-          await saveChatProgress(db, boss, job, content)
+          if (!structuredTurn) await saveChatProgress(db, boss, job, content)
           throw new InferenceFailure('INVALID_INPUT', '回答未完整生成，请调整问题后重试。', false)
         }
       }, parent)
@@ -160,6 +192,15 @@ export async function processChat(
         finishReason,
         ...(usage ? { usageSource: 'PROVIDER_REPORTED', ...usage } : {}),
       })
+      let structured: FormulaExplanation | undefined
+      if (structuredTurn) {
+        try {
+          structured = decodeExplanation(content)
+          content = explanationText(structured)
+        } catch {
+          throw new InferenceFailure('INVALID_OUTPUT', '解释格式不完整，请重新生成。', false)
+        }
+      }
       await db.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM conversations WHERE id=${turn.conversationId}::uuid AND "ownerId"=${turn.ownerId}::uuid FOR UPDATE`
         await touchClaim(boss, tx, job)
@@ -184,6 +225,9 @@ export async function processChat(
             position: question.position + 1,
             role: 'ASSISTANT',
             content,
+            ...(structured
+              ? { structuredContent: structured as unknown as Prisma.InputJsonValue }
+              : {}),
             isMock: adapter.isMock,
             modelVersion: adapter.model,
           },

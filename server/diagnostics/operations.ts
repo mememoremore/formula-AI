@@ -75,6 +75,7 @@ const codes = new Set([
   'NOT_FOUND',
   'VERSION_CONFLICT',
   'INVALID_INPUT',
+  'INVALID_OUTPUT',
   'CONFIGURATION',
   'TIMEOUT',
   'UPSTREAM',

@@ -59,6 +59,9 @@ export interface FormulaContext {
 }
 
 export interface ChatRequest {
+  responseKind?: 'TEXT' | 'FORMULA_EXPLANATION'
+  promptVersion?: string | null
+  baseExplanation?: { question: string; answer: string }
   formula?: FormulaContext
   messages: ChatMessage[]
 }

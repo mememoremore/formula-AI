@@ -65,6 +65,33 @@ await chat.request
       <p class="info-note">对话绑定此公式版本，后续修改不会改变这里的上下文。</p>
     </details>
     <template v-if="conversation">
+      <section v-if="conversation.purpose === 'EXPLANATION'" class="card explanation-base">
+        <template v-if="conversation.baseExplanation">
+          <h2>公式结构化解释</h2>
+          <p class="info-note">
+            固定 v{{ conversation.context?.number }} ·
+            {{
+              conversation.baseExplanation.isMock
+                ? '模拟解释'
+                : conversation.baseExplanation.modelVersion || 'AI解释'
+            }}
+          </p>
+          <FormulaExplanationContent :value="conversation.baseExplanation.structured" />
+        </template>
+        <p v-else role="status">
+          {{ busy ? '正在整理结构化解释，完成校验后展示。' : '这次解释未完成，可返回重新生成。' }}
+        </p>
+        <NuxtLink
+          v-if="conversation.context"
+          :to="{
+            path: '/formulas/' + conversation.context.formulaId,
+            query: { explainVersion: conversation.context.id },
+          }"
+          class="text-button"
+        >
+          重新生成 / 解释历史
+        </NuxtLink>
+      </section>
       <p class="info-note">上下文仅使用已完成问答；失败和停止记录不参与，当前提问会单独加入。</p>
       <p v-if="!conversation.messages.length" class="info-note section">
         从符号含义、推导过程或使用条件开始提问。
@@ -74,7 +101,9 @@ await chat.request
       </p>
       <div class="chat-messages">
         <article
-          v-for="message in conversation.messages"
+          v-for="message in conversation.messages.filter(
+            (row) => row.id !== conversation?.baseExplanation?.messageId,
+          )"
           :key="message.id"
           class="chat-message"
           :class="message.role.toLowerCase()"
@@ -157,13 +186,28 @@ await chat.request
       :busy="generating"
       :stopping="stopping"
       :readonly="!!pendingIntent"
-      :disabled="!!error || !conversation || submitting || (!recoveryReady && !generating)"
+      :disabled="
+        !!error ||
+        !conversation ||
+        submitting ||
+        (!recoveryReady && !generating) ||
+        (conversation.purpose === 'EXPLANATION' && !conversation.baseExplanation && !generating)
+      "
       @send="submit"
       @stop="chat.stop"
     />
   </div>
 </template>
 <style scoped>
+.explanation-base {
+  padding: 20px;
+  margin: 20px 0;
+  min-width: 0;
+}
+.explanation-base h2 {
+  font-size: 19px;
+  margin-bottom: 10px;
+}
 .account-chat {
   min-width: 0;
   padding-bottom: calc(var(--chat-composer-height, 70px) + 42px);

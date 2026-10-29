@@ -2,12 +2,18 @@ import type { PrismaClient } from '../generated/prisma/client'
 import type { ChatRequest } from '../../shared/types/api'
 
 /** 只采用有持久化成功轮次证明的完整问答；旧无turnId记录仍可展示。 */
-export async function readPromptHistory(db: PrismaClient, ownerId: string, conversationId: string) {
+export async function readPromptHistory(
+  db: PrismaClient,
+  ownerId: string,
+  conversationId: string,
+  excludeTurnId?: string,
+) {
   const questions = await db.chatMessage.findMany({
     where: {
       ownerId,
       conversationId,
       role: 'USER',
+      ...(excludeTurnId ? { turnId: { not: excludeTurnId } } : {}),
       status: 'COMPLETED',
       turn: { ownerId, conversationId, status: 'COMPLETED' },
     },

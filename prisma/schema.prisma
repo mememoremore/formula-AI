@@ -330,15 +330,26 @@ model Favorite {
   @@map("favorites")
 }
 
+enum ConversationPurpose {
+  CHAT
+  EXPLANATION
+}
+
+enum ChatResponseKind {
+  TEXT
+  FORMULA_EXPLANATION
+}
+
 model Conversation {
-  revision         BigInt   @default(0)
-  id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerId          String   @db.Uuid
-  formulaVersionId String?  @db.Uuid
-  title            String   @db.VarChar(100)
-  createdAt        DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt        DateTime @updatedAt @db.Timestamptz(3)
-  requestKey       String?  @db.VarChar(100)
+  purpose          ConversationPurpose @default(CHAT)
+  revision         BigInt              @default(0)
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId          String              @db.Uuid
+  formulaVersionId String?             @db.Uuid
+  title            String              @db.VarChar(100)
+  createdAt        DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @db.Timestamptz(3)
+  requestKey       String?             @db.VarChar(100)
 
   owner          User            @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   formulaVersion FormulaVersion? @relation(fields: [formulaVersionId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
@@ -349,22 +360,24 @@ model Conversation {
   @@unique([ownerId, requestKey])
   @@index([ownerId, updatedAt(sort: Desc), id])
   @@index([formulaVersionId, ownerId])
+  @@index([ownerId, purpose, formulaVersionId, createdAt(sort: Desc), id(sort: Desc)], map: "conversations_explanation_history_idx")
   @@map("conversations")
 }
 
 model ChatMessage {
-  id             String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  conversationId String        @db.Uuid
-  ownerId        String        @db.Uuid
-  position       Int
-  role           MessageRole
-  status         MessageStatus @default(COMPLETED)
-  content        String        @db.Text
-  isMock         Boolean       @default(false)
-  modelVersion   String?       @db.VarChar(100)
-  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime      @updatedAt @db.Timestamptz(3)
-  turnId         String?       @db.Uuid
+  structuredContent Json?
+  id                String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversationId    String        @db.Uuid
+  ownerId           String        @db.Uuid
+  position          Int
+  role              MessageRole
+  status            MessageStatus @default(COMPLETED)
+  content           String        @db.Text
+  isMock            Boolean       @default(false)
+  modelVersion      String?       @db.VarChar(100)
+  createdAt         DateTime      @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime      @updatedAt @db.Timestamptz(3)
+  turnId            String?       @db.Uuid
 
   conversation Conversation @relation(fields: [conversationId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
   turn         ChatTurn?    @relation(fields: [turnId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
@@ -387,6 +400,9 @@ model DailyUsage {
 }
 
 model ChatTurn {
+  responseKind   ChatResponseKind  @default(TEXT)
+  promptVersion  String?           @db.VarChar(64)
+  requestHash    String?           @db.Char(64)
   callAttempts   ChatCallAttempt[]
   id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ownerId        String            @db.Uuid

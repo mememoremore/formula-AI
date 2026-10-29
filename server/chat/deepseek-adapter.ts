@@ -20,7 +20,12 @@ export function createDeepSeekAdapter(settings: ChatSettings): ChatAdapter {
         maxTokens: 2048,
         maxRetries: 0,
         timeout: 60_000,
-        modelKwargs: { thinking: { type: 'disabled' } },
+        modelKwargs: {
+          thinking: { type: 'disabled' },
+          ...(input.responseKind === 'FORMULA_EXPLANATION'
+            ? { response_format: { type: 'json_object' } }
+            : {}),
+        },
         configuration: {
           baseURL: settings.baseURL,
           maxRetries: 0,

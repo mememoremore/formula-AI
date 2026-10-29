@@ -1,3 +1,4 @@
+import { explanationFixture } from '../fixtures/explanation'
 import { testEnvironment as config } from '../support/integration.ts'
 import { createDatabaseClient } from '../../server/database/client'
 import { createQueueClient, queues, type JobPayload } from '../../server/queue/client'
@@ -63,6 +64,12 @@ await boss.work<JobPayload, void, typeof options>(queues.chat, options, async (j
           }) + '\n',
           { mode: 0o600 },
         )
+        if (input.responseKind === 'FORMULA_EXPLANATION') {
+          yield { text: JSON.stringify(explanationFixture).slice(0, 30) }
+          await delay(800, undefined, { signal })
+          yield { text: JSON.stringify(explanationFixture).slice(30), finishReason: 'stop' }
+          return
+        }
         yield { text: '受控模型：正在分析公式。\n\n' }
         await delay(1200, undefined, { signal })
         if (question.includes('[e2e:fail]'))
