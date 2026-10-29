@@ -8,7 +8,8 @@ const route = useRoute(),
   fileInput = ref<HTMLInputElement>(),
   cameraInput = ref<HTMLInputElement>()
 const { preview, attachFormula, replacePreview } = useUploadPreview()
-const { file, checking, selectionError, selectImage, removeImage } = useImageSelection()
+const { file, originalFile, checking, selectionError, selectImage, removeImage, applyCrop } =
+  useImageSelection()
 const {
   data: account,
   error: sessionError,
@@ -28,12 +29,21 @@ const draft = useNuxtApp().$uploadDraft,
   { mode } = draft
 const source = ref<'camera' | 'image'>(route.query.source === 'camera' ? 'camera' : 'image')
 const { addRecognition } = useDemoLibrary()
+const cropping = ref(false)
+watch(originalFile, (value) => {
+  cropping.value = !!value
+})
+function cropped(value: File) {
+  applyCrop(value)
+  cropping.value = false
+}
 const pending = ref(false),
   error = ref('')
 const feedback = computed(() => selectionError.value || error.value)
 const blocked = computed(
   () =>
     pending.value ||
+    cropping.value ||
     checking.value ||
     sessionStatus.value !== 'success' ||
     !!sessionError.value ||
@@ -176,6 +186,13 @@ const buttonLabel = computed(() =>
 </script>
 <template>
   <PageHeader title="公式识别" back-to="/" />
+  <NuxtLink class="text-button" to="/formulas/new">直接输入 LaTeX 创建公式</NuxtLink>
+  <FormulaImageCropper
+    v-if="cropping && originalFile"
+    :file="originalFile"
+    @close="cropping = false"
+    @selected="cropped"
+  />
   <header class="upload-intro">
     <div>
       <p class="kicker">从一张图片，开始理解</p>
@@ -225,6 +242,14 @@ const buttonLabel = computed(() =>
         @choose="choose(source)"
         @remove="removeImage"
       />
+      <button
+        v-if="preview && originalFile"
+        class="button button-white button-block alternate-source"
+        :disabled="selectionLocked"
+        @click="cropping = true"
+      >
+        重新裁剪图片
+      </button>
       <button
         class="button button-white button-block alternate-source"
         :disabled="selectionLocked"

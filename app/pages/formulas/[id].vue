@@ -16,6 +16,7 @@ const ownerId = computed(() =>
 )
 const { request, formula, update } = useAccountFormula(id, ownerId)
 await request
+const manual = computed(() => formula.value?.versions[0]?.origin === 'MANUAL')
 const current = computed(() => formula.value?.versions.at(-1))
 const showEditor = ref(false),
   showVersions = ref(false)
@@ -37,7 +38,9 @@ const versions = computed(() =>
         ? '原始识别'
         : version.origin === 'DEMO'
           ? '模拟示例'
-          : '人工修订',
+          : version.number === 1
+            ? '手动输入'
+            : '人工修订',
     to: '/ai/new?versionId=' + encodeURIComponent(version.id),
   })),
 )
@@ -77,7 +80,9 @@ const errorCode = computed(
       :version="current.number"
       :version-count="formula.versions.length"
       :image-src="formula.image ? '/api/account/files/' + formula.image.id + '/content' : undefined"
-      :badge="current.isMock ? '模拟结果' : '账号公式'"
+      :badge="manual ? '手动输入' : current.isMock ? '模拟结果' : '账号公式'"
+      :manual="manual"
+      :original-latex="manual ? formula.versions[0]?.latex : undefined"
       @edit="showEditor = true"
       @versions="showVersions = true"
     >
@@ -95,7 +100,9 @@ const errorCode = computed(
         <AccountExport :formula="formula" />
       </template>
       <template #note>
-        识别后请核对公式。每次内容修改独立保存，AI 讨论与导出均绑定所选版本。
+        {{
+          manual ? '此公式由手动输入创建，不关联识别任务。' : '识别后请核对公式。'
+        }}每次内容修改独立保存，AI 讨论与导出均绑定所选版本。
       </template>
     </FormulaDetailContent>
     <AccountFormulaEditor

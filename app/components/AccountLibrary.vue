@@ -48,6 +48,9 @@ await Promise.all([listing.ready, categoryRequest])
 </script>
 
 <template>
+  <div class="section-heading">
+    <NuxtLink class="text-button" to="/formulas/new">手动创建公式</NuxtLink>
+  </div>
   <LibrarySearch v-model="query" @search="search" />
   <LibraryViews />
   <section class="section">

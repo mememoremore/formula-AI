@@ -8,7 +8,7 @@ interface CreateFormulaInput {
   latex: string
   categoryId?: string | null
   recognitionTaskId?: string
-  origin: 'RECOGNITION' | 'DEMO'
+  origin: 'RECOGNITION' | 'DEMO' | 'MANUAL'
   modelVersion?: string
   isMock?: boolean
 }

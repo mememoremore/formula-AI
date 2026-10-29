@@ -83,6 +83,7 @@ for (const width of [320, 390, 430, 1440])
     await page
       .getByLabel('选择公式图片', { exact: true })
       .setInputFiles({ name: 'R16公式.png', mimeType: 'image/png', buffer: image })
+    await page.getByRole('button', { name: '确认裁剪', exact: true }).click()
     await expect(page.getByRole('img', { name: '已选择的公式图片预览' })).toBeVisible()
     await noOverflow(page)
     await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()

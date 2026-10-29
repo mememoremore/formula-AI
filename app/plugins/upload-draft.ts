@@ -9,6 +9,7 @@ import {
 
 /** File 属于当前 Nuxt 实例，不进入 SSR payload、localStorage 或数据库。 */
 export default defineNuxtPlugin(() => {
+  const originalFile = shallowRef<File | null>(null)
   const file = shallowRef<File | null>(null),
     mode = ref<RecognitionMode>('handwritten'),
     ownerId = ref<string | null>(null)
@@ -61,6 +62,7 @@ export default defineNuxtPlugin(() => {
     confirmedOwner = id
     if (ownerId.value && ownerId.value !== id) {
       file.value = null
+      originalFile.value = null
       mode.value = 'handwritten'
       ownerId.value = null
       useUploadPreview().replacePreview(null)
@@ -73,6 +75,7 @@ export default defineNuxtPlugin(() => {
   function clearAccountState() {
     confirmedOwner = null
     file.value = null
+    originalFile.value = null
     mode.value = 'handwritten'
     ownerId.value = null
     receipts.value = []
@@ -83,6 +86,7 @@ export default defineNuxtPlugin(() => {
     file,
     () => {
       transfer.value = null
+      if (!file.value) originalFile.value = null
     },
     { flush: 'sync' },
   )
@@ -102,6 +106,7 @@ export default defineNuxtPlugin(() => {
     provide: {
       uploadDraft: {
         file,
+        originalFile,
         mode,
         ownerId,
         transfer,
