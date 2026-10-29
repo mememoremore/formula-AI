@@ -1,5 +1,5 @@
 export type InferenceCode =
-  'CONFIGURATION' | 'INVALID_INPUT' | 'RATE_LIMIT' | 'TIMEOUT' | 'UPSTREAM'
+  'CONFIGURATION' | 'INVALID_INPUT' | 'INVALID_OUTPUT' | 'RATE_LIMIT' | 'TIMEOUT' | 'UPSTREAM'
 
 /** 只携带可展示的信息，原始供应商错误和请求头不得进入业务记录。 */
 export class InferenceFailure extends Error {

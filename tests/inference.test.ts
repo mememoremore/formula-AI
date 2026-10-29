@@ -9,6 +9,8 @@ import { readChatSettings } from '../server/chat/settings'
 import { buildChatMessages } from '../server/chat/prompt'
 import { withInferenceDeadline } from '../server/inference/deadline'
 import { InferenceFailure, inferenceFailure } from '../server/inference/failure'
+import { explanationFixture } from './fixtures/explanation'
+import { EXPLANATION_PROMPT_VERSION } from '../shared/explanation'
 import type { ChatRequest } from '../shared/types/api'
 
 const input: ChatRequest = {
@@ -33,11 +35,15 @@ const server = createServer(async (request, response) => {
   response.writeHead(200, { 'content-type': 'text/event-stream' })
   response.flushHeaders()
   if (stall) return
-  for (const delta of [
-    { reasoning_content: 'private-reasoning' },
-    { content: '这是分式：' },
-    { content: '$\\frac{1}{2}$。' },
-  ]) {
+  const jsonMode =
+    (requestBody.response_format as { type?: string } | undefined)?.type === 'json_object'
+  for (const delta of jsonMode
+    ? [{ content: JSON.stringify(explanationFixture) }]
+    : [
+        { reasoning_content: 'private-reasoning' },
+        { content: '这是分式：' },
+        { content: '$\\frac{1}{2}$。' },
+      ]) {
     response.write(
       `data: ${JSON.stringify({ id: 'fixture', object: 'chat.completion.chunk', model: 'fixture-model', choices: [{ index: 0, delta, finish_reason: null }] })}\n\n`,
     )
@@ -219,4 +225,19 @@ test('输入、账户与服务错误映射为稳定分类', () => {
   assert.equal(inferenceFailure({ status: 422 }).code, 'INVALID_INPUT')
   assert.equal(inferenceFailure({ status: 402 }).retryable, false)
   assert.equal(inferenceFailure(new Error('raw-secret')).message.includes('raw-secret'), false)
+})
+
+test('结构化解释在真实本机HTTP使用json_object并保留观测边界', async () => {
+  const before = requests
+  let content = ''
+  for await (const chunk of adapter().stream(
+    { ...input, responseKind: 'FORMULA_EXPLANATION', promptVersion: EXPLANATION_PROMPT_VERSION },
+    new AbortController().signal,
+  ))
+    content += chunk.text
+  assert.deepEqual(JSON.parse(content), explanationFixture)
+  assert.deepEqual(requestBody.response_format, { type: 'json_object' })
+  assert.equal(requests, before + 1)
+  assert.match(JSON.stringify(requestBody.messages), /json/)
+  assert.equal(requestBody.max_tokens, 2048)
 })

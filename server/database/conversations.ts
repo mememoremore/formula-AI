@@ -1,3 +1,5 @@
+import { readBaseExplanation } from './explanation-queries'
+import { parseExplanation } from '../../shared/explanation'
 import type { PgBoss } from 'pg-boss'
 import { bumpConversation } from './chat-revision'
 import { Prisma, type PrismaClient } from '../generated/prisma/client'
@@ -37,7 +39,7 @@ export async function createConversation(
     const existing = await db.conversation.findUnique({
       where: { ownerId_requestKey: { ownerId, requestKey } },
     })
-    if (existing && existing.formulaVersionId !== formulaVersionId)
+    if (existing && (existing.formulaVersionId !== formulaVersionId || existing.purpose !== 'CHAT'))
       throw new WorkspaceError(409, '这个对话请求编号已用于其他公式版本。')
     return existing
   }
@@ -128,6 +130,7 @@ async function readConversationSnapshot(
           isMock: true,
           position: true,
           modelVersion: true,
+          structuredContent: true,
         },
       },
       turns: { where: { ownerId }, orderBy: [{ createdAt: 'desc' }, { id: 'desc' }], take: 1 },
@@ -137,17 +140,28 @@ async function readConversationSnapshot(
   const turn = conversation.turns[0]
   return {
     id,
+    purpose: conversation.purpose,
+    baseExplanation:
+      conversation.purpose === 'EXPLANATION' ? await readBaseExplanation(db, ownerId, id) : null,
     protocolVersion: 2,
     revision: conversation.revision.toString(),
     title: conversation.title,
     context: conversation.formulaVersionId
       ? await readVersionContext(db, ownerId, conversation.formulaVersionId)
       : null,
-    messages: conversation.messages.slice(0, 100).reverse(),
+    messages: conversation.messages
+      .slice(0, 100)
+      .reverse()
+      .map((row) => ({
+        ...row,
+        structuredContent:
+          row.structuredContent === null ? null : parseExplanation(row.structuredContent),
+      })),
     hasEarlierMessages: conversation.messages.length > 100,
     currentTurn: turn
       ? {
           id: turn.id,
+          responseKind: turn.responseKind,
           status: turn.status,
           attemptCount: turn.attemptCount,
           maxAttempts: turn.maxAttempts,
@@ -172,7 +186,12 @@ export async function submitChatTurn(
     const turn = await db.chatTurn.findUnique({
       where: { ownerId_requestKey: { ownerId: input.ownerId, requestKey: input.requestKey } },
     })
-    if (turn && (turn.question !== question || turn.conversationId !== input.conversationId))
+    if (
+      turn &&
+      (turn.question !== question ||
+        turn.conversationId !== input.conversationId ||
+        turn.responseKind !== 'TEXT')
+    )
       throw new WorkspaceError(409, '这个提问编号已用于其他内容。')
     return turn
   }
@@ -187,7 +206,11 @@ export async function submitChatTurn(
         where: { ownerId_requestKey: { ownerId: input.ownerId, requestKey: input.requestKey } },
       })
       if (duplicate) {
-        if (duplicate.question !== question || duplicate.conversationId !== input.conversationId)
+        if (
+          duplicate.question !== question ||
+          duplicate.conversationId !== input.conversationId ||
+          duplicate.responseKind !== 'TEXT'
+        )
           throw new WorkspaceError(409, '这个提问编号已用于其他内容。')
         return duplicate
       }
@@ -201,11 +224,27 @@ export async function submitChatTurn(
         })
       )
         throw new WorkspaceError(409, '上一轮还在处理中，请等回答完成后再发送。')
+      const conversation = await tx.conversation.findUniqueOrThrow({
+        where: { id: input.conversationId },
+      })
+      if (
+        conversation.purpose === 'EXPLANATION' &&
+        !(await readBaseExplanation(tx, input.ownerId, input.conversationId))
+      )
+        throw new WorkspaceError(409, '请先等待解释成功；失败后可重新生成。')
       const last = await tx.chatMessage.aggregate({
         where: { conversationId: input.conversationId, ownerId: input.ownerId },
         _max: { position: true },
       })
-      const turn = await tx.chatTurn.create({ data: { ...input, question } })
+      const turn = await tx.chatTurn.create({
+        data: {
+          ...input,
+          question,
+          ...(conversation.purpose === 'EXPLANATION'
+            ? { promptVersion: 'formula-followup-v1' }
+            : {}),
+        },
+      })
       await tx.chatMessage.create({
         data: {
           ownerId: input.ownerId,

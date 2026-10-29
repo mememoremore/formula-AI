@@ -105,6 +105,11 @@ const errorCode = computed(
         }}每次内容修改独立保存，AI 讨论与导出均绑定所选版本。
       </template>
     </FormulaDetailContent>
+    <AccountFormulaExplanations
+      :key="identity + ':explanations'"
+      :formula="formula"
+      :owner-id="ownerId"
+    />
     <AccountFormulaEditor
       :key="identity + ':editor'"
       :open="showEditor"

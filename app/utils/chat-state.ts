@@ -1,3 +1,4 @@
+import { parseExplanation, explanationText } from '#shared/explanation'
 import type { SavedConversation, AccountMessage, ChatTurnState } from '../../shared/types/tasks'
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object'
@@ -30,6 +31,23 @@ export function parseConversationSnapshot(
       compareRevisions(value.revision, '9223372036854775807') > 0)
   )
     throw new Error('对话协议需要刷新，缺少有效修订号')
+  if (value.purpose !== undefined && !['CHAT', 'EXPLANATION'].includes(String(value.purpose)))
+    throw new Error('无效会话用途')
+  const base = value.baseExplanation
+  if (value.purpose === 'EXPLANATION' && base === undefined) throw new Error('解释快照缺少基础解释')
+  if (base !== undefined && base !== null) {
+    if (
+      !record(base) ||
+      !['messageId', 'turnId', 'createdAt', 'content', 'promptVersion'].every(
+        (k) => typeof base[k] === 'string',
+      ) ||
+      !base.promptVersion ||
+      typeof base.isMock !== 'boolean' ||
+      !nullableText(base.modelVersion) ||
+      explanationText(parseExplanation(base.structured)) !== base.content
+    )
+      throw new Error('无效基础解释')
+  }
   let position = 0
   for (const row of value.messages) {
     if (
@@ -44,6 +62,14 @@ export function parseConversationSnapshot(
       Number(row.position) <= position
     )
       throw new Error('无效消息快照')
+    if (
+      row.structuredContent !== undefined &&
+      row.structuredContent !== null &&
+      (row.role !== 'ASSISTANT' ||
+        row.status !== 'COMPLETED' ||
+        explanationText(parseExplanation(row.structuredContent)) !== row.content)
+    )
+      throw new Error('无效结构化消息')
     position = Number(row.position)
   }
   const turn = value.currentTurn
@@ -61,6 +87,12 @@ export function parseConversationSnapshot(
       !nullableText(turn.modelVersion))
   )
     throw new Error('无效轮次快照')
+  if (
+    record(turn) &&
+    turn.responseKind !== undefined &&
+    !['TEXT', 'FORMULA_EXPLANATION'].includes(String(turn.responseKind))
+  )
+    throw new Error('无效回答类型')
   const context = value.context
   if (
     context !== null &&
@@ -78,6 +110,8 @@ function snapshotContent(value: SavedConversation) {
     t = value.currentTurn
   return JSON.stringify([
     value.id,
+    value.purpose,
+    value.baseExplanation,
     value.title,
     value.hasEarlierMessages,
     c && [c.id, c.formulaId, c.title, c.number, c.latex],
@@ -89,9 +123,11 @@ function snapshotContent(value: SavedConversation) {
       m.isMock,
       m.modelVersion,
       m.position,
+      m.structuredContent,
     ]),
     t && [
       t.id,
+      t.responseKind,
       t.status,
       t.attemptCount,
       t.maxAttempts,
@@ -127,6 +163,13 @@ export function acceptConversationSnapshot(
       previous.context?.formulaId !== next.context?.formulaId
     )
       throw new Error('固定公式上下文发生冲突')
+    if (previous.purpose !== undefined && previous.purpose !== next.purpose)
+      throw new Error('会话用途发生冲突')
+    if (
+      previous.baseExplanation &&
+      JSON.stringify(previous.baseExplanation) !== JSON.stringify(next.baseExplanation)
+    )
+      throw new Error('基础解释发生冲突')
     const known = new Map(previous.messages.map((m) => [m.id, m]))
     for (const m of next.messages) {
       const old = known.get(m.id)
@@ -137,7 +180,8 @@ export function acceptConversationSnapshot(
           old.status !== m.status ||
           old.position !== m.position ||
           old.isMock !== m.isMock ||
-          old.modelVersion !== m.modelVersion)
+          old.modelVersion !== m.modelVersion ||
+          JSON.stringify(old.structuredContent) !== JSON.stringify(m.structuredContent))
       )
         throw new Error('持久化消息发生冲突')
     }
