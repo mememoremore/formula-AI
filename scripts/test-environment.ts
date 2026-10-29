@@ -16,6 +16,7 @@ import {
   applyTestVariables,
   isolatedChildEnvironment,
   assertLocalDocker,
+  cleanTestProcessEnvironment,
 } from '../tests/support/test-runtime.ts'
 
 function run(
@@ -125,6 +126,16 @@ export async function createEnvironment(
   afterContainers?.()
   // 只向刚创建、身份和 tmpfs 挂载均已核对的空测试实例部署既有迁移。
   run(process.execPath, ['node_modules/prisma/build/index.js', 'generate'], env, output)
+  // Root tsconfig references .nuxt/tsconfig.*. The API's separate buildDir does not
+  // create these; cold checkouts must prepare them explicitly, without any resource credentials.
+  const prepareEnv = cleanTestProcessEnvironment()
+  prepareEnv.NODE_OPTIONS = `--import=tsx --import=${pathToFileURL(resolve('tests/support/unit-safety.ts')).href}`
+  run(
+    process.execPath,
+    ['node_modules/nuxt/bin/nuxt.mjs', 'prepare', '--dotenv', resolve('tests/support/empty.env')],
+    prepareEnv,
+    output,
+  )
   run(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy'], env, output)
   const queue = await import('../server/queue/client.ts')
   applyTestVariables(config)

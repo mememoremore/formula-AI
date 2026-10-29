@@ -128,7 +128,7 @@ try {
           .map(([, value]) => value ?? ''),
       ])
     console.error('匿名SSR探针：' + JSON.stringify(publicSsrProbe))
-  }
+  } else await publicPage.body?.cancel()
   const env = isolatedChildEnvironment(config, manifest)
   if (mode !== 'integration') {
     const failWorker = () => {

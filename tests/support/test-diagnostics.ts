@@ -54,6 +54,7 @@ export function safeRuntimeSignals(log: string) {
     MODULE_MISSING: 'Cannot find module',
     PACKAGE_MISSING: 'Cannot find package',
     VITE_LOAD_FAILED: 'Failed to load url',
+    TSCONFIG_MISSING: 'TSCONFIG_ERROR',
     PANDOC_MISSING: 'Word 转换工具未配置',
     PANDOC_CONVERSION_REJECTED: '这个 LaTeX 暂时无法完整转换',
   }
