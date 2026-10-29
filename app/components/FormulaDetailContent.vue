@@ -7,6 +7,7 @@ const props = defineProps<{
   imageSrc?: string
   originalLatex?: string
   sample?: boolean
+  manual?: boolean
   badge?: string
 }>()
 const emit = defineEmits<{ edit: []; versions: [] }>()
@@ -55,7 +56,7 @@ async function copy() {
           :aria-pressed="original"
           @click="original = true"
         >
-          {{ sample ? '原始示例' : '原始图片' }}
+          {{ manual ? '原始输入' : sample ? '原始示例' : '原始图片' }}
         </button>
       </div>
       <div v-if="!original" class="paper-preview detail-paper">
@@ -69,9 +70,19 @@ async function copy() {
           alt="识别时选择的公式原图"
           @error="imageFailed = true"
         />
-        <template v-else-if="sample && originalLatex">
-          <MathFormula :latex="originalLatex" tabindex="0" aria-label="原始示例公式，可横向滚动" />
-          <p class="info-note">预置公式示例，并非上传原图</p>
+        <template v-else-if="(sample || manual) && originalLatex">
+          <MathFormula
+            :latex="originalLatex"
+            tabindex="0"
+            :aria-label="manual ? '原始输入公式，可横向滚动' : '原始示例公式，可横向滚动'"
+          />
+          <p class="info-note">
+            {{
+              manual
+                ? '手动输入，未上传原图；这里保留首个已保存版本。'
+                : '预置公式示例，并非上传原图'
+            }}
+          </p>
         </template>
         <p v-else class="info-note">原图暂时不可用，已保存的公式不受影响。</p>
       </div>

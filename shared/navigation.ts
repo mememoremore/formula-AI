@@ -70,7 +70,12 @@ export function legacyDestination(
   }
 }
 export function isTransientPage(path: string) {
-  return path === '/login' || path === '/ai/new' || /^\/recognitions\//.test(path)
+  return (
+    path === '/login' ||
+    path === '/ai/new' ||
+    path === '/formulas/new' ||
+    /^\/recognitions\//.test(path)
+  )
 }
 
 /** 内存来源优先，刷新后可使用可信的浏览器上一项；排除同页和中转页。 */

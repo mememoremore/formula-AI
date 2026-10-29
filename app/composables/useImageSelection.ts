@@ -1,7 +1,7 @@
 /** 登录往返保留当前标签页的 File；不把图片写入持久化浏览器存储。 */
 export function useImageSelection() {
   const { replacePreview, preview } = useUploadPreview()
-  const { file } = useNuxtApp().$uploadDraft
+  const { file, originalFile } = useNuxtApp().$uploadDraft
   if (import.meta.client && !file.value && preview.value?.formulaId) replacePreview(null)
   const checking = ref(false)
   const selectionError = ref('')
@@ -58,6 +58,7 @@ export function useImageSelection() {
         return
       }
       file.value = selected
+      originalFile.value = selected
       decoding.delete(url)
       replacePreview({
         url,
@@ -77,5 +78,16 @@ export function useImageSelection() {
       if (!disposed && selection === token) checking.value = false
     }
   }
-  return { file, checking, selectionError, selectImage, removeImage }
+  function applyCrop(value: File) {
+    if (!originalFile.value) return
+    selection++
+    file.value = value
+    replacePreview({
+      url: URL.createObjectURL(value),
+      name: value.name,
+      size: value.size,
+      mimeType: value.type as 'image/jpeg' | 'image/png',
+    })
+  }
+  return { file, originalFile, checking, selectionError, selectImage, removeImage, applyCrop }
 }

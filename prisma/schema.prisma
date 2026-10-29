@@ -269,6 +269,8 @@ model Category {
 }
 
 model Formula {
+  creationKey       String?  @db.VarChar(100)
+  creationHash      String?  @db.Char(64)
   id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ownerId           String   @db.Uuid
   title             String   @db.VarChar(100)
@@ -285,6 +287,7 @@ model Formula {
 
   @@unique([id, ownerId])
   @@unique([recognitionTaskId, ownerId])
+  @@unique([ownerId, creationKey])
   @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([ownerId, updatedAt(sort: Desc), id])
   @@index([categoryId, ownerId])

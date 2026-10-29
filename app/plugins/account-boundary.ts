@@ -1,5 +1,6 @@
 import type { AccountUser } from '#shared/types/account'
 import { privateAccountKey } from '~/utils/account-state'
+import { MANUAL_CREATION_RECOVERY_KEY } from '~/utils/manual-creation'
 import { EXPORT_RECOVERY_KEY } from '~/utils/export-state'
 /** 只观察已确认身份；网络失败不会被当作退出，也不会擅自清除演示数据。 */
 export default defineNuxtPlugin((app) => {
@@ -9,6 +10,7 @@ export default defineNuxtPlugin((app) => {
     if (import.meta.client) {
       try {
         sessionStorage.removeItem(EXPORT_RECOVERY_KEY)
+        sessionStorage.removeItem(MANUAL_CREATION_RECOVERY_KEY)
       } catch {
         /* 存储不可用时回执仍按账号隔离。 */
       }

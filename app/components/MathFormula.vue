@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import katex from 'katex'
+import { formulaRenderOptions } from '#shared/formula-validation'
 
 const props = withDefaults(defineProps<{ latex: string; display?: boolean }>(), { display: true })
 const rendered = computed(() => {
@@ -7,11 +8,7 @@ const rendered = computed(() => {
     return {
       html: katex.renderToString(props.latex, {
         displayMode: props.display,
-        throwOnError: true,
-        trust: false,
-        strict: 'warn',
-        maxExpand: 200,
-        maxSize: 20,
+        ...formulaRenderOptions,
         output: 'htmlAndMathml',
       }),
       error: false,
