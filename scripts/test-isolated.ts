@@ -1,4 +1,4 @@
-import { closeSync, mkdirSync, openSync, writeFileSync } from 'node:fs'
+import { closeSync, mkdirSync, openSync, writeFileSync, readFileSync, readdirSync } from 'node:fs'
 import { resolve, dirname, basename } from 'node:path'
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -6,6 +6,7 @@ import { createEnvironment, launchApi } from './test-environment.ts'
 import { cleanupEnvironment } from './test-cleanup.ts'
 import { loadTestManifest, isolatedChildEnvironment } from '../tests/support/test-runtime.ts'
 import { verifyApiIdentity } from '../tests/support/test-environment.ts'
+import { safeTestDiagnostics } from '../tests/support/test-diagnostics.ts'
 
 const mode = process.argv[2]
 const viewport = process.argv[3]
@@ -23,6 +24,7 @@ let stopping = false
 let workerRestarts = 0
 let testChild: ChildProcess | undefined
 let workerFailed = false
+let diagnostics: ReturnType<typeof safeTestDiagnostics> | undefined
 let interrupting: Promise<unknown> | undefined
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.once(signal, () => {
@@ -166,6 +168,18 @@ try {
     child.once('exit', (value) => done(value ?? 1))
   })
   process.exitCode = workerFailed ? 1 : code
+  const sources: Record<string, string> = {}
+  function readSources(directory: string) {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const file = directory + '/' + entry.name
+      if (entry.isDirectory()) readSources(file)
+      else if (entry.isFile() && /\.(?:ts|mjs)$/.test(file))
+        sources[file] = readFileSync(file, 'utf8')
+    }
+  }
+  readSources('tests')
+  diagnostics = safeTestDiagnostics(readFileSync(logPath, 'utf8'), sources)
+  if (process.exitCode !== 0) console.error('安全失败诊断：' + JSON.stringify(diagnostics))
   console.log(
     `R16 ${mode}: exit=${process.exitCode}, ${Math.round((Date.now() - started) / 1000)}s; 私有日志已保存`,
   )
@@ -204,6 +218,7 @@ try {
         cleanup,
         workerRestarts,
         durationMs: Date.now() - started,
+        diagnostics,
       }),
     )
   }

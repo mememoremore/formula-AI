@@ -1,6 +1,31 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { safeTestDiagnostics } from './support/test-diagnostics'
+
+test('失败诊断仅发布静态源码测试名，不暴露断言/凭据/请求内容', () => {
+  const secret = 'fixture-private-cookie-never-publish'
+  const result = safeTestDiagnostics(
+    `✖ 原有任务断言 (1.3ms)\n✖ ${secret} (2ms)\nAssertionError [ERR_ASSERTION]: expected ${secret}\nCookie: ${secret}\nℹ tests 2\nℹ pass 0\nℹ fail 2`,
+    { 'tests/jobs.test.ts': "test('原有任务断言', async () => {})" },
+  )
+  assert.deepEqual(result.counts, { tests: 2, pass: 0, fail: 2 })
+  assert.deepEqual(result.failures, [{ name: '原有任务断言', file: 'tests/jobs.test.ts' }])
+  assert.equal(result.unpublishedFailureNames, 1)
+  assert.ok(!JSON.stringify(result).includes(secret))
+})
+test('TAP诊断保留计数但不采用伪造的文件和源码外名称', () => {
+  const result = safeTestDiagnostics(
+    'not ok 1 - 正常用例\n# tests 1\n# fail 1\n/home/private/user.ts',
+    {
+      '../private.ts': "test('正常用例', () => {})",
+      'tests/sample.test.ts': "test('正常用例', () => {})",
+    },
+  )
+  assert.deepEqual(result.failures, [{ name: '正常用例', file: 'tests/sample.test.ts' }])
+  assert.deepEqual(result.files, [])
+  assert.equal(result.counts.fail, 1)
+})
 
 test('CI 无生产密钥/部署/原始历史推送，Action 全部固定 SHA 且权限只读', () => {
   const workflow = readFileSync('.github/workflows/quality.yml', 'utf8')
