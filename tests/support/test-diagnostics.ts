@@ -61,3 +61,21 @@ export function safeRuntimeSignals(log: string) {
     .filter(([, marker]) => log.includes(marker))
     .map(([code]) => code)
 }
+
+/** Only used for an anonymous /about error before any test account/data exists. */
+export function publicFixtureErrorTemplate(message: string, secrets: string[]) {
+  let result = message.split(/[\r\n]/)[0] ?? ''
+  for (const secret of secrets
+    .filter((value) => value.length >= 8)
+    .sort((a, b) => b.length - a.length))
+    result = result
+      .replaceAll(secret, '<config>')
+      .replaceAll(encodeURIComponent(secret), '<config>')
+  return result
+    .replace(/https?:\/\/[^\s]+/g, '<url>')
+    .replace(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '<email>')
+    .replace(/(['"`])[^'"`]*\1/g, '<quoted>')
+    .replace(/(?:[A-Z]:\\|\/)[^\s),:]*/gi, '<path>')
+    .replace(/[A-Za-z0-9_-]{24,}/g, '<opaque>')
+    .slice(0, 500)
+}

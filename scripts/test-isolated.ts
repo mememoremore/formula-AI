@@ -6,7 +6,11 @@ import { createEnvironment, launchApi } from './test-environment.ts'
 import { cleanupEnvironment } from './test-cleanup.ts'
 import { loadTestManifest, isolatedChildEnvironment } from '../tests/support/test-runtime.ts'
 import { verifyApiIdentity } from '../tests/support/test-environment.ts'
-import { safeTestDiagnostics, safeRuntimeSignals } from '../tests/support/test-diagnostics.ts'
+import {
+  safeTestDiagnostics,
+  safeRuntimeSignals,
+  publicFixtureErrorTemplate,
+} from '../tests/support/test-diagnostics.ts'
 
 const mode = process.argv[2]
 const viewport = process.argv[3]
@@ -26,6 +30,7 @@ let testChild: ChildProcess | undefined
 let workerFailed = false
 let diagnostics: ReturnType<typeof safeTestDiagnostics> | undefined
 let runtimeSignals: string[] = []
+let publicSsrProbe: { status: number; errorTemplate?: string } | undefined
 let interrupting: Promise<unknown> | undefined
 for (const signal of ['SIGINT', 'SIGTERM'] as const)
   process.once(signal, () => {
@@ -98,6 +103,32 @@ try {
     await delay(1000)
   }
   if (!ready) throw new Error('隔离 API 身份未确认')
+  const publicPage = await fetch(`${config.apiUrl}/about`, {
+    headers: { accept: 'application/json' },
+    redirect: 'error',
+    signal: AbortSignal.timeout(30000),
+  })
+  publicSsrProbe = { status: publicPage.status }
+  if (publicPage.status >= 500) {
+    const payload: unknown = await publicPage.json().catch(() => null)
+    if (
+      payload &&
+      typeof payload === 'object' &&
+      'message' in payload &&
+      typeof payload.message === 'string'
+    )
+      publicSsrProbe.errorTemplate = publicFixtureErrorTemplate(payload.message, [
+        config.token,
+        config.authSecret,
+        new URL(config.databaseUrl).password,
+        config.storage.accessKeyId,
+        config.storage.secretAccessKey,
+        ...Object.entries(process.env)
+          .filter(([key]) => /TOKEN|SECRET|PASSWORD|KEY/.test(key))
+          .map(([, value]) => value ?? ''),
+      ])
+    console.error('匿名SSR探针：' + JSON.stringify(publicSsrProbe))
+  }
   const env = isolatedChildEnvironment(config, manifest)
   if (mode !== 'integration') {
     const failWorker = () => {
@@ -225,6 +256,7 @@ try {
         durationMs: Date.now() - started,
         diagnostics,
         runtimeSignals,
+        publicSsrProbe,
       }),
     )
   }

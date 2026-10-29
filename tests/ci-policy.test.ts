@@ -1,7 +1,22 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { safeTestDiagnostics, safeRuntimeSignals } from './support/test-diagnostics'
+import {
+  safeTestDiagnostics,
+  safeRuntimeSignals,
+  publicFixtureErrorTemplate,
+} from './support/test-diagnostics'
+
+test('匿名公开页错误模板屏蔽配置、引用值、路径、邮箱及不透明标识', () => {
+  const secret = 'local-private-config-guard-token'
+  const template = publicFixtureErrorTemplate(
+    `ReferenceError: ${secret} 'private question' /home/runner/private.js user@example.test`,
+    [secret],
+  )
+  for (const value of [secret, 'private question', '/home/runner', 'user@example.test'])
+    assert.ok(!template.includes(value))
+  assert.ok(template.includes('ReferenceError'))
+})
 
 test('运行信号仅发布固定错误分类，绝不复制原始异常与 URL', () => {
   assert.deepEqual(
