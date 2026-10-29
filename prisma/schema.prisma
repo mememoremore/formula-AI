@@ -11,12 +11,26 @@ datasource db {
 enum FileKind {
   IMAGE
   DOCX
+  AVATAR
 }
 
 enum FileStatus {
   PENDING
   READY
+  DELETING
   DELETED
+}
+
+enum ResourcePurpose {
+  IMAGE_UPLOAD
+  AVATAR_UPLOAD
+  DOCX_WRITE
+}
+
+enum ResourceLeaseStatus {
+  ACTIVE
+  REVIEW_REQUIRED
+  RELEASED
 }
 
 enum RecognitionMode {
@@ -63,17 +77,18 @@ model User {
   createdAt     DateTime @default(now()) @db.Timestamptz(3)
   updatedAt     DateTime @updatedAt @db.Timestamptz(3)
 
-  files         StoredFile[]
-  tasks         RecognitionTask[]
-  formulas      Formula[]
-  categories    Category[]
-  favorites     Favorite[]
-  conversations Conversation[]
-  sessions      AuthSession[]
-  accounts      AuthAccount[]
-  exports       ExportTask[]
-  chatTurns     ChatTurn[]
-  usage         DailyUsage[]
+  files          StoredFile[]
+  tasks          RecognitionTask[]
+  formulas       Formula[]
+  categories     Category[]
+  favorites      Favorite[]
+  conversations  Conversation[]
+  sessions       AuthSession[]
+  accounts       AuthAccount[]
+  exports        ExportTask[]
+  chatTurns      ChatTurn[]
+  usage          DailyUsage[]
+  resourceLeases ResourceLease[]
 
   @@map("users")
 }
@@ -159,12 +174,54 @@ model StoredFile {
   owner   User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   tasks   RecognitionTask[]
   exports ExportTask[]
+  leases  ResourceLease[]
 
   @@unique([id, ownerId])
   @@unique([bucket, objectKey])
   @@unique([ownerId, uploadKey])
   @@index([ownerId, createdAt(sort: Desc), id])
+  @@index([status, updatedAt])
   @@map("stored_files")
+}
+
+// 字节只在未绑定文件时预留；绑定 PENDING 文件的同一事务中归零，避免重复计量。
+model ResourceLease {
+  id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId          String              @db.Uuid
+  purpose          ResourcePurpose
+  requestKey       String              @db.VarChar(100)
+  executionToken   String              @unique @db.Uuid
+  status           ResourceLeaseStatus @default(ACTIVE)
+  reservedBytes    BigInt              @default(0)
+  countsTowardRate Boolean             @default(true)
+  fileId           String?             @db.Uuid
+  expiresAt        DateTime            @db.Timestamptz(3)
+  finishedAt       DateTime?           @db.Timestamptz(3)
+  createdAt        DateTime            @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime            @updatedAt @db.Timestamptz(3)
+  owner            User                @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  file             StoredFile?         @relation(fields: [fileId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+
+  // 有效请求的部分唯一索引和 CHECK 约束在 SQL Migration 中定义。
+  @@index([ownerId, purpose, createdAt])
+  @@index([status, expiresAt])
+  @@index([fileId])
+  @@map("resource_leases")
+}
+
+// 快照标识不建立级联外键；即使原文件/账号消失，操作审计仍保留。
+model StorageCleanupAudit {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  operationId       String   @db.Uuid
+  fileId            String?  @db.Uuid
+  objectFingerprint String   @db.Char(64)
+  action            String   @db.VarChar(40)
+  outcome           String   @db.VarChar(40)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([fileId, createdAt])
+  @@index([operationId])
+  @@map("storage_cleanup_audits")
 }
 
 model RecognitionTask {
@@ -271,6 +328,7 @@ model Favorite {
 }
 
 model Conversation {
+  revision         BigInt   @default(0)
   id               String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ownerId          String   @db.Uuid
   formulaVersionId String?  @db.Uuid
@@ -326,6 +384,7 @@ model DailyUsage {
 }
 
 model ChatTurn {
+  callAttempts   ChatCallAttempt[]
   id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   ownerId        String            @db.Uuid
   conversationId String            @db.Uuid
@@ -375,4 +434,56 @@ model ExportTask {
   @@unique([ownerId, requestKey])
   @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)])
   @@map("export_tasks")
+}
+
+enum ChatCallStatus {
+  PREPARED
+  IN_FLIGHT
+  SUCCEEDED
+  FAILED
+  CANCELLED
+  UNKNOWN
+}
+
+enum ChatUsageSource {
+  UNKNOWN
+  PROVIDER_REPORTED
+  MOCK
+}
+
+model ChatCallAttempt {
+  id                 String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId            String          @db.Uuid
+  turnId             String          @db.Uuid
+  workerAttempt      Int
+  callIndex          Int             @default(1)
+  queueJobId         String          @db.Uuid
+  provider           String          @db.VarChar(32)
+  model              String          @db.VarChar(100)
+  isMock             Boolean
+  status             ChatCallStatus  @default(PREPARED)
+  preparedAt         DateTime        @default(now()) @db.Timestamptz(3)
+  dispatchIntentAt   DateTime?       @db.Timestamptz(3)
+  transportInvokedAt DateTime?       @db.Timestamptz(3)
+  responseObservedAt DateTime?       @db.Timestamptz(3)
+  closedAt           DateTime?       @db.Timestamptz(3)
+  durationMs         Int?
+  providerRequestId  String?         @db.VarChar(200)
+  httpStatus         Int?
+  finishReason       String?         @db.VarChar(32)
+  errorCode          String?         @db.VarChar(64)
+  usageSource        ChatUsageSource @default(UNKNOWN)
+  inputTokens        Int?
+  outputTokens       Int?
+  totalTokens        Int?
+  resultCommittedAt  DateTime?       @db.Timestamptz(3)
+  resultDiscardedAt  DateTime?       @db.Timestamptz(3)
+  createdAt          DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt          DateTime        @updatedAt @db.Timestamptz(3)
+  turn               ChatTurn        @relation(fields: [turnId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([turnId, workerAttempt, callIndex])
+  @@index([ownerId, createdAt(sort: Desc), id])
+  @@index([status, updatedAt, id])
+  @@map("chat_call_attempts")
 }

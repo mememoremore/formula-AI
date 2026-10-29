@@ -1,0 +1,88 @@
+name: Quality gates
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      full_e2e:
+        description: Run real API/Worker browser journeys
+        type: boolean
+        default: false
+permissions:
+  contents: read
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quick:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24.22.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run quality:quick
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24.22.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Install verified Pandoc 3.12.1
+        run: node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/ci-pandoc.ts
+      - name: Probe system Pandoc with public fixture
+        run: |
+          pandoc --version
+          printf '$x^2$' | pandoc --from=markdown --to=docx --output="$RUNNER_TEMP/r16-probe.docx" --sandbox --fail-if-warnings
+      - run: npm run test:isolated
+        if: ${{ !cancelled() }}
+      - run: npm run test:documents
+        if: ${{ !cancelled() }}
+      - run: npm run test:isolated:cleanup
+        if: always()
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        if: always()
+        with:
+          name: integration-summary
+          path: tmp/r16-artifacts/**/summary.json
+          if-no-files-found: ignore
+          retention-days: 7
+  browser:
+    if: github.event_name == 'workflow_dispatch' && inputs.full_e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38
+        with:
+          node-version: 24.22.0
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Install verified Pandoc 3.12.1
+        run: node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/ci-pandoc.ts
+      - run: npx --no-install playwright install --with-deps chromium --only-shell
+      - run: npm run test:e2e
+      - run: npm run test:e2e:faults
+      - run: npm run test:isolated:cleanup
+        if: always()
+      - uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f
+        if: always()
+        with:
+          name: browser-summary
+          path: tmp/r16-artifacts/**/summary.json
+          if-no-files-found: ignore
+          retention-days: 7

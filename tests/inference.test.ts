@@ -17,6 +17,7 @@ const input: ChatRequest = {
 }
 let status = 200
 let stall = false
+let includeUsage = false
 let requests = 0
 let requestBody: Record<string, unknown> = {}
 const server = createServer(async (request, response) => {
@@ -42,6 +43,10 @@ const server = createServer(async (request, response) => {
     )
     await delay(15)
   }
+  if (includeUsage)
+    response.write(
+      `data: ${JSON.stringify({ id: 'fixture', choices: [], usage: { prompt_tokens: 11, completion_tokens: 7, total_tokens: 18 } })}\n\n`,
+    )
   response.end(
     `data: ${JSON.stringify({ id: 'fixture', choices: [{ index: 0, delta: {}, finish_reason: 'stop' }] })}\n\ndata: [DONE]\n\n`,
   )
@@ -66,6 +71,32 @@ function adapter() {
     baseURL,
   })
 }
+test('真实本机HTTP记录调用边界，仅采用供应商usage且不在库外重试', async () => {
+  includeUsage = true
+  const events: string[] = []
+  const before = requests
+  let usage: unknown
+  try {
+    for await (const chunk of adapter().stream(input, new AbortController().signal, {
+      async beforeDispatch() {
+        events.push('intent')
+      },
+      async invoked() {
+        events.push('invoked')
+      },
+      async responded(status) {
+        assert.equal(status, 200)
+        events.push('response')
+      },
+    }))
+      if (chunk.usage) usage = chunk.usage
+    assert.deepEqual(events, ['intent', 'invoked', 'response'])
+    assert.deepEqual(usage, { inputTokens: 11, outputTokens: 7, totalTokens: 18 })
+    assert.equal(requests - before, 1)
+  } finally {
+    includeUsage = false
+  }
+})
 async function collect(signal = new AbortController().signal) {
   let content = ''
   let finish = ''

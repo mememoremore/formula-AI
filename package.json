@@ -22,6 +22,11 @@
     "worker:setup": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/queue-setup.ts",
     "worker": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/worker.ts",
     "test:documents": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts documents",
+    "test:db:migrate": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-migrate.ts",
+    "resources:audit:test": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/resource-audit.ts",
+    "test:resources": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts resources",
+    "test:lease-recovery": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts lease-recovery",
+    "test:recovery": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts recovery",
     "test:jobs": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts jobs",
     "test:inference": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts protocols",
     "test:recognition": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-suite.ts protocols",
@@ -63,7 +68,14 @@
     "check:assets": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/check-assets.ts",
     "check:build": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-build.ts",
     "preview:design": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/design-preview.ts",
-    "typecheck:design": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/design-preview.ts typecheck"
+    "typecheck:design": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/design-preview.ts typecheck",
+    "check:source-format": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/check-source-format.ts",
+    "quality:quick": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/check-quality.ts",
+    "test:isolated": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts integration",
+    "test:e2e": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-browser-matrix.ts",
+    "test:e2e:faults": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts faults",
+    "test:isolated:cleanup": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-cleanup.ts",
+    "test:isolated:cleanup-proof": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts cleanup-proof"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1154.0",
@@ -85,6 +97,7 @@
     "vue-router": "^5.0.3"
   },
   "devDependencies": {
+    "@playwright/test": "1.64.1",
     "@types/katex": "^0.16.7",
     "@types/node": "^24.0.0",
     "@types/pg": "^8.15.5",

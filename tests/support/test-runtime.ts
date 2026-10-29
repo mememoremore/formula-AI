@@ -9,7 +9,7 @@ import {
   type TestEnvironment,
 } from './test-environment.ts'
 
-export function loadTestManifest(env: NodeJS.ProcessEnv = process.env) {
+export function loadTestManifest(env: NodeJS.ProcessEnv = process.env, provisioning = false) {
   const file = env.FORMULA_TEST_MANIFEST
   if (!file || !isAbsolute(file))
     throw new Error('测试安全检查拒绝执行：必须显式指定 FORMULA_TEST_MANIFEST')
@@ -28,7 +28,7 @@ export function loadTestManifest(env: NodeJS.ProcessEnv = process.env) {
   } catch {
     throw new Error('测试安全检查拒绝执行：清单不是有效 JSON')
   }
-  const config = validateTestEnvironment(raw)
+  const config = validateTestEnvironment(raw, !provisioning)
   if (rel.split(sep)[0] !== config.runId)
     throw new Error('测试安全检查拒绝执行：目录与运行编号不一致')
   assertEnvironmentAgreement(config, env)
@@ -95,7 +95,7 @@ export function cleanTestProcessEnvironment(): NodeJS.ProcessEnv {
   const env = { ...process.env }
   for (const key of Object.keys(env))
     if (
-      /^(NUXT_|NITRO_|PG|AWS_|DOTENV_|FORMULA_TEST_|RECOGNITION_|OPENAI_|DEEPSEEK_|BASE_URL$|TEST_BASE_URL$|DATABASE_URL$|NODE_OPTIONS$)/i.test(
+      /^(NUXT_|NITRO_|PG|AWS_|DOTENV_|FORMULA_TEST_|FORMULA_RESOURCE_|FORMULA_WORKER_|RECOGNITION_|OPENAI_|DEEPSEEK_|BASE_URL$|TEST_BASE_URL$|DATABASE_URL$|NODE_OPTIONS$)/i.test(
         key,
       )
     )

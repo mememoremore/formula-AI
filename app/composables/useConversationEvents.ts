@@ -30,7 +30,9 @@ export function useConversationEvents(
       currentTurn = turnId
     }
     if (source || timer) return
-    const current = new EventSource(`/api/account/conversations/${encodeURIComponent(id)}/events`)
+    const current = new EventSource(
+      `/api/account/conversations/${encodeURIComponent(id)}/events?protocol=2`,
+    )
     source = current
     const fail = () => {
       if (source !== current || disposed) return
@@ -58,11 +60,14 @@ export function useConversationEvents(
         arm()
       }
     }
+    current.addEventListener('heartbeat', () => {
+      if (source === current && !disposed) arm()
+    })
     current.addEventListener('snapshot', (event) => {
       if (source !== current || disposed) return
       try {
         const value = onSnapshot(
-          parseConversationSnapshot(JSON.parse((event as MessageEvent<string>).data), id),
+          parseConversationSnapshot(JSON.parse((event as MessageEvent<string>).data), id, true),
         )
         arm()
         if (!activeChatTurn(value.currentTurn)) close()

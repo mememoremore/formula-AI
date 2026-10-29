@@ -140,6 +140,7 @@ export function verifyContainerIdentity(
   config: TestEnvironment,
   kind: 'postgres' | 'storage',
   input: unknown,
+  purpose: 'running' | 'cleanup' = 'running',
 ) {
   if (
     !record(input) ||
@@ -148,7 +149,7 @@ export function verifyContainerIdentity(
     !record(input.Config.Labels) ||
     !record(input.HostConfig) ||
     !record(input.State) ||
-    input.State.Running !== true
+    (purpose === 'running' && input.State.Running !== true)
   )
     reject(`${kind} 容器身份不一致或未运行`)
   const labels = input.Config.Labels

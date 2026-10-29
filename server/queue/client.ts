@@ -1,3 +1,4 @@
+import { diagnostic } from '../diagnostics/operations'
 import { PgBoss } from 'pg-boss'
 
 export const queues = {
@@ -26,7 +27,14 @@ export function createQueueClient(
     superviseIntervalSeconds: 5,
     maintenanceIntervalSeconds: 60,
   })
-  boss.on('error', () => console.error('队列连接暂时失败，请检查数据库和 Worker。'))
+  // 连接可长期复用；不可继承创建连接时某个旧请求的身份。
+  boss.on('error', () =>
+    diagnostic(
+      'queue.connection',
+      { code: 'QUEUE_UNAVAILABLE', outcome: 'unconfirmed' },
+      { inheritContext: false },
+    ),
+  )
   return boss
 }
 export async function installQueues(boss: PgBoss) {

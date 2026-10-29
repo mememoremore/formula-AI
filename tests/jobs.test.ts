@@ -1,4 +1,5 @@
 import { testEnvironment } from './support/integration.ts'
+import { createTestQueueClient } from './support/queue-client'
 import { acceptConversationSnapshot } from '../app/utils/chat-state'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
@@ -33,7 +34,7 @@ import type {
 
 const db = createDatabaseClient(testEnvironment.databaseUrl)
 const db2 = createDatabaseClient(testEnvironment.databaseUrl)
-const boss = createQueueClient(testEnvironment.databaseUrl)
+const boss = createTestQueueClient()
 const store = createObjectStore({
   endpoint: process.env.NUXT_STORAGE_ENDPOINT ?? '',
   region: process.env.NUXT_STORAGE_REGION ?? '',
@@ -281,8 +282,18 @@ test('Worker进程领取后退出，超时监督后可由新实例恢复', async
   )
   assert.equal(child.status, 0, child.stderr)
   assert.equal(child.stdout, task.queueJobId)
-  await delay(1600)
-  await boss.supervise(queues.recognition)
+  const expiryDeadline = Date.now() + 6000
+  let retried = false
+  while (Date.now() < expiryDeadline) {
+    await boss.supervise(queues.recognition)
+    const [queued] = await boss.findJobs(queues.recognition, { id: task.queueJobId! })
+    if (queued?.state === 'retry') {
+      retried = true
+      break
+    }
+    await delay(100)
+  }
+  assert.equal(retried, true, '必须观察到真实队列转为retry后才重新领取')
   const replacement = createQueueClient(testEnvironment.databaseUrl)
   try {
     await replacement.start()

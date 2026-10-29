@@ -40,13 +40,11 @@ export async function readConversationList(
     WHERE ${Prisma.join(conditions, ' AND ')}
     ORDER BY c."createdAt" DESC,c.id DESC LIMIT 21
   `)
-  const items = rows
-    .slice(0, 20)
-    .map((row) => ({
-      ...row,
-      title: row.title === '普通对话' && row.preview ? row.preview.slice(0, 60) : row.title,
-      preview: row.preview ?? '',
-      createdAt: row.createdAt.toISOString(),
-    }))
+  const items = rows.slice(0, 20).map((row) => ({
+    ...row,
+    title: row.title === '普通对话' && row.preview ? row.preview.slice(0, 60) : row.title,
+    preview: row.preview ?? '',
+    createdAt: row.createdAt.toISOString(),
+  }))
   return { items, nextCursor: rows.length > 20 ? items.at(-1)!.id : null }
 }

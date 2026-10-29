@@ -1,9 +1,9 @@
 import { requireAccountUser } from '../../utils/auth'
 import { getDatabase } from '../../utils/database'
-import { workspaceOperation } from '../../utils/workspace-operation'
+import { workspaceRequest } from '../../utils/workspace-operation'
 import { readRecognitionHistory } from '../../database/task-queries'
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     const user = await requireAccountUser(event)
     const cursor = getQuery(event).cursor
     if (cursor !== undefined && typeof cursor !== 'string')

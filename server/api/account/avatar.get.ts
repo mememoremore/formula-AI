@@ -1,9 +1,9 @@
 import { requireAccountUser } from '../../utils/auth'
 import { getObjectStore } from '../../utils/storage'
 import { isAvatarKey } from '../../services/profile-input'
-import { workspaceOperation } from '../../utils/workspace-operation'
+import { workspaceRequest } from '../../utils/workspace-operation'
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     const user = await requireAccountUser(event)
     if (!isAvatarKey(user.image, user.id))
       throw createError({ statusCode: 404, message: '尚未设置头像。' })

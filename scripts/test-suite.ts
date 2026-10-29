@@ -7,6 +7,8 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
   unit: {
     files: [
       'tests/test-environment.test.ts',
+      'tests/ci-policy.test.ts',
+      'tests/node-forge.test.mjs',
       'tests/public-assets.test.ts',
       'tests/navigation.test.ts',
       'tests/home.test.ts',
@@ -14,10 +16,15 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
       'tests/formula-editor.test.ts',
       'tests/recognition-state.test.ts',
       'tests/chat-state.test.ts',
+      'tests/chat-protocol.test.ts',
       'tests/chat-content.test.ts',
       'tests/account-state.test.ts',
       'tests/account-cache.test.ts',
       'tests/profile.test.ts',
+      'tests/resource-policy.test.ts',
+      'tests/task-recovery-policy.test.ts',
+      'tests/lease-recovery-policy.test.ts',
+      'tests/server-diagnostics.test.ts',
       'tests/export-state.test.ts',
     ],
     integration: false,
@@ -30,6 +37,7 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
   integration: {
     files: [
       'tests/isolation.test.ts',
+      'tests/resources.test.ts',
       'tests/api.test.mjs',
       'tests/database.test.ts',
       'tests/auth.test.ts',
@@ -37,6 +45,9 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
       'tests/profile-api.test.ts',
       'tests/workspace.test.ts',
       'tests/jobs.test.ts',
+      'tests/task-recovery.test.ts',
+      'tests/chat-governance.test.ts',
+      'tests/lease-recovery.test.ts',
     ],
     integration: true,
   },
@@ -49,6 +60,10 @@ for (const [name, file] of Object.entries({
   profile: 'profile-api.test.ts',
   workspace: 'workspace.test.ts',
   jobs: 'jobs.test.ts',
+  resources: 'resources.test.ts',
+  recovery: 'task-recovery.test.ts',
+  chat: 'chat-governance.test.ts',
+  'lease-recovery': 'lease-recovery.test.ts',
 }))
   suites[name] = { files: [`tests/${file}`], integration: true }
 

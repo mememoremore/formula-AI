@@ -65,6 +65,7 @@ await chat.request
       <p class="info-note">对话绑定此公式版本，后续修改不会改变这里的上下文。</p>
     </details>
     <template v-if="conversation">
+      <p class="info-note">上下文仅使用已完成问答；失败和停止记录不参与，当前提问会单独加入。</p>
       <p v-if="!conversation.messages.length" class="info-note section">
         从符号含义、推导过程或使用条件开始提问。
       </p>

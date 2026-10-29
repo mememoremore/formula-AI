@@ -1,9 +1,9 @@
 import { requireAccountUser } from '../../utils/auth'
 import { getChatSettings } from '../../utils/chat-settings'
-import { workspaceOperation } from '../../utils/workspace-operation'
+import { workspaceRequest } from '../../utils/workspace-operation'
 
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     await requireAccountUser(event)
     const settings = getChatSettings()
     return {

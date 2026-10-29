@@ -1,11 +1,11 @@
 import { requireAccountUser } from '../../../../utils/auth'
 import { getDatabase } from '../../../../utils/database'
 import { getObjectStore } from '../../../../utils/storage'
-import { workspaceOperation } from '../../../../utils/workspace-operation'
+import { workspaceRequest } from '../../../../utils/workspace-operation'
 import { readExportTask } from '../../../../database/task-queries'
 import { docxMimeType } from '../../../../documents/formula-document'
 export default defineEventHandler((event) =>
-  workspaceOperation(async () => {
+  workspaceRequest(event, async () => {
     const user = await requireAccountUser(event)
     const id = getRouterParam(event, 'id') ?? ''
     const task = await readExportTask(getDatabase(), user.id, id)

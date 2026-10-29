@@ -606,7 +606,7 @@ test('账号历史分页不混入其他用户，页面可按记录重新打开�
   assert.equal((await api(`/api/account/files/${imageA.id}/content`)).status, 200)
 })
 
-test('存储失败不产生可识别的 READY 文件，补偿后允许同请求重试', async () => {
+test('存储写入结果不确定时不产生 READY，保留计量并禁止盲目重试', async () => {
   const key = randomUUID()
   const input = {
     ownerId: testOwners[0]!,
@@ -625,13 +625,11 @@ test('存储失败不产生可识别的 READY 文件，补偿后允许同请求�
   const failed = await db.storedFile.findUniqueOrThrow({
     where: { ownerId_uploadKey: { ownerId: input.ownerId, uploadKey: key } },
   })
-  assert.equal(failed.status, 'DELETED')
-  const retried = await uploadPrivateImage(db, store, input)
-  assert.equal(retried.id, failed.id)
-  assert.equal(
-    (await db.storedFile.findUniqueOrThrow({ where: { id: retried.id } })).status,
-    'READY',
-  )
+  assert.equal(failed.status, 'PENDING')
+  const lease = await db.resourceLease.findFirstOrThrow({ where: { fileId: failed.id } })
+  assert.equal(lease.status, 'REVIEW_REQUIRED')
+  await assert.rejects(uploadPrivateImage(db, store, input), /等待核对/)
+  assert.equal(await db.storedFile.count({ where: { ownerId: input.ownerId, uploadKey: key } }), 1)
 })
 
 test('跨站写请求及不完整的版本参数被拒绝，不修改既有记录', async () => {

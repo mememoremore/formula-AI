@@ -1,6 +1,7 @@
 import type { H3Event } from 'h3'
 import { createAuthentication } from '../auth/config'
 import { getDatabase } from './database'
+import { identifyDiagnosticAccount } from '../diagnostics/operations'
 
 const processState = globalThis as typeof globalThis & {
   formulaAuthentication?: ReturnType<typeof createAuthentication>
@@ -36,6 +37,7 @@ export async function requireAccountUser(event: H3Event) {
   if (!session?.user) {
     throw createError({ statusCode: 401, message: '请先登录后再访问你的账号空间。' })
   }
+  identifyDiagnosticAccount(session.user.id)
   return session.user
 }
 

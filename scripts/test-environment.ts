@@ -16,10 +16,16 @@ import {
   applyTestVariables,
   isolatedChildEnvironment,
   assertLocalDocker,
+  cleanTestProcessEnvironment,
 } from '../tests/support/test-runtime.ts'
 
-function run(command: string, args: string[], env = process.env) {
-  execFileSync(command, args, { env, stdio: 'inherit', windowsHide: true })
+function run(
+  command: string,
+  args: string[],
+  env = process.env,
+  output: 'inherit' | number = 'inherit',
+) {
+  execFileSync(command, args, { env, stdio: ['ignore', output, output], windowsHide: true })
 }
 async function portMustBeFree(port: number) {
   const server = createServer()
@@ -41,7 +47,10 @@ function composeArguments(config: TestEnvironment, envFile: string) {
     resolve('compose.test.yaml'),
   ]
 }
-async function createEnvironment() {
+export async function createEnvironment(
+  onManifest?: (path: string) => number | void,
+  afterContainers?: () => void,
+) {
   assertLocalDocker()
   try {
     execFileSync('docker', ['info', '--format', '{{.ServerVersion}}'], {
@@ -81,6 +90,7 @@ async function createEnvironment() {
   mkdirSync(resolve('tmp/r1-test'), { recursive: true })
   mkdirSync(directory, { mode: 0o700 })
   writeFileSync(manifest, JSON.stringify(config, null, 2), { flag: 'wx', mode: 0o600 })
+  const output = onManifest?.(manifest) ?? 'inherit'
   const db = new URL(config.databaseUrl)
   writeFileSync(
     envFile,
@@ -102,6 +112,7 @@ async function createEnvironment() {
     'docker',
     [...composeArguments(config, envFile), 'up', '-d', '--wait', '--wait-timeout', '120'],
     env,
+    output,
   )
   for (const kind of ['postgres', 'storage'] as const)
     config.containers[kind] = execFileSync(
@@ -112,8 +123,20 @@ async function createEnvironment() {
   validateTestEnvironment(config)
   writeFileSync(manifest, JSON.stringify(config, null, 2), { mode: 0o600 })
   inspectTestContainers(config)
+  afterContainers?.()
   // 只向刚创建、身份和 tmpfs 挂载均已核对的空测试实例部署既有迁移。
-  run(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy'], env)
+  run(process.execPath, ['node_modules/prisma/build/index.js', 'generate'], env, output)
+  // Root tsconfig references .nuxt/tsconfig.*. The API's separate buildDir does not
+  // create these; cold checkouts must prepare them explicitly, without any resource credentials.
+  const prepareEnv = cleanTestProcessEnvironment()
+  prepareEnv.NODE_OPTIONS = `--import=tsx --import=${pathToFileURL(resolve('tests/support/unit-safety.ts')).href}`
+  run(
+    process.execPath,
+    ['node_modules/nuxt/bin/nuxt.mjs', 'prepare', '--dotenv', resolve('tests/support/empty.env')],
+    prepareEnv,
+    output,
+  )
+  run(process.execPath, ['node_modules/prisma/build/index.js', 'migrate', 'deploy'], env, output)
   const queue = await import('../server/queue/client.ts')
   applyTestVariables(config)
   const boss = queue.createQueueClient(config.databaseUrl, { install: true })
@@ -123,10 +146,12 @@ async function createEnvironment() {
   } finally {
     await boss.stop()
   }
-  console.log(`测试资源就绪。后续命令必须显式设置 FORMULA_TEST_MANIFEST=${manifest}`)
+  if (output === 'inherit')
+    console.log(`测试资源就绪。后续命令必须显式设置 FORMULA_TEST_MANIFEST=${manifest}`)
+  return manifest
 }
 
-async function startApi() {
+export async function launchApi(output: 'inherit' | number = 'inherit') {
   const config = loadTestManifest()
   inspectTestContainers(config)
   await portMustBeFree(3100)
@@ -149,8 +174,13 @@ async function startApi() {
       '--extends',
       resolve('tests/runtime'),
     ],
-    { env, stdio: 'inherit', windowsHide: true },
+    { env, stdio: ['ignore', output, output], windowsHide: true },
   )
+  return child
+}
+
+async function startApi() {
+  const child = await launchApi()
   for (const signal of ['SIGINT', 'SIGTERM'] as const)
     process.once(signal, () => child.kill(signal))
   await new Promise<void>((resolve, reject) => {
@@ -159,28 +189,29 @@ async function startApi() {
   })
 }
 
-try {
-  const command = process.argv[2]
-  if (command === 'create') await createEnvironment()
-  else if (command === 'api') await startApi()
-  else if (command === 'worker') {
-    await import('../tests/support/integration.ts')
-    await import('./worker.ts')
-  } else if (command === 'check') {
-    await import('../tests/support/integration.ts')
-    console.log('测试 API、容器及资源身份全部一致')
-  } else if (command === 'stop') {
-    const config = loadTestManifest()
-    inspectTestContainers(config)
-    // 按已核对的容器 ID 停止；不执行 down -v，不读取可被更换的 Compose env 文件。
-    run('docker', ['stop', config.containers.postgres, config.containers.storage])
-  } else throw new Error('只支持 create、api、worker、check、stop；不会回退到开发环境')
-} catch (error) {
-  // 子进程错误可能带有配置输出，不向终端复制其 stdout/stderr 对象。
-  console.error(
-    error instanceof Error && !('status' in error)
-      ? error.message
-      : '测试环境操作失败；未继续执行后续步骤',
-  )
-  process.exitCode = 1
-}
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href)
+  try {
+    const command = process.argv[2]
+    if (command === 'create') await createEnvironment()
+    else if (command === 'api') await startApi()
+    else if (command === 'worker') {
+      await import('../tests/support/integration.ts')
+      await import('./worker.ts')
+    } else if (command === 'check') {
+      await import('../tests/support/integration.ts')
+      console.log('测试 API、容器及资源身份全部一致')
+    } else if (command === 'stop') {
+      const config = loadTestManifest()
+      inspectTestContainers(config)
+      // 按已核对的容器 ID 停止；不执行 down -v，不读取可被更换的 Compose env 文件。
+      run('docker', ['stop', config.containers.postgres, config.containers.storage])
+    } else throw new Error('只支持 create、api、worker、check、stop；不会回退到开发环境')
+  } catch (error) {
+    // 子进程错误可能带有配置输出，不向终端复制其 stdout/stderr 对象。
+    console.error(
+      error instanceof Error && !('status' in error)
+        ? error.message
+        : '测试环境操作失败；未继续执行后续步骤',
+    )
+    process.exitCode = 1
+  }
