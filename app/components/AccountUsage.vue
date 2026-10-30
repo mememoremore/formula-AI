@@ -9,7 +9,7 @@ const {
   key: computed(() => (props.ownerId ? 'account-usage-' + props.ownerId : 'account-usage')),
   getCachedData: (key, app) => (app.isHydrating ? app.payload.data[key] : undefined),
 })
-const labels = { RECOGNITION: '识别', CHAT: '对话', EXPORT: '导出' }
+const labels = { RECOGNITION: '识别', CHAT: 'AI 提问与解释', EXPORT: '导出' }
 </script>
 <template>
   <section class="usage-summary section">
@@ -26,7 +26,7 @@ const labels = { RECOGNITION: '识别', CHAT: '对话', EXPORT: '导出' }
         <span>{{ labels[item.kind] }}</span>
       </div>
     </div>
-    <p v-else class="info-note">{{ error ? '暂时无法读取额度。' : '正在读取额度…' }}</p>
+    <p v-else class="info-note">{{ error ? '暂时无法读取可用次数。' : '正在读取可用次数…' }}</p>
     <p class="info-note usage-note">每天北京时间 08:00 重置；自动重试不重复计数。</p>
   </section>
 </template>

@@ -19,6 +19,11 @@ watch(
   { immediate: true },
 )
 const validation = computed(() => manualFormulaFeedback(title.value, latex.value))
+const displayValidation = computed(() =>
+  validation.value.startsWith('LaTeX 暂时无法预览：')
+    ? '公式暂时无法预览，请检查命令、括号与参数是否完整。'
+    : validation.value,
+)
 const syntax = computed(() => (latex.value.trim() ? formulaSyntaxFeedback(latex.value) : ''))
 const dirty = computed(() => !!title.value.trim() || !!latex.value.trim() || !!receipt.value)
 useFormulaDraftGuard(
@@ -73,13 +78,17 @@ function discard() {
       />
       <p class="info-note">{{ latex.length }} / 5000 · 直接输入公式源码，无需添加 $ 或整篇文档。</p>
       <p v-if="dirty && validation" id="manual-feedback" class="error-text" role="status">
-        {{ validation }}
+        {{ displayValidation }}
       </p>
+      <details v-if="dirty && syntax && validation === syntax" class="info-note">
+        <summary>查看技术详情</summary>
+        <p>{{ syntax }}</p>
+      </details>
     </section>
     <section class="card manual-preview" aria-label="LaTeX 实时预览">
       <h2>实时预览</h2>
       <MathFormula v-if="latex.trim() && !syntax" :latex="latex" tabindex="0" />
-      <p v-else-if="syntax" class="error-text" role="status">{{ syntax }}</p>
+      <p v-else-if="syntax" class="info-note">修正输入后，预览会自动更新。</p>
       <p v-else class="info-note">输入后会显示公式预览。预览校验语法，不判断数学结论。</p>
     </section>
     <div class="manual-submit">

@@ -8,7 +8,9 @@ useHead({ title: '关于项目 · Formula AI' })
     <AppBrand :avatar="false" />
     <span class="eyebrow">写下灵感，读懂公式</span>
     <h2 class="about-title">从识别，到理解</h2>
-    <p class="about-description">把一张公式图片，整理成可以回顾、校正与继续探索的知识。</p>
+    <p class="about-description">
+      把公式图片或手动输入的 LaTeX，整理成可以回顾、校正与继续探索的知识。
+    </p>
     <PaperArtwork />
   </section>
   <div class="stack">
@@ -16,7 +18,7 @@ useHead({ title: '关于项目 · Formula AI' })
       <span class="soft-icon"><AppIcon name="image" :size="23" /></span>
       <div>
         <h2>图片识别</h2>
-        <p>让手写与印刷的公式，成为清晰可编辑的内容。</p>
+        <p>自由裁剪图片后识别，也可直接输入 LaTeX，实时预览并保存。</p>
       </div>
     </article>
     <article class="about-feature">
@@ -29,8 +31,15 @@ useHead({ title: '关于项目 · Formula AI' })
     <article class="about-feature">
       <span class="soft-icon"><AppIcon name="sparkles" :size="23" /></span>
       <div>
-        <h2>AI 对话</h2>
-        <p>围绕公式连续提问，理清符号、推导和计算思路。</p>
+        <h2>理解与追问</h2>
+        <p>用 AI 结构化解释梳理符号、条件和推导；也可自由提问、查看解释历史并继续追问。</p>
+      </div>
+    </article>
+    <article class="about-feature">
+      <span class="soft-icon"><AppIcon name="book" :size="23" /></span>
+      <div>
+        <h2>带进文档</h2>
+        <p>复制 LaTeX 或完整解释，也可选择固定版本下载可编辑 DOCX。</p>
       </div>
     </article>
   </div>

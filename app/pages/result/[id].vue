@@ -123,7 +123,7 @@ function saveCategory() {
           class="button button-primary button-block"
         >
           <AppIcon name="sparkles" :size="19" />
-          AI 解析
+          自由提问
         </NuxtLink>
         <button class="button button-white button-block export-button" @click="showExport = true">
           <AppIcon name="download" :size="18" />

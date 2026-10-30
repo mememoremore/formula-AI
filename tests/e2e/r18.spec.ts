@@ -254,7 +254,12 @@ for (const width of [320, 390, 430, 1440])
     await page.getByLabel('公式名称', { exact: true }).fill('R18手动公式')
     await page.getByLabel('LaTeX', { exact: true }).fill('\\frac{')
     await expect(page.getByRole('button', { name: '保存到账号公式库' })).toBeDisabled()
-    await expect(page.getByText(/LaTeX 暂时无法预览/).first()).toBeVisible()
+    await expect(page.getByText(/公式暂时无法预览/)).toHaveCount(1)
+    await expect(page.getByText(/公式暂时无法预览/)).toBeVisible()
+    await page.screenshot({
+      path: 'tmp/r18/screenshots/manual-error-' + width + '.png',
+      fullPage: true,
+    })
     let dismissed = false
     page.once('dialog', async (event) => {
       dismissed = true
@@ -306,6 +311,15 @@ for (const width of [320, 390, 430, 1440])
     await page.getByRole('button', { name: '原始输入', exact: true }).click()
     await expect(page.getByText('手动输入，未上传原图；这里保留首个已保存版本。')).toBeVisible()
     await page.getByRole('button', { name: '数学公式', exact: true }).click()
+    await page.getByRole('button', { name: '复制 LaTeX', exact: true }).click()
+    // Clipboard capability is browser-dependent; the explicit fallback must remain usable.
+    await page.evaluate(() =>
+      Object.defineProperty(navigator, 'clipboard', { configurable: true, value: undefined }),
+    )
+    await page.getByRole('button', { name: '复制 LaTeX', exact: true }).click()
+    await expect(
+      page.getByRole('textbox', { name: '复制 LaTeX：手动复制内容', exact: true }),
+    ).toHaveValue('\\frac{1}{2}')
     const owner = await db.formula.findUniqueOrThrow({ where: { id: completedId } })
     expect(await db.recognitionTask.count({ where: { ownerId: owner.ownerId } })).toBe(0)
     expect(
@@ -318,6 +332,11 @@ for (const width of [320, 390, 430, 1440])
     await expect(page.getByText('方程可以因式分解', { exact: false }).last()).toBeVisible()
     await visit(page, '/formulas/' + completedId)
     await page.getByRole('button', { name: '导出 Word', exact: true }).click()
+    const exportDialog = page.getByRole('dialog', { name: '导出可编辑 Word' })
+    await expect(exportDialog.getByRole('option', { name: /v1 · 手动输入/ })).toHaveCount(1)
+    await exportDialog.getByText('在 Word 中使用公式', { exact: true }).click()
+    await expect(exportDialog.getByText(/Alt\+=/)).toBeVisible()
+    await page.screenshot({ path: 'tmp/r18/screenshots/export-' + width + '.png', fullPage: true })
     await page.getByRole('button', { name: '生成 Word 文档', exact: true }).click()
     await expect(page).toHaveURL(/\/exports\/[0-9a-f-]+$/)
     const downloading = page.waitForEvent('download')

@@ -92,10 +92,10 @@ const errorCode = computed(
       <template #actions>
         <NuxtLink
           :to="'/ai/new?versionId=' + current.id"
-          class="button button-primary button-block"
+          class="button button-secondary button-block"
         >
           <AppIcon name="sparkles" :size="19" />
-          AI 解析
+          自由提问
         </NuxtLink>
         <AccountExport :formula="formula" />
       </template>
