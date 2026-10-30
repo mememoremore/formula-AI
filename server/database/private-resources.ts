@@ -24,7 +24,7 @@ export async function readPrivateResource(
   switch (kind) {
     case 'formulas':
       return db.formula.findFirst({
-        where,
+        where: { ...where, deletedAt: null },
         select: {
           id: true,
           title: true,
@@ -83,12 +83,12 @@ export async function readAccountOverview(db: PrismaClient, ownerId: string) {
   if (!resourceIdPattern.test(ownerId ?? '')) throw new Error('缺少有效的账号身份。')
   const where = { ownerId }
   const [formulas, files, tasks, conversations, recentFormulas] = await Promise.all([
-    db.formula.count({ where }),
+    db.formula.count({ where: { ...where, deletedAt: null } }),
     db.storedFile.count({ where: { ...where, status: 'READY' } }),
     db.recognitionTask.count({ where }),
     db.conversation.count({ where }),
     db.formula.findMany({
-      where,
+      where: { ...where, deletedAt: null },
       orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
       take: 10,
       select: { id: true, title: true, updatedAt: true },

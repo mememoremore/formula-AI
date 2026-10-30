@@ -76,7 +76,14 @@ for (const width of [320, 390, 430, 1440])
       .setInputFiles({ name: 'R18方向6.jpg', mimeType: 'image/jpeg', buffer: original })
     const dialog = page.getByRole('dialog', { name: '自由裁剪公式图片' })
     await expect(dialog).toBeVisible()
-    await expect(dialog.getByRole('button', { name: '确认裁剪', exact: true })).toBeEnabled()
+    await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeEnabled()
+    await dialog.getByRole('button', { name: '取消', exact: true }).click()
+    await expect(page.getByRole('img', { name: '已选择的公式图片预览' })).toHaveCount(0)
+    await expect(page.getByText('选择一张公式图片')).toBeVisible()
+    await page
+      .getByLabel('选择公式图片', { exact: true })
+      .setInputFiles({ name: 'R18方向6.jpg', mimeType: 'image/jpeg', buffer: original })
+    await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeEnabled()
     expect(await page.locator('cropper-selection').count()).toBe(1)
     const handle = page.locator('cropper-handle[action="se-resize"]'),
       rect = await handle.boundingBox()
@@ -139,10 +146,11 @@ for (const width of [320, 390, 430, 1440])
           ),
       ).toBeGreaterThan(before!)
     }
-    await dialog.getByRole('button', { name: '放大图片', exact: true }).click()
+    await page.locator('cropper-canvas').hover()
+    await page.mouse.wheel(0, -100)
     mkdirSync('tmp/r18/screenshots', { recursive: true })
     await page.screenshot({ path: `tmp/r18/screenshots/crop-${width}.png` })
-    await dialog.getByRole('button', { name: '确认裁剪', exact: true }).click()
+    await dialog.getByRole('button', { name: '确认', exact: true }).click()
     await expect(dialog).toHaveCount(0)
     const preview = page.getByRole('img', { name: '已选择的公式图片预览' })
     await expect(preview).toBeVisible()
@@ -155,13 +163,12 @@ for (const width of [320, 390, 430, 1440])
     expect(size.height).toBeLessThan(120)
     expect(size.width).toBeGreaterThan(size.height)
     await page.getByRole('button', { name: '重新裁剪图片', exact: true }).click()
-    await expect(dialog.getByRole('button', { name: '确认裁剪', exact: true })).toBeEnabled()
-    await dialog.getByRole('button', { name: '取消裁剪', exact: true }).click()
+    await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeEnabled()
+    await dialog.getByRole('button', { name: '取消', exact: true }).click()
     expect(await preview.getAttribute('src')).toBe(size.src)
     await page.getByRole('button', { name: '重新裁剪图片', exact: true }).click()
-    await expect(dialog.getByRole('button', { name: '确认裁剪', exact: true })).toBeEnabled()
-    await dialog.getByRole('button', { name: '重置裁剪', exact: true }).click()
-    await dialog.getByRole('button', { name: '确认裁剪', exact: true }).click()
+    await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeEnabled()
+    await dialog.getByRole('button', { name: '确认', exact: true }).click()
     await expect
       .poll(() => preview.evaluate((img) => (img as HTMLImageElement).naturalWidth))
       .toBe(240)
@@ -177,7 +184,7 @@ for (const width of [320, 390, 430, 1440])
         ).r18Resources
         return { urls: r.urls.size, bitmaps: r.bitmaps, closed: r.closed }
       }),
-    ).toEqual({ urls: 0, bitmaps: 3, closed: 3 })
+    ).toEqual({ urls: 0, bitmaps: 4, closed: 4 })
     if (width === 390) {
       // Compare every EXIF orientation against server Sharp autoOrient using the same fixture.
       const pattern = Buffer.from(
@@ -198,7 +205,7 @@ for (const width of [320, 390, 430, 1440])
           mimeType: 'image/jpeg',
           buffer: oriented,
         })
-        await page.getByRole('button', { name: '确认裁剪', exact: true }).click()
+        await page.getByRole('button', { name: '确认', exact: true }).click()
         await expect(preview).toBeVisible()
         const pixels = await preview.evaluate(async (element) => {
           const image = element as HTMLImageElement
@@ -236,6 +243,81 @@ for (const width of [320, 390, 430, 1440])
         await page.getByRole('button', { name: '删除图片', exact: true }).click()
       }
     }
+    // Rotation uses the original pixels; cancellation preserves the earlier crop.
+    if (width === 390) {
+      const rotationImage = await sharp(
+        Buffer.from(
+          '<svg width="120" height="240"><path fill="red" d="M0 0h60v120H0z"/><path fill="blue" d="M60 0h60v120H60z"/><path fill="green" d="M0 120h60v120H0z"/><path fill="yellow" d="M60 120h60v120H60z"/></svg>',
+        ),
+      )
+        .png()
+        .toBuffer()
+      await page
+        .getByLabel('选择公式图片', { exact: true })
+        .setInputFiles({ name: 'rotation.png', mimeType: 'image/png', buffer: rotationImage })
+      const rotate = dialog.getByRole('button', { name: '旋转 90°', exact: true })
+      await expect(rotate.locator('.app-icon')).toBeVisible()
+      await expect
+        .poll(() =>
+          dialog
+            .locator("cropper-handle[action='se-resize']")
+            .evaluate((handle) => getComputedStyle(handle).opacity),
+        )
+        .toBe('0')
+      for (let i = 0; i < 3; i++) {
+        await expect(rotate).toBeEnabled()
+        const before = await dialog.locator('cropper-image').getAttribute('style')
+        await rotate.click()
+        await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeEnabled()
+        expect(await dialog.locator('cropper-image').getAttribute('style')).not.toBe(before)
+      }
+      await dialog.getByRole('button', { name: '确认', exact: true }).click()
+      await expect
+        .poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth))
+        .toBe(240)
+      const actual = await preview.evaluate(async (element) => {
+        const image = element as HTMLImageElement
+        await image.decode()
+        const canvas = document.createElement('canvas')
+        canvas.width = image.naturalWidth
+        canvas.height = image.naturalHeight
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(image, 0, 0)
+        return {
+          width: canvas.width,
+          height: canvas.height,
+          corner: Array.from(ctx.getImageData(10, 10, 1, 1).data).slice(0, 3),
+        }
+      })
+      const expectedRotation = await sharp(rotationImage)
+        .rotate(270)
+        .raw()
+        .toBuffer({ resolveWithObject: true })
+      expect(actual.width).toBe(expectedRotation.info.width)
+      expect(actual.height).toBe(expectedRotation.info.height)
+      const offset = (10 * expectedRotation.info.width + 10) * expectedRotation.info.channels
+      for (let i = 0; i < 3; i++)
+        expect(Math.abs(actual.corner[i]! - expectedRotation.data[offset + i]!)).toBeLessThan(5)
+      const selectedSource = await preview.getAttribute('src')
+      await page.getByRole('button', { name: '重新裁剪图片' }).click()
+      await expect(rotate).toBeEnabled()
+      await rotate.click()
+      await expect(rotate).toBeEnabled()
+      await dialog.getByRole('button', { name: '取消', exact: true }).click()
+      expect(await preview.getAttribute('src')).toBe(selectedSource)
+      await page.getByRole('button', { name: '重新裁剪图片' }).click()
+      for (let i = 0; i < 4; i++) {
+        await expect(rotate).toBeEnabled()
+        await rotate.click()
+      }
+      await expect(dialog.getByRole('button', { name: '确认', exact: true })).toBeEnabled()
+      await dialog.getByRole('button', { name: '确认', exact: true }).click()
+      await expect
+        .poll(() => preview.evaluate((image) => (image as HTMLImageElement).naturalWidth))
+        .toBe(120)
+      expect(await preview.evaluate((image) => (image as HTMLImageElement).naturalHeight)).toBe(240)
+      await page.getByRole('button', { name: '删除图片' }).click()
+    }
     await page.getByLabel('选择公式图片', { exact: true }).setInputFiles({
       name: 'invalid.jpg',
       mimeType: 'image/jpeg',
@@ -249,7 +331,7 @@ for (const width of [320, 390, 430, 1440])
     })
     await expect(page.getByRole('alert').filter({ hasText: /不能超过 10MB/ })).toBeVisible()
     await noOverflow(page)
-    await page.getByRole('link', { name: '直接输入 LaTeX 创建公式' }).click()
+    await visit(page, '/formulas/new')
     await expect(page).toHaveURL(/\/formulas\/new$/)
     await page.getByLabel('公式名称', { exact: true }).fill('R18手动公式')
     await page.getByLabel('LaTeX', { exact: true }).fill('\\frac{')
@@ -260,13 +342,11 @@ for (const width of [320, 390, 430, 1440])
       path: 'tmp/r18/screenshots/manual-error-' + width + '.png',
       fullPage: true,
     })
-    let dismissed = false
-    page.once('dialog', async (event) => {
-      dismissed = true
-      await event.dismiss()
-    })
     await page.getByRole('link', { name: /返回/ }).first().click()
-    expect(dismissed).toBe(true)
+    const leaveDialog = page.getByRole('dialog', { name: '公式还未保存' })
+    await expect(leaveDialog).toBeVisible()
+    await leaveDialog.getByRole('button', { name: '继续编辑' }).click()
+    await expect(leaveDialog).toBeHidden()
     await expect(page).toHaveURL(/\/formulas\/new$/)
     await page.getByLabel('LaTeX', { exact: true }).fill('\\frac{1}{2}')
     await expect(page.locator('.manual-preview .katex')).toBeVisible()

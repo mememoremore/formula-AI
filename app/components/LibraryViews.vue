@@ -18,7 +18,7 @@ const options = [
         path: '/library',
         query: {
           ...route.query,
-          ...(view.id === 'recent' ? { q: undefined, category: undefined } : {}),
+          ...(view.id === 'recent' ? { category: undefined } : {}),
           view: view.id === 'all' ? undefined : view.id,
         },
       }"
@@ -42,7 +42,7 @@ const options = [
 .library-views {
   display: flex;
   gap: 8px;
-  margin: 22px 0 26px;
+  margin: 16px 0 10px;
 }
 a {
   min-width: 0;

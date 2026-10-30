@@ -104,6 +104,7 @@ export async function recognitionFixture(event: H3Event) {
       fileId: string
       mode: 'handwritten' | 'printed'
       requestKey: string
+      requestedTitle?: string
     }>(event)
     state.submissions.push({ key: body.requestKey, mode: body.mode, fileId: body.fileId })
     if (mode === 'quota') throw createError({ statusCode: 429, message: '今日识别次数已用完。' })
@@ -116,6 +117,7 @@ export async function recognitionFixture(event: H3Event) {
         id: 'r7-t' + (state.tasks.size + 1),
         fileId: body.fileId,
         mode: body.mode,
+        requestedTitle: body.requestedTitle?.trim() || null,
         status: 'QUEUED',
         attemptCount: 0,
         maxAttempts: 3,

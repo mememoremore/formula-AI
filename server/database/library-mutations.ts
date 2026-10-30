@@ -37,7 +37,10 @@ async function ownedCategory(tx: Prisma.TransactionClient, ownerId: string, id: 
 async function ownedFormula(tx: Prisma.TransactionClient, ownerId: string, id: string) {
   const formula =
     hasValidResourceIdentity(ownerId, id) &&
-    (await tx.formula.findFirst({ where: { id, ownerId }, select: { id: true } }))
+    (await tx.formula.findFirst({
+      where: { id, ownerId, deletedAt: null },
+      select: { id: true },
+    }))
   if (!formula) throw new WorkspaceError(404, '未找到这条公式。')
   return formula
 }

@@ -70,14 +70,16 @@ const personal = [
         <AppIcon name="chevron" :size="17" class="menu-chevron" />
       </NuxtLink>
     </div>
-    <p class="page-footnote">把每一次思考，整理成知识</p>
   </div>
 </template>
 <style scoped>
 .profile-hero {
   position: relative;
   text-align: center;
-  padding: 20px 0 28px;
+  padding: 10px 0 18px;
+}
+.profile-page :deep(.app-brand) {
+  margin-bottom: 14px;
 }
 .profile-hero h1 {
   font-size: 26px;
@@ -88,13 +90,13 @@ const personal = [
 .eyebrow {
   font-size: 12px;
   color: var(--color-primary);
-  margin-top: 24px;
+  margin-top: 14px;
 }
 .profile-email {
   font-size: 14px;
   color: var(--color-text-secondary);
   line-height: 1.8;
-  margin: 12px 0 24px;
+  margin: 8px 0 14px;
   overflow-wrap: anywhere;
 }
 .profile-decoration {
@@ -115,8 +117,8 @@ const personal = [
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 10px;
-  padding: 18px 6px;
+  gap: 6px;
+  padding: 14px 6px;
   color: var(--color-primary);
 }
 .shortcut strong {
@@ -128,8 +130,11 @@ const personal = [
   color: var(--color-text-secondary);
 }
 .menu-item {
-  min-height: 72px;
+  min-height: 60px;
   padding-inline: 20px;
+}
+.profile-page > .menu-list.section {
+  margin-top: 18px;
 }
 .demo-entry {
   display: flex;

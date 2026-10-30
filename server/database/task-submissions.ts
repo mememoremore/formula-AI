@@ -11,15 +11,27 @@ export async function submitRecognition(
   db: PrismaClient,
   boss: PgBoss,
   limits: UsageLimits,
-  input: { ownerId: string; fileId: string; mode: 'handwritten' | 'printed'; requestKey: string },
+  input: {
+    ownerId: string
+    fileId: string
+    mode: 'handwritten' | 'printed'
+    requestKey: string
+    requestedTitle?: string | null
+  },
 ) {
   const mode = input.mode === 'handwritten' ? 'HANDWRITTEN' : 'PRINTED'
+  const requestedTitle = input.requestedTitle ?? null
   const read = async () => {
     const task = await db.recognitionTask.findUnique({
       where: { ownerId_requestKey: { ownerId: input.ownerId, requestKey: input.requestKey } },
     })
-    if (task && (task.inputFileId !== input.fileId || task.mode !== mode))
-      throw new WorkspaceError(409, '这个识别请求编号已用于其他图片或模式。')
+    if (
+      task &&
+      (task.inputFileId !== input.fileId ||
+        task.mode !== mode ||
+        task.requestedTitle !== requestedTitle)
+    )
+      throw new WorkspaceError(409, '这个识别请求编号已用于其他图片、模式或名称。')
     return task
   }
   return idempotentTask(read, () =>
@@ -29,8 +41,12 @@ export async function submitRecognition(
         where: { ownerId_requestKey: { ownerId: input.ownerId, requestKey: input.requestKey } },
       })
       if (existing) {
-        if (existing.inputFileId !== input.fileId || existing.mode !== mode)
-          throw new WorkspaceError(409, '这个识别请求编号已用于其他图片或模式。')
+        if (
+          existing.inputFileId !== input.fileId ||
+          existing.mode !== mode ||
+          existing.requestedTitle !== requestedTitle
+        )
+          throw new WorkspaceError(409, '这个识别请求编号已用于其他图片、模式或名称。')
         return existing
       }
       const policy = resourcePolicy()
@@ -54,6 +70,7 @@ export async function submitRecognition(
           inputFileId: input.fileId,
           mode,
           requestKey: input.requestKey,
+          requestedTitle,
         },
       })
       await reserveUsage(tx, input.ownerId, 'RECOGNITION', limits.RECOGNITION)
@@ -83,7 +100,11 @@ export async function submitExport(
   return idempotentTask(read, () =>
     db.$transaction(async (tx) => {
       const version = await tx.formulaVersion.findFirst({
-        where: { id: input.formulaVersionId, ownerId: input.ownerId },
+        where: {
+          id: input.formulaVersionId,
+          ownerId: input.ownerId,
+          formula: { deletedAt: null },
+        },
         include: { formula: { select: { title: true } } },
       })
       if (!version) throw new WorkspaceError(404, '未找到这个公式版本。')

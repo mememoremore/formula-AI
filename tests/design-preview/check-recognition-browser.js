@@ -125,7 +125,7 @@ async function checkRecognition(page) {
     await open()
     await layout(width, '上传')
     ensure(
-      await page.getByRole('button', { name: '识别并保存到账号', exact: true }).isDisabled(),
+      await page.getByRole('button', { name: '识别', exact: true }).isDisabled(),
       '未选图片不能提交' + width,
     )
     await page.screenshot({ path: shots + '上传修改后' + width + '.png', fullPage: true })
@@ -154,7 +154,7 @@ async function checkRecognition(page) {
     await page.getByLabel('选择公式图片', { exact: true }).setInputFiles('tmp/r7-images/' + file)
     await page.getByRole('alert').filter({ hasText: text }).waitFor()
     ensure(
-      await page.getByRole('button', { name: '识别并保存到账号', exact: true }).isDisabled(),
+      await page.getByRole('button', { name: '识别', exact: true }).isDisabled(),
       '校验失败不能提交：' + file,
     )
   }
@@ -184,7 +184,7 @@ async function checkRecognition(page) {
   // 两阶段与重复点击。
   await open('upload-slow')
   await image()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).evaluate((e) => {
+  await page.getByRole('button', { name: '识别', exact: true }).evaluate((e) => {
     e.click()
     e.click()
   })
@@ -205,7 +205,7 @@ async function checkRecognition(page) {
   )
   await open('submit-slow')
   await image()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.getByRole('button', { name: '正在提交识别任务…', exact: true }).waitFor()
   ensure(
     await page.getByRole('button', { name: '正在提交识别任务…', exact: true }).isDisabled(),
@@ -221,7 +221,7 @@ async function checkRecognition(page) {
   await page.evaluate(() => {
     window.__r7Drop = '/api/account/recognitions'
   })
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.getByRole('button', { name: '确认上次识别提交', exact: true }).waitFor()
   ensure(
     await page.getByRole('radio', { name: '手写公式', exact: true }).isDisabled(),
@@ -244,9 +244,9 @@ async function checkRecognition(page) {
   await page.evaluate(() => {
     window.__r7Drop = '/api/account/files'
   })
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.getByRole('alert').filter({ hasText: '暂未确认' }).waitFor()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.waitForURL('**/recognitions/r7-t1')
   d = await debug()
   ensure(
@@ -256,7 +256,7 @@ async function checkRecognition(page) {
   // 待确认任务跨整页加载恢复，File 不持久化。
   await open('submit-lost')
   await image()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.getByRole('button', { name: '确认上次识别提交', exact: true }).waitFor()
   const original = (await debug()).submissions[0].key
   await leave()
@@ -271,7 +271,7 @@ async function checkRecognition(page) {
   ensure(d.tasks === 1 && d.submissions.at(-1).key === original, '整页重载后仍确认原任务')
   await open('submit-slow')
   await image()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.getByRole('button', { name: '正在提交识别任务…', exact: true }).waitFor()
   await page.getByRole('link', { name: '查看最近识别', exact: true }).click()
   await page.waitForURL('**/library?space=account&view=recent')
@@ -282,7 +282,7 @@ async function checkRecognition(page) {
   )
   await open('quota')
   await image()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.getByRole('alert').filter({ hasText: '今日识别次数' }).waitFor()
   ensure((await debug()).tasks === 0, '额度不足没有创建任务')
   ensure(
@@ -291,7 +291,7 @@ async function checkRecognition(page) {
   )
   await open('unavailable')
   await image()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.getByRole('button', { name: '确认上次识别提交', exact: true }).waitFor()
   ensure((await debug()).tasks === 0, '服务不可用显示未确认并保持安全重试')
   // 游客只提交元信息。
@@ -305,7 +305,7 @@ async function checkRecognition(page) {
       return window.__r7SetItem.call(this, key, value)
     }
   })
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.getByRole('alert').filter({ hasText: '本次任务请求未发送' }).first().waitFor()
   d = await debug()
   ensure(d.submissions.length === 0 && d.tasks === 0, '恢复凭据写入失败时，在任务POST之前拒绝发送')
@@ -399,7 +399,7 @@ async function checkRecognition(page) {
     .getByRole('heading', { name: '暂时无法确认账号', exact: true })
     .waitFor({ state: 'hidden' })
   await mode('submit-lost')
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.getByRole('button', { name: '确认上次识别提交', exact: true }).waitFor()
   ensure(
     await page.evaluate(
@@ -412,7 +412,7 @@ async function checkRecognition(page) {
   await mode('other')
   await page.getByRole('button', { name: '刷新测试身份', exact: true }).click()
   await ready()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).waitFor()
+  await page.getByRole('button', { name: '识别', exact: true }).waitFor()
   ensure(!(await page.locator('.upload-zone img').count()), '切换账号清除原私有图片草稿')
   ensure(
     await page.evaluate(
@@ -439,7 +439,7 @@ async function checkRecognition(page) {
     .click()
   await ready()
   await image()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.waitForURL('**/recognitions/r7-t1')
   await mode('completed')
   await page.getByRole('button', { name: '刷新任务状态', exact: true }).click()
@@ -480,7 +480,7 @@ async function checkRecognition(page) {
   await page.getByRole('link', { name: '上传公式图片', exact: true }).click()
   await page.getByRole('heading', { name: '公式识别', exact: true }).waitFor()
   await image()
-  await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+  await page.getByRole('button', { name: '识别', exact: true }).click()
   await page.waitForURL('**/recognitions/r7-t1')
   await mode('completed')
   await page.getByRole('button', { name: '刷新任务状态', exact: true }).click()

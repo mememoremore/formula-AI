@@ -33,7 +33,12 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
     try {
       const response = await $fetch.raw<RecognitionTaskState>('/api/account/recognitions', {
         method: 'POST',
-        body: { fileId: value.fileId, mode: value.mode, requestKey: value.requestKey },
+        body: {
+          fileId: value.fileId,
+          mode: value.mode,
+          requestKey: value.requestKey,
+          requestedTitle: value.requestedTitle ?? null,
+        },
         retry: 0,
         timeout: 30_000,
         signal,
@@ -49,7 +54,7 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
       throw error
     }
   }
-  async function recognize(file: File | null, mode: RecognitionMode) {
+  async function recognize(file: File | null, mode: RecognitionMode, requestedTitle?: string) {
     const owner = ownerId.value
     if (!owner || controller || disposed) throw new Error('当前不能提交')
     draft.requireRecovery()
@@ -101,7 +106,13 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
         }
       }
       return await submit(
-        { ownerId: owner, fileId: transfer.image.id, mode, requestKey: crypto.randomUUID() },
+        {
+          ownerId: owner,
+          fileId: transfer.image.id,
+          mode,
+          requestKey: crypto.randomUUID(),
+          ...(requestedTitle ? { requestedTitle } : {}),
+        },
         active.signal,
       )
     } finally {
@@ -129,6 +140,7 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
           ownerId: owner,
           fileId: task.fileId,
           mode: task.mode,
+          ...(task.requestedTitle ? { requestedTitle: task.requestedTitle } : {}),
           requestKey: crypto.randomUUID(),
           sourceTaskId: task.id,
         },

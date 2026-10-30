@@ -27,7 +27,13 @@ test('图片平移缩放后边界使用中心变换，不混用屏幕与原图�
   })
   assert.equal(transformedImageBounds(image, [1, 0, 0, 1, 0, 0], [-1, 0, 0, 1, 0, 0]), null)
 })
-test('旋转与倾斜不进入R18的坐标系，像素上限不能绕过', () => {
+test('支持直角旋转并拒绝倾斜，像素上限不能绕过', () => {
+  assert.deepEqual(transformedImageBounds(image, [1, 0, 0, 1, 0, 0], [0, 1, -1, 0, 0, 0]), {
+    left: 60,
+    top: -30,
+    width: 200,
+    height: 300,
+  })
   assert.equal(transformedImageBounds(image, [1, 0, 0, 1, 0, 0], [1, 0.2, 0, 1, 0, 0]), null)
   assert.throws(() => cropOutputSize(10000, 10000, image, image))
   assert.deepEqual(cropOutputSize(3, 2, image, image), { width: 3, height: 2 })

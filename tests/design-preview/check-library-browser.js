@@ -190,6 +190,17 @@ async function checkLibrary(page) {
     '慢搜索结果不能覆盖新关键词',
   )
 
+  await page.getByRole('searchbox').evaluate((element) => {
+    window.__librarySearch = element
+  })
+  for (const name of ['收藏', '最近识别', '全部']) {
+    await page.getByRole('link', { name, exact: true }).click()
+    ensure(
+      await page.getByRole('searchbox').evaluate((element) => element === window.__librarySearch),
+      name + '切换时保留搜索框',
+    )
+    ensure((await page.getByRole('searchbox').inputValue()) === '公式1', name + '切换时保留搜索词')
+  }
   await open('more-slow', 'space=account', true)
   await page.getByRole('button', { name: '加载更多', exact: true }).click()
   await page.getByRole('button', { name: '正在加载…', exact: true }).waitFor()
@@ -338,7 +349,7 @@ async function checkLibrary(page) {
     .waitFor({ state: 'hidden' })
   await page.getByRole('button', { name: '关闭弹窗', exact: true }).click()
   await page.locator('.category-tag').first().click()
-  await page.getByRole('combobox').selectOption(calculus)
+  await page.getByRole('dialog').getByText('微积分', { exact: true }).click()
   await page.getByRole('button', { name: '保存分类', exact: true }).click()
   await page.getByRole('dialog').waitFor({ state: 'hidden' })
   await page.waitForFunction(() =>

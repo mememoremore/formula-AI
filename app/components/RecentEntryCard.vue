@@ -7,6 +7,7 @@ defineProps<{
   latex?: string
   imageSrc?: string
   sample?: boolean
+  formula?: boolean
 }>()
 </script>
 
@@ -17,7 +18,7 @@ defineProps<{
         <h2>{{ label }}</h2>
       </div>
       <div class="entry-body">
-        <FormulaThumbnail :src="imageSrc" :latex="latex" :sample="sample" />
+        <FormulaThumbnail v-if="!formula" :src="imageSrc" :latex="latex" :sample="sample" />
         <div class="entry-copy">
           <h3>{{ title }}</h3>
           <p>{{ subtitle }}</p>
@@ -42,11 +43,11 @@ defineProps<{
 }
 .entry-link {
   display: block;
-  padding: 20px;
+  padding: 18px 20px 8px;
   border-radius: var(--radius-card);
 }
 .entry-formula {
-  margin: 0 20px 12px;
+  margin: 0 20px 16px;
 }
 .entry-formula:focus-visible {
   outline: 3px solid var(--color-focus);

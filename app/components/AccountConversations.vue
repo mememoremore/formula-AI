@@ -32,6 +32,9 @@ async function search() {
     searches--
   }
 }
+function resetEmptySearch() {
+  if (!query.value.trim() && listing.query.value) void search()
+}
 await listing.request
 </script>
 <template>
@@ -47,6 +50,7 @@ await listing.request
       type="search"
       maxlength="100"
       placeholder="搜索对话标题或提问"
+      @blur="resetEmptySearch"
     />
     <button class="icon-button" type="submit" aria-label="搜索对话">
       <AppIcon name="search" :size="19" />
@@ -71,7 +75,7 @@ await listing.request
             <AppIcon :name="item.latex ? 'book' : 'message'" :size="20" />
           </span>
           <div>
-            <h3>{{ item.title }}</h3>
+            <h3>{{ item.latex ? item.title.replace(/ · v[0-9]+$/, '') : item.title }}</h3>
             <MathFormula v-if="item.latex" :latex="item.latex" :display="false" />
             <p v-else>{{ item.preview || '打开并继续这段思考' }}</p>
           </div>

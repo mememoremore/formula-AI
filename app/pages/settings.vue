@@ -1,19 +1,15 @@
 <script setup lang="ts">
 import { authClient } from '~/utils/auth-client'
-import { createDemoState } from '~/composables/useDemoStore'
 definePageMeta({ bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '设置 · Formula AI' })
 const session = useAccountSession()
 await session
 const { data: account, error, status, refresh } = session
-const boundary = useNuxtApp().$accountBoundary,
-  store = useDemoStore(),
-  { showToast } = useToast()
+const boundary = useNuxtApp().$accountBoundary
 const ownerId = computed(() =>
   status.value === 'success' && !error.value ? account.value?.user?.id : undefined,
 )
-const showReset = ref(false),
-  busy = ref(false),
+const busy = ref(false),
   feedback = ref('')
 let disposed = false,
   allowExit = false,
@@ -64,12 +60,6 @@ async function logout() {
     if (!disposed) busy.value = false
   }
 }
-function reset() {
-  if (busy.value) return
-  store.value = createDemoState()
-  showReset.value = false
-  showToast('已恢复本机示例，账号数据未修改。')
-}
 </script>
 <template>
   <div class="settings-page">
@@ -114,22 +104,6 @@ function reset() {
       </div>
     </section>
     <p v-if="feedback" class="error-text section" role="alert">{{ feedback }}</p>
-    <section class="section">
-      <div class="section-heading">
-        <h2>本机演示数据</h2>
-        <span class="badge">仅此浏览器</span>
-      </div>
-      <div class="card settings-copy">
-        <p>本机有 {{ store.formulas.length }} 条演示公式</p>
-        <p class="info-note">
-          与账号数据独立。退出账号不会清除本机演示，恢复示例也不会删除账号内容。
-        </p>
-        <button class="text-button" :disabled="busy" @click="showReset = true">
-          <AppIcon name="history" :size="16" />
-          恢复默认示例
-        </button>
-      </div>
-    </section>
     <template v-if="ownerId">
       <details :key="ownerId + '-usage'" class="card settings-copy section" :inert="busy">
         <summary>账号使用额度</summary>
@@ -137,18 +111,6 @@ function reset() {
       </details>
       <ServiceStatus :key="ownerId + '-services'" :owner-id="ownerId" :inert="busy" />
     </template>
-    <p class="settings-note">
-      连接状态仅供参考。已配置 AI 不等于实时请求一定成功，检查不会发起付费生成。
-    </p>
-    <AppModal :open="showReset" title="恢复默认示例？" @close="showReset = false">
-      <p class="prose">
-        这会清除本机新增的演示公式、分类和模拟对话。账号公式、收藏、对话与文件不受影响。
-      </p>
-      <div class="reset-actions section">
-        <button class="button button-white" @click="showReset = false">取消</button>
-        <button class="button button-primary" @click="reset">确认恢复</button>
-      </div>
-    </AppModal>
   </div>
 </template>
 <style scoped>

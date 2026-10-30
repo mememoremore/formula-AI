@@ -225,21 +225,22 @@ model StorageCleanupAudit {
 }
 
 model RecognitionTask {
-  id           String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerId      String            @db.Uuid
-  inputFileId  String            @db.Uuid
-  requestKey   String            @db.VarChar(100)
-  mode         RecognitionMode
-  status       RecognitionStatus @default(QUEUED)
-  attemptCount Int               @default(0)
-  maxAttempts  Int               @default(3)
-  errorCode    String?           @db.VarChar(100)
-  errorMessage String?           @db.VarChar(1000)
-  startedAt    DateTime?         @db.Timestamptz(3)
-  finishedAt   DateTime?         @db.Timestamptz(3)
-  createdAt    DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt    DateTime          @updatedAt @db.Timestamptz(3)
-  queueJobId   String?           @unique @db.Uuid
+  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId        String            @db.Uuid
+  inputFileId    String            @db.Uuid
+  requestKey     String            @db.VarChar(100)
+  requestedTitle String?           @db.VarChar(100)
+  mode           RecognitionMode
+  status         RecognitionStatus @default(QUEUED)
+  attemptCount   Int               @default(0)
+  maxAttempts    Int               @default(3)
+  errorCode      String?           @db.VarChar(100)
+  errorMessage   String?           @db.VarChar(1000)
+  startedAt      DateTime?         @db.Timestamptz(3)
+  finishedAt     DateTime?         @db.Timestamptz(3)
+  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
+  queueJobId     String?           @unique @db.Uuid
 
   owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   inputFile StoredFile @relation(fields: [inputFileId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
@@ -269,15 +270,16 @@ model Category {
 }
 
 model Formula {
-  creationKey       String?  @db.VarChar(100)
-  creationHash      String?  @db.Char(64)
-  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerId           String   @db.Uuid
-  title             String   @db.VarChar(100)
-  categoryId        String?  @db.Uuid
-  recognitionTaskId String?  @db.Uuid
-  createdAt         DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime @updatedAt @db.Timestamptz(3)
+  creationKey       String?   @db.VarChar(100)
+  creationHash      String?   @db.Char(64)
+  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId           String    @db.Uuid
+  title             String    @db.VarChar(100)
+  categoryId        String?   @db.Uuid
+  recognitionTaskId String?   @db.Uuid
+  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime  @updatedAt @db.Timestamptz(3)
+  deletedAt         DateTime? @db.Timestamptz(3)
 
   owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   category        Category?        @relation(fields: [categoryId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
@@ -290,6 +292,7 @@ model Formula {
   @@unique([ownerId, creationKey])
   @@index([ownerId, createdAt(sort: Desc), id(sort: Desc)])
   @@index([ownerId, updatedAt(sort: Desc), id])
+  @@index([ownerId, deletedAt, createdAt(sort: Desc), id(sort: Desc)])
   @@index([categoryId, ownerId])
   @@map("formulas")
 }

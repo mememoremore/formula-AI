@@ -2,8 +2,8 @@ import type { RecognitionHistoryPage } from '#shared/types/tasks'
 import { mergeLibraryItems, readHistoryWindow } from '~/utils/library-state'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 
-export function useAccountHistory(ownerId: string) {
-  const key = 'account-history-' + ownerId
+export function useAccountHistory(ownerId: string, query = '') {
+  const key = 'account-history-' + ownerId + (query ? ':' + encodeURIComponent(query) : '')
   const cached = useNuxtData<RecognitionHistoryPage>(key)
   const revalidate = !!cached.data.value && !useNuxtApp().isHydrating
   const boundary = ref(cached.data.value?.items.at(-1)?.id ?? null)
@@ -23,7 +23,7 @@ export function useAccountHistory(ownerId: string) {
         readHistoryWindow(
           (cursor) =>
             fetcher<RecognitionHistoryPage>('/api/account/recognitions', {
-              query: { cursor },
+              query: { cursor, q: query || undefined },
               signal,
               retry: 0,
             }),
@@ -52,7 +52,7 @@ export function useAccountHistory(ownerId: string) {
     feedback.value = ''
     try {
       const page = await $fetch<RecognitionHistoryPage>('/api/account/recognitions', {
-        query: { cursor },
+        query: { cursor, q: query || undefined },
         signal: controller.signal,
         retry: 0,
         timeout: 15_000,

@@ -25,10 +25,6 @@ defineEmits<{ choose: []; remove: [] }>()
       </template>
     </button>
     <div v-if="preview" class="preview-meta">
-      <div>
-        <strong>{{ preview.name }}</strong>
-        <p>{{ (preview.size / 1024 / 1024).toFixed(2) }} MB · 点击图片可重新选择</p>
-      </div>
       <div class="preview-actions">
         <button class="text-button" :disabled="disabled" @click="$emit('choose')">重新选择</button>
         <button class="text-button" :disabled="disabled" @click="$emit('remove')">删除图片</button>
@@ -87,17 +83,6 @@ defineEmits<{ choose: []; remove: [] }>()
 .preview-meta {
   margin-top: 14px;
   min-width: 0;
-}
-.preview-meta strong {
-  display: block;
-  font-size: 13px;
-  overflow-wrap: anywhere;
-}
-.preview-meta p {
-  font-size: 12px;
-  color: var(--color-text-secondary);
-  line-height: 1.8;
-  margin-top: 4px;
 }
 .preview-actions {
   display: flex;

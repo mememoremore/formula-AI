@@ -2,7 +2,7 @@
 withDefaults(
   defineProps<{
     title: string
-    subtitle: string
+    subtitle?: string
     artwork?: 'formula' | 'book' | 'idea'
     level?: 1 | 2
     inlineArtwork?: boolean
@@ -14,7 +14,7 @@ withDefaults(
   <div class="page-intro" :class="{ 'with-art': artwork, 'inline-art': artwork && inlineArtwork }">
     <div>
       <component :is="level === 2 ? 'h2' : 'h1'" class="intro-title">{{ title }}</component>
-      <p>{{ subtitle }}</p>
+      <p v-if="subtitle">{{ subtitle }}</p>
     </div>
     <div v-if="artwork" class="intro-art"><PaperArtwork :kind="artwork" compact /></div>
   </div>

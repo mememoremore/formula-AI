@@ -90,10 +90,9 @@ const questions = [
   </ol>
   <div class="stack">
     <details
-      v-for="(question, index) in questions"
+      v-for="question in questions"
       :key="question.title"
       class="card help-item"
-      :open="index === 0"
     >
       <summary>
         {{ question.title }}

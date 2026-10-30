@@ -11,7 +11,7 @@ export async function readSavedFormula(
 ): Promise<SavedFormula> {
   if (!hasValidResourceIdentity(ownerId, id)) throw new WorkspaceError(404, '未找到这条公式。')
   const formula = await db.formula.findFirst({
-    where: { id, ownerId },
+    where: { id, ownerId, deletedAt: null },
     include: {
       category: { select: { id: true, name: true } },
       favorites: { where: { ownerId }, select: { formulaId: true } },
@@ -49,11 +49,14 @@ export async function readFormulaHistory(
   if (
     cursor &&
     (!hasValidResourceIdentity(ownerId, cursor) ||
-      !(await db.formula.findFirst({ where: { id: cursor, ownerId }, select: { id: true } })))
+      !(await db.formula.findFirst({
+        where: { id: cursor, ownerId, deletedAt: null },
+        select: { id: true },
+      })))
   )
     throw new WorkspaceError(404, '未找到历史分页位置，请重新加载。')
   const page = await db.formula.findMany({
-    where: { ownerId },
+    where: { ownerId, deletedAt: null },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: 21,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

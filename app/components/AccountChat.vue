@@ -45,17 +45,19 @@ await chat.request
 </script>
 <template>
   <div class="account-chat">
-    <PageHeader :title="conversation?.context?.title || 'AI 对话'" back-to="/ai" />
-    <details v-if="conversation?.context" class="chat-context">
-      <summary>
-        <AppIcon name="book" :size="15" />
-        <span>{{ conversation.context.title }}</span>
-        <small>v{{ conversation.context.number }}</small>
-        <AppIcon name="chevron" :size="14" />
-      </summary>
-      <MathFormula :latex="conversation.context.latex" />
-      <p class="info-note">对话绑定此公式版本，后续修改不会改变这里的上下文。</p>
-    </details>
+    <div class="chat-header">
+      <PageHeader :title="conversation?.context?.title || 'AI 对话'" back-to="/ai" />
+      <details v-if="conversation?.context" class="chat-context">
+        <summary>
+          <AppIcon name="book" :size="15" />
+          <span>{{ conversation.context.title }}</span>
+          <small v-if="conversation.context.number > 1">v{{ conversation.context.number }}</small>
+          <AppIcon name="chevron" :size="14" />
+        </summary>
+        <MathFormula :latex="conversation.context.latex" />
+        <p class="info-note">对话绑定此公式版本，后续修改不会改变这里的上下文。</p>
+      </details>
+    </div>
     <template v-if="conversation">
       <section v-if="conversation.purpose === 'EXPLANATION'" class="card explanation-base">
         <template v-if="conversation.baseExplanation">
@@ -101,7 +103,6 @@ await chat.request
           </NuxtLink>
         </nav>
       </section>
-      <p class="info-note">上下文仅使用已完成问答；失败和停止记录不参与，当前提问会单独加入。</p>
       <p v-if="!conversation.messages.length" class="info-note section">
         从符号含义、推导过程或使用条件开始提问。
       </p>
@@ -225,7 +226,19 @@ await chat.request
 }
 .account-chat {
   min-width: 0;
-  padding-bottom: calc(var(--chat-composer-height, 70px) + 42px);
+  padding-bottom: max(0px, calc(var(--chat-composer-height, 70px) - 16px));
+}
+.chat-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  margin-top: calc(-28px - var(--safe-area-top));
+  padding-top: calc(28px + var(--safe-area-top));
+  padding-bottom: 8px;
+  background: var(--color-background);
+}
+.chat-header :deep(.page-header) {
+  margin-bottom: 12px;
 }
 .chat-context {
   border: 1px solid #e8e3f3;
@@ -260,7 +273,7 @@ summary::-webkit-details-marker {
   flex-direction: column;
   align-items: stretch;
   gap: 24px;
-  margin-top: 24px;
+  margin-top: 12px;
 }
 .chat-message {
   min-width: 0;

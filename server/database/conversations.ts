@@ -54,7 +54,7 @@ export async function createConversation(
               // 与标题UPDATE互斥；Serializable同时捕获触发器快照遗漏新会话的phantom竞争。
               const rows = await tx.$queryRaw<
                 { id: string }[]
-              >`SELECT f.id FROM formulas f JOIN formula_versions v ON v."formulaId"=f.id AND v."ownerId"=f."ownerId" WHERE v.id=${formulaVersionId}::uuid AND v."ownerId"=${ownerId}::uuid FOR SHARE OF f`
+              >`SELECT f.id FROM formulas f JOIN formula_versions v ON v."formulaId"=f.id AND v."ownerId"=f."ownerId" WHERE v.id=${formulaVersionId}::uuid AND v."ownerId"=${ownerId}::uuid AND f."deletedAt" IS NULL FOR SHARE OF f`
               if (!rows.length) throw new WorkspaceError(404, '未找到这个公式版本。')
             }
             const context = formulaVersionId

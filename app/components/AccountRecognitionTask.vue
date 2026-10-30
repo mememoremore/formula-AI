@@ -133,7 +133,6 @@ await request
       class="button button-primary button-block section"
     >
       查看识别结果
-      <AppIcon name="chevron" :size="18" />
     </NuxtLink>
     <p
       v-else-if="task.status === 'COMPLETED' && !task.formulaId"
@@ -170,14 +169,8 @@ await request
       <button class="text-button" :disabled="busy || status === 'pending'" @click="refresh()">
         {{ status === 'pending' ? '正在读取…' : '刷新任务状态' }}
       </button>
-      <NuxtLink to="/library?space=account&view=recent" class="text-button">
-        最近识别
-        <AppIcon name="chevron" :size="14" />
-      </NuxtLink>
+      <NuxtLink to="/library?space=account&view=recent" class="text-button">最近识别</NuxtLink>
     </div>
-    <p class="info-note task-footer">
-      任务已保存在账号。你可以离开此页，稍后从最近识别继续查看；识别后请核对公式。
-    </p>
   </template>
   <AccountUsage :owner-id="ownerId" />
 </template>
@@ -198,9 +191,5 @@ await request
   justify-content: space-between;
   gap: 8px;
   margin-top: 20px;
-}
-.task-footer {
-  line-height: 1.9;
-  margin-top: 12px;
 }
 </style>

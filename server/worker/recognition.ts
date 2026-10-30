@@ -50,7 +50,7 @@ export async function processRecognition(
       if (!changed.count) throw new LostJobClaim()
       await createFormulaInTransaction(tx, {
         ownerId: task.ownerId,
-        title: task.inputFile.name.replace(/\.[^.]+$/, '').slice(0, 100) || '未命名公式',
+        title: task.requestedTitle ?? '未命名公式',
         latex: result.latex,
         recognitionTaskId: task.id,
         origin: 'RECOGNITION',

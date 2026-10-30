@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { displayFormulaTitle } from '#shared/formula-title'
 const workspace = useWorkspace()
 await useAccountSession()
 const home = useHomeOverview(workspace)
@@ -59,7 +60,12 @@ await home.request
         v-if="!demo && recent.conversation"
         label="最近创建的对话"
         :title="recent.conversation.title"
-        :subtitle="recent.conversation.preview || '接着已有的思路，继续提问'"
+        :subtitle="
+          recent.conversation.preview &&
+          recent.conversation.preview.trim() !== recent.conversation.title.trim()
+            ? recent.conversation.preview
+            : '继续提问'
+        "
         :latex="recent.conversation.latex ?? undefined"
         :to="'/ai/' + recent.conversation.id"
       />
@@ -82,8 +88,9 @@ await home.request
         v-for="formula in recent.formulas"
         :key="formula.id"
         label="最近保存的公式"
-        :title="formula.title"
-        subtitle="打开公式，回顾与校正"
+        :title="displayFormulaTitle(formula.title, !!formula.imageId)"
+        :subtitle="formula.category?.name || '未分类'"
+        formula
         :latex="formula.latex"
         :to="'/formulas/' + formula.id"
         :image-src="

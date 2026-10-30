@@ -28,11 +28,15 @@ export function useDemoLibrary() {
     return true
   }
 
-  function addRecognition(result: RecognitionResult, imageName: string): Formula {
+  function addRecognition(
+    result: RecognitionResult,
+    imageName: string,
+    requestedTitle?: string,
+  ): Formula {
     const now = new Date().toISOString()
     const formula: Formula = {
       id: result.requestId,
-      title: '公式识别示例',
+      title: requestedTitle || '未命名公式',
       latex: result.latex,
       originalLatex: result.latex,
       versionId: crypto.randomUUID(),

@@ -72,6 +72,7 @@ for (const width of [320, 390, 430, 1440])
     const email = `e2e-${randomUUID()}@formula.test`
     const password = `E2e-${randomBytes(18).toString('base64url')}`
     await signup(page, email, password)
+    await expect(page.getByText('账号识别 · 图片私有保存', { exact: true })).toHaveCount(0)
     await noOverflow(page)
     // A small valid PNG, real Sharp validation and real S3 upload.
     const sharp = (await import('sharp')).default
@@ -83,11 +84,12 @@ for (const width of [320, 390, 430, 1440])
     await page
       .getByLabel('选择公式图片', { exact: true })
       .setInputFiles({ name: 'R16公式.png', mimeType: 'image/png', buffer: image })
-    await page.getByRole('button', { name: '确认裁剪', exact: true }).click()
+    await page.getByRole('button', { name: '确认', exact: true }).click()
     await expect(page.getByRole('img', { name: '已选择的公式图片预览' })).toBeVisible()
     await noOverflow(page)
-    await page.getByRole('button', { name: '识别并保存到账号', exact: true }).click()
+    await page.getByRole('button', { name: '识别', exact: true }).click()
     await expect(page).toHaveURL(/\/recognitions\/[0-9a-f-]+$/)
+    await expect(page.getByText(/任务已保存在账号/)).toHaveCount(0)
     await expect(page.getByRole('link', { name: /查看.*公式|查看.*结果/ })).toBeVisible()
     await page.getByRole('link', { name: /查看.*公式|查看.*结果/ }).click()
     await expect(page).toHaveURL(/\/formulas\/[0-9a-f-]+$/)
@@ -111,9 +113,8 @@ for (const width of [320, 390, 430, 1440])
       headers: { origin: testEnvironment.apiUrl },
     })
     expect(category.ok()).toBe(true)
-    const categoryData = (await category.json()) as { id: string }
     await page.getByRole('button', { name: '未分类', exact: true }).click()
-    await page.getByRole('dialog').getByRole('combobox').selectOption(categoryData.id)
+    await page.getByRole('dialog').getByText('R16分类', { exact: true }).click()
     await page.getByRole('button', { name: '保存分类', exact: true }).click()
     await expect(page.getByRole('dialog')).toHaveCount(0)
     await noOverflow(page)

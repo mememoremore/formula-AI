@@ -2,6 +2,7 @@
 import type { RecognitionRequest, RecognitionResult } from '#shared/types/api'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { recognitionInvalidates } from '~/utils/recognition-state'
+import { normalizeOptionalFormulaTitle, optionalFormulaTitleFeedback } from '#shared/formula-title'
 definePageMeta({ bottomNav: false, middleware: 'workspace', contentWidth: 'reading' })
 useHead({ title: '公式识别 · Formula AI' })
 const route = useRoute(),
@@ -28,14 +29,28 @@ const flow = useAccountRecognition(ownerId)
 const draft = useNuxtApp().$uploadDraft,
   { mode } = draft
 const source = ref<'camera' | 'image'>(route.query.source === 'camera' ? 'camera' : 'image')
+const requestedTitle = ref('')
+const titleFeedback = computed(() => optionalFormulaTitleFeedback(requestedTitle.value))
 const { addRecognition } = useDemoLibrary()
 const cropping = ref(false)
+const recropping = ref(false)
 watch(originalFile, (value) => {
+  recropping.value = false
   cropping.value = !!value
 })
 function cropped(value: File) {
   applyCrop(value)
   cropping.value = false
+  recropping.value = false
+}
+function cancelCrop() {
+  if (!recropping.value) removeImage()
+  cropping.value = false
+  recropping.value = false
+}
+function recrop() {
+  recropping.value = true
+  cropping.value = true
 }
 const pending = ref(false),
   error = ref('')
@@ -47,7 +62,8 @@ const blocked = computed(
     checking.value ||
     sessionStatus.value !== 'success' ||
     !!sessionError.value ||
-    (accountFlow.value && !flow.recoveryReady.value),
+    (accountFlow.value && !flow.recoveryReady.value) ||
+    !!titleFeedback.value,
 )
 const selectionLocked = computed(() => blocked.value || (accountFlow.value && flow.uncertain.value))
 let sequence = 0,
@@ -97,7 +113,10 @@ watch(
 watch(
   flow.receipt,
   (value) => {
-    if (value) mode.value = value.mode
+    if (value) {
+      mode.value = value.mode
+      requestedTitle.value = value.requestedTitle ?? ''
+    }
   },
   { immediate: true },
 )
@@ -115,7 +134,11 @@ async function recognize() {
   error.value = ''
   try {
     if (accountFlow.value) {
-      const task = await flow.recognize(original, mode.value)
+      const task = await flow.recognize(
+        original,
+        mode.value,
+        normalizeOptionalFormulaTitle(requestedTitle.value) ?? undefined,
+      )
       if (disposed || token !== sequence || identity.value !== space) return
       clearNuxtData((key) => recognitionInvalidates(key, 'submitted'))
       file.value = null
@@ -139,7 +162,11 @@ async function recognize() {
         timeout: 15_000,
       })
       if (disposed || token !== sequence || identity.value !== space) return
-      const formula = addRecognition(result, original.name)
+      const formula = addRecognition(
+        result,
+        original.name,
+        normalizeOptionalFormulaTitle(requestedTitle.value) ?? undefined,
+      )
       attachFormula(formula.id)
       file.value = null
       await navigateTo('/result/' + encodeURIComponent(formula.id) + '?space=demo')
@@ -180,22 +207,20 @@ const buttonLabel = computed(() =>
       : flow.receipt.value
         ? '确认上次识别提交'
         : accountFlow.value
-          ? '识别并保存到账号'
+          ? '识别'
           : '开始本机演示（模拟）',
 )
 </script>
 <template>
   <PageHeader title="公式识别" back-to="/" />
-  <NuxtLink class="text-button" to="/formulas/new">直接输入 LaTeX 创建公式</NuxtLink>
   <FormulaImageCropper
     v-if="cropping && originalFile"
     :file="originalFile"
-    @close="cropping = false"
+    @close="cancelCrop"
     @selected="cropped"
   />
   <header class="upload-intro">
     <div>
-      <p class="kicker">从一张图片，开始理解</p>
       <h2>让公式清晰起来</h2>
       <p>拍照或选择图片，整理成可编辑的数学公式。</p>
     </div>
@@ -207,9 +232,9 @@ const buttonLabel = computed(() =>
     <button class="text-button" @click="refreshSession()">重新连接账号</button>
   </div>
   <p v-else-if="sessionStatus === 'pending'" class="info-note" role="status">正在确认公式空间…</p>
-  <p v-else class="upload-space">
+  <p v-else-if="!accountFlow" class="upload-space">
     <AppIcon :name="accountFlow ? 'shield' : 'info'" :size="16" />
-    {{ accountFlow ? '账号识别 · 图片私有保存' : '本机演示 · 固定样例，不代表真实识别' }}
+    本机演示 · 固定样例，不代表真实识别
   </p>
   <input
     ref="fileInput"
@@ -246,34 +271,71 @@ const buttonLabel = computed(() =>
         v-if="preview && originalFile"
         class="button button-white button-block alternate-source"
         :disabled="selectionLocked"
-        @click="cropping = true"
+        @click="recrop"
       >
         重新裁剪图片
       </button>
-      <button
-        class="button button-white button-block alternate-source"
-        :disabled="selectionLocked"
-        @click="choose(source === 'camera' ? 'image' : 'camera')"
-      >
-        <AppIcon :name="source === 'camera' ? 'image' : 'camera'" :size="18" />
-        {{ source === 'camera' ? '从相册或文件选择' : '改用拍照' }}
-      </button>
+      <div class="source-actions">
+        <button
+          type="button"
+          class="button button-white"
+          :disabled="selectionLocked"
+          @click="choose('image')"
+        >
+          <AppIcon name="image" :size="18" />
+          从相册或文件选择
+        </button>
+        <button
+          type="button"
+          class="button button-white"
+          :disabled="selectionLocked"
+          @click="choose('camera')"
+        >
+          <AppIcon name="camera" :size="18" />
+          拍照
+        </button>
+      </div>
     </div>
     <section class="upload-controls" aria-label="识别设置与提交">
-      <fieldset class="mode-fieldset card">
-        <legend>识别模式</legend>
+      <label class="name-field card">
+        <span class="field-label">
+          公式名称
+          <small>选填</small>
+        </span>
+        <input
+          v-model="requestedTitle"
+          class="input"
+          maxlength="100"
+          placeholder="例如：三角恒等式"
+          :disabled="selectionLocked"
+        />
+        <span v-if="titleFeedback" class="error-text">{{ titleFeedback }}</span>
+      </label>
+      <section class="mode-card card" aria-labelledby="recognition-mode-title">
+        <h2 id="recognition-mode-title">识别模式</h2>
         <div class="mode-options">
           <label :class="{ selected: mode === 'handwritten' }">
-            <input v-model="mode" type="radio" value="handwritten" :disabled="selectionLocked" />
+            <input
+              v-model="mode"
+              class="sr-only"
+              type="radio"
+              value="handwritten"
+              :disabled="selectionLocked"
+            />
             手写公式
           </label>
           <label :class="{ selected: mode === 'printed' }">
-            <input v-model="mode" type="radio" value="printed" :disabled="selectionLocked" />
+            <input
+              v-model="mode"
+              class="sr-only"
+              type="radio"
+              value="printed"
+              :disabled="selectionLocked"
+            />
             印刷公式
           </label>
         </div>
-        <p class="info-note">选择与图片内容相符的模式。</p>
-      </fieldset>
+      </section>
       <div v-if="pending" class="submission-status" role="status" aria-live="polite">
         <span class="busy-indicator" />
         {{ buttonLabel }}
@@ -310,7 +372,6 @@ const buttonLabel = computed(() =>
         class="text-button recent-link"
       >
         查看最近识别
-        <AppIcon name="chevron" :size="14" />
       </NuxtLink>
       <NuxtLink
         v-else-if="sessionStatus === 'success' && !sessionError"
@@ -319,15 +380,6 @@ const buttonLabel = computed(() =>
       >
         登录并使用账号识别
       </NuxtLink>
-      <p class="info-note upload-note">
-        {{
-          sessionError || sessionStatus !== 'success'
-            ? '账号状态尚未确认，重新连接后可继续。图片不会被自动提交。'
-            : accountFlow
-              ? '图片先上传至私有存储，再提交异步任务。识别后请核对结果。'
-              : '演示仅发送图片名称、类型和大小，不上传图片内容；结果只保存在本机。'
-        }}
-      </p>
     </section>
   </div>
   <AccountUsage v-if="ownerId" :key="ownerId" :owner-id="ownerId" />
@@ -351,11 +403,6 @@ const buttonLabel = computed(() =>
   line-height: 1.8;
   color: var(--color-text-secondary);
   margin-top: 8px;
-}
-.upload-intro .kicker {
-  font-size: 12px;
-  color: var(--color-primary);
-  margin: 0 0 6px;
 }
 .upload-intro img {
   display: block;
@@ -385,22 +432,48 @@ const buttonLabel = computed(() =>
 .alternate-source {
   margin-top: 14px;
 }
-.mode-fieldset {
+.source-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+.source-actions .button {
+  min-width: 0;
+  padding-inline: 8px;
+}
+.name-field,
+.mode-card {
+  display: block;
   min-width: 0;
   margin: 0;
   padding: 16px;
   border: 1px solid var(--color-border);
 }
-legend {
+.name-field small {
+  color: var(--color-text-secondary);
+  font-size: 11px;
+  font-weight: 400;
+}
+.name-field .input {
+  margin-top: 8px;
+}
+.name-field .error-text {
+  display: block;
+  margin-top: 8px;
+}
+.mode-card {
+  margin-top: 14px;
+}
+.mode-card h2 {
   font-size: 14px;
   font-weight: 600;
-  padding: 0 8px;
 }
 .mode-options {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px;
-  margin: 4px 0 12px;
+  margin-top: 12px;
 }
 .mode-options label {
   display: flex;
@@ -409,7 +482,7 @@ legend {
   gap: 6px;
   min-height: 48px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: 14px;
   font-size: 13px;
   cursor: pointer;
 }
@@ -417,11 +490,6 @@ legend {
   background: var(--color-primary-soft);
   color: var(--color-primary);
   border-color: var(--color-primary);
-}
-input[type='radio'] {
-  accent-color: var(--color-primary);
-  margin: 0;
-  width: 14px;
 }
 .recognize-button {
   margin-top: 20px;

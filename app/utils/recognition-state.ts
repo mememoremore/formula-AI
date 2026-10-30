@@ -1,10 +1,12 @@
 import type { RecognitionTaskState } from '../../shared/types/tasks'
+import { optionalFormulaTitleFeedback } from '../../shared/formula-title'
 import { formulaViewsInvalidated, usageInvalidated } from './account-cache'
 export interface RecognitionReceipt {
   ownerId: string
   fileId: string
   mode: 'handwritten' | 'printed'
   requestKey: string
+  requestedTitle?: string
   sourceTaskId?: string
 }
 export const RECOGNITION_RECOVERY_KEY = 'formula-ai:recognition-recovery:v1'
@@ -26,6 +28,8 @@ export function parseRecognitionReceipts(raw: string | null): RecognitionReceipt
         !text(row.fileId) ||
         !text(row.requestKey) ||
         (row.mode !== 'handwritten' && row.mode !== 'printed') ||
+        (row.requestedTitle !== undefined &&
+          (!text(row.requestedTitle) || !!optionalFormulaTitleFeedback(row.requestedTitle))) ||
         (row.sourceTaskId !== undefined && !text(row.sourceTaskId))
       )
         throw new Error('无效识别恢复记录')
@@ -34,6 +38,7 @@ export function parseRecognitionReceipts(raw: string | null): RecognitionReceipt
         fileId: row.fileId,
         requestKey: row.requestKey,
         mode: row.mode,
+        ...(row.requestedTitle ? { requestedTitle: row.requestedTitle } : {}),
         ...(row.sourceTaskId ? { sourceTaskId: row.sourceTaskId } : {}),
       }
       if (result.some((item) => receiptIdentity(item) === receiptIdentity(value)))

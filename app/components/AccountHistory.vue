@@ -1,5 +1,5 @@
 <script setup lang="ts">
-const props = defineProps<{ ownerId: string }>()
+const props = defineProps<{ ownerId: string; query: string }>()
 const {
   request,
   items,
@@ -7,7 +7,7 @@ const {
   feedback,
   more,
   reload,
-} = useAccountHistory(props.ownerId)
+} = useAccountHistory(props.ownerId, props.query)
 const { error, status } = request
 const cursor = computed(() => request.data.value?.nextCursor ?? null)
 const labels = { QUEUED: '排队中', PROCESSING: '识别中', COMPLETED: '已完成', FAILED: '识别失败' }
@@ -64,10 +64,10 @@ await request
   </button>
   <EmptyState
     v-if="!items.length && !error && status !== 'pending'"
-    title="等待第一张公式图片"
-    description="识别中的任务、完成结果与失败记录都会留在这里。"
-    action-label="上传公式图片"
-    action-to="/upload"
+    :title="query ? '没有找到匹配的识别记录' : '等待第一张公式图片'"
+    :description="query ? '试试其他关键词。' : '识别中的任务、完成结果与失败记录都会留在这里。'"
+    :action-label="query ? undefined : '上传公式图片'"
+    :action-to="query ? undefined : '/upload'"
   />
   <p v-if="feedback" class="error-text section" role="alert">{{ feedback }}</p>
 </template>

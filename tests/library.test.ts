@@ -298,3 +298,15 @@ test('分类删除与归类并发，不产生悬空关系或500错误', async ()
   const saved = await db.formula.findUniqueOrThrow({ where: { id: firstId } })
   assert.equal(saved.categoryId, null)
 })
+
+test('删除公式使用软删除，重复请求幂等且其他账号无权删除', async () => {
+  assert.equal((await api(`/formulas/${firstId}`, 'DELETE', undefined, 1)).status, 404)
+  assert.equal((await api(`/formulas/${firstId}`, 'DELETE')).status, 204)
+  assert.equal((await api(`/formulas/${firstId}`, 'DELETE')).status, 204)
+  assert.equal((await api(`/formulas/${firstId}`)).status, 404)
+  assert.equal((await library('?q=alpha')).items.length, 0)
+  assert.equal(await db.formulaVersion.count({ where: { formulaId: firstId } }), 2)
+  assert.ok((await db.formula.findUniqueOrThrow({ where: { id: firstId } })).deletedAt)
+  const categories = (await (await api('/categories')).json()) as CategoryCollection
+  assert.equal(categories.totalCount, 24)
+})

@@ -42,7 +42,7 @@ export async function submitExplanation(
             // 与标题触发器相同的Formula→Conversation方向；事务内无外部I/O。
             const rows = await tx.$queryRaw<
               { id: string }[]
-            >`SELECT f.id FROM formulas f JOIN formula_versions v ON v."formulaId"=f.id AND v."ownerId"=f."ownerId" WHERE f.id=${input.formulaId}::uuid AND v.id=${input.versionId}::uuid AND f."ownerId"=${input.ownerId}::uuid FOR SHARE OF f`
+            >`SELECT f.id FROM formulas f JOIN formula_versions v ON v."formulaId"=f.id AND v."ownerId"=f."ownerId" WHERE f.id=${input.formulaId}::uuid AND v.id=${input.versionId}::uuid AND f."ownerId"=${input.ownerId}::uuid AND f."deletedAt" IS NULL FOR SHARE OF f`
             if (!rows.length) throw new WorkspaceError(404, '未找到这个公式版本。')
             const context = await readVersionContext(tx, input.ownerId, input.versionId)
             const conversation = await tx.conversation.create({
@@ -104,7 +104,10 @@ export async function readExplanationHistory(
 ): Promise<ExplanationHistoryPage> {
   if (
     !hasValidResourceIdentity(ownerId, formulaId) ||
-    !(await db.formula.findFirst({ where: { id: formulaId, ownerId }, select: { id: true } }))
+    !(await db.formula.findFirst({
+      where: { id: formulaId, ownerId, deletedAt: null },
+      select: { id: true },
+    }))
   )
     throw new WorkspaceError(404, '未找到这个公式。')
   const where: Prisma.ConversationWhereInput = {

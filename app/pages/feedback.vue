@@ -56,9 +56,6 @@ async function copyFeedback() {
     inline-artwork
   />
   <form class="card feedback-form stack" @submit.prevent="copyFeedback">
-    <p class="info-note">
-      这里帮助你整理并复制反馈，不会自动提交。请勿填写密码、密钥或其他私密资料。
-    </p>
     <label>
       <span class="field-label">反馈类型</span>
       <select v-model="kind" class="input">
@@ -102,9 +99,6 @@ async function copyFeedback() {
       选择全部反馈
     </button>
   </div>
-  <p class="info-note section">
-    当前尚未接入反馈服务，内容不会发送给任何人。复制后，你可以自行发送给项目负责人。
-  </p>
 </template>
 
 <style scoped>

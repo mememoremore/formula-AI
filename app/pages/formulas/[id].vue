@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { displayFormulaTitle, isRandomFormulaName } from '#shared/formula-title'
 import type { SavedFormula } from '#shared/types/workspace'
 definePageMeta({
   middleware: 'auth',
@@ -19,16 +20,39 @@ await request
 const manual = computed(() => formula.value?.versions[0]?.origin === 'MANUAL')
 const current = computed(() => formula.value?.versions.at(-1))
 const showEditor = ref(false),
-  showVersions = ref(false)
+  showVersions = ref(false),
+  showDelete = ref(false),
+  deleting = ref(false),
+  deleteError = ref('')
 const identity = computed(() => id.value + ':' + (ownerId.value ?? 'unconfirmed'))
 watch(identity, () => {
   showEditor.value = false
   showVersions.value = false
+  showDelete.value = false
 })
 const { showToast } = useToast()
 function saved(value: SavedFormula) {
   update(value)
   showToast('公式已保存。')
+}
+async function removeFormula() {
+  if (deleting.value) return
+  deleting.value = true
+  deleteError.value = ''
+  try {
+    await $fetch(`/api/account/formulas/${encodeURIComponent(id.value)}`, {
+      method: 'DELETE',
+      retry: 0,
+      timeout: 15_000,
+    })
+    clearNuxtData((key) => formulaViewsInvalidated(key))
+    showToast('公式已删除。')
+    await navigateTo('/library?space=account')
+  } catch (error) {
+    deleteError.value = workspaceFeedback(error, '删除失败，请稍后重试。')
+  } finally {
+    deleting.value = false
+  }
 }
 const versions = computed(() =>
   (formula.value?.versions ?? []).map((version) => ({
@@ -75,16 +99,22 @@ const errorCode = computed(
   <template v-else-if="formula && current && !request.error.value">
     <FormulaDetailContent
       :key="identity"
-      :title="formula.title"
+      :title="displayFormulaTitle(formula.title, formula.versions[0]?.origin === 'RECOGNITION')"
+      :needs-name="
+        formula.versions[0]?.origin === 'RECOGNITION' &&
+        (isRandomFormulaName(formula.title) || formula.title === '未命名公式')
+      "
       :latex="current.latex"
       :version="current.number"
       :version-count="formula.versions.length"
       :image-src="formula.image ? '/api/account/files/' + formula.image.id + '/content' : undefined"
-      :badge="manual ? '手动输入' : current.isMock ? '模拟结果' : '账号公式'"
+      :badge="manual ? '手动输入' : current.isMock ? '模拟结果' : undefined"
       :manual="manual"
+      deletable
       :original-latex="manual ? formula.versions[0]?.latex : undefined"
       @edit="showEditor = true"
       @versions="showVersions = true"
+      @remove="showDelete = true"
     >
       <template #organization>
         <AccountFormulaOrganization :formula="formula" @saved="update" />
@@ -119,6 +149,20 @@ const errorCode = computed(
       @reloaded="update"
     />
     <FormulaVersions :open="showVersions" :versions="versions" @close="showVersions = false" />
+    <AppModal :open="showDelete" title="删除公式" @close="!deleting && (showDelete = false)">
+      <div class="stack">
+        <p>删除后，这条公式将从公式库中隐藏。已有版本、对话和导出记录会保留。</p>
+        <p v-if="deleteError" class="error-text" role="alert">{{ deleteError }}</p>
+        <div class="delete-actions">
+          <button class="button button-white" :disabled="deleting" @click="showDelete = false">
+            取消
+          </button>
+          <button class="button delete-button" :disabled="deleting" @click="removeFormula">
+            {{ deleting ? '正在删除…' : '确认删除' }}
+          </button>
+        </div>
+      </div>
+    </AppModal>
   </template>
   <div v-else class="status-panel card" role="alert">
     <h2>{{ errorCode === 404 ? '未找到这条公式' : '暂时无法打开这条公式' }}</h2>
@@ -137,3 +181,17 @@ const errorCode = computed(
     <NuxtLink to="/library?space=account" class="text-button">返回公式库</NuxtLink>
   </div>
 </template>
+
+<style scoped>
+.delete-actions {
+  display: flex;
+  gap: 10px;
+}
+.delete-actions .button {
+  flex: 1;
+}
+.delete-button {
+  color: #fff;
+  background: var(--color-danger);
+}
+</style>

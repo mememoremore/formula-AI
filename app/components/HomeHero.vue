@@ -42,7 +42,7 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
         <strong>识别公式</strong>
         <small>拍下公式，开始理解</small>
       </span>
-      <AppIcon name="arrowRight" :size="18" class="action-arrow" />
+      <AppIcon name="chevron" :size="18" class="action-arrow" />
     </NuxtLink>
     <NuxtLink :to="uploadTo" class="button button-white home-action">
       <AppIcon name="image" :size="25" />

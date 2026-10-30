@@ -13,6 +13,7 @@ const task: RecognitionTaskState = {
   id: 'task',
   fileId: 'file',
   mode: 'printed',
+  requestedTitle: null,
   status: 'PROCESSING',
   attemptCount: 2,
   maxAttempts: 3,
@@ -29,6 +30,10 @@ test('恢复信息仅保留任务字段，不持久化图片、URL或额外字�
   )
   assert.notEqual(receiptIdentity(receipt), receiptIdentity({ ...receipt, ownerId: 'other' }))
   assert.notEqual(receiptIdentity(receipt), receiptIdentity({ ...receipt, sourceTaskId: 'failed' }))
+  assert.deepEqual(
+    parseRecognitionReceipts(JSON.stringify([{ ...receipt, requestedTitle: '三角恒等式' }])),
+    [{ ...receipt, requestedTitle: '三角恒等式' }],
+  )
 })
 test('识别结果继承上传前完整库页筛选，直达上传无来源时回最近识别', () => {
   const task = '/recognitions/id',
@@ -52,7 +57,7 @@ test('恢复数据损坏、重复、过多或类型错误时拒绝使用', () =>
     '{}',
     JSON.stringify([receipt, receipt]),
     JSON.stringify(Array(21).fill(receipt)),
-    ...['fileId', 'ownerId', 'requestKey', 'mode', 'sourceTaskId'].map((key) =>
+    ...['fileId', 'ownerId', 'requestKey', 'mode', 'sourceTaskId', 'requestedTitle'].map((key) =>
       JSON.stringify([{ ...receipt, [key]: 5 }]),
     ),
   ])

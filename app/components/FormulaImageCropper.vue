@@ -3,7 +3,7 @@ import type Cropper from 'cropperjs'
 import { containsCrop, cropOutputSize, transformedImageBounds } from '#shared/image-crop'
 const cropperTemplate = `
 <cropper-canvas background>
-<cropper-image scalable translatable>
+<cropper-image rotatable scalable translatable>
 </cropper-image>
 <cropper-shade hidden>
 </cropper-shade>
@@ -44,6 +44,7 @@ const host = ref<HTMLDivElement>(),
 let cropper: Cropper | undefined,
   sourceUrl = '',
   sourceImage: HTMLImageElement | undefined,
+  rotation = 0,
   disposed = false,
   guard = false
 function selectionBounds() {
@@ -70,9 +71,6 @@ function reset() {
   selection.$change(rect.left - parent.left, rect.top - parent.top, rect.width, rect.height)
   guard = true
 }
-function zoom(amount: number) {
-  cropper?.getCropperImage()?.$zoom(amount)
-}
 function close() {
   if (!exporting.value) emit('close')
 }
@@ -87,8 +85,8 @@ async function complete() {
   let output: HTMLCanvasElement | undefined
   try {
     const size = cropOutputSize(
-      sourceImage.naturalWidth,
-      sourceImage.naturalHeight,
+      rotation % 2 === 0 ? sourceImage.naturalWidth : sourceImage.naturalHeight,
+      rotation % 2 === 0 ? sourceImage.naturalHeight : sourceImage.naturalWidth,
       image.getBoundingClientRect(),
       bounds,
     )
@@ -126,6 +124,80 @@ async function complete() {
     if (!disposed) exporting.value = false
   }
 }
+async function mountCropper(imageSource: HTMLImageElement) {
+  const { default: CropperClass } = await import('cropperjs')
+  if (disposed || !host.value) return
+  cropper = new CropperClass(imageSource, {
+    container: host.value,
+    template: cropperTemplate,
+  })
+  const image = cropper.getCropperImage()!,
+    selection = cropper.getCropperSelection()!
+  await image.$ready()
+  if (disposed) return
+  reset()
+  selection.addEventListener('change', (event) => {
+    if (!guard) return
+    const data = (event as CustomEvent<{ x: number; y: number; width: number; height: number }>)
+      .detail
+    const canvas = cropper!.getCropperCanvas()!.getBoundingClientRect()
+    if (
+      !containsCrop(image.getBoundingClientRect(), {
+        left: canvas.left + data.x,
+        top: canvas.top + data.y,
+        width: data.width,
+        height: data.height,
+      })
+    )
+      event.preventDefault()
+  })
+  image.addEventListener('transform', (event) => {
+    if (!guard) return
+    const next = (event as CustomEvent<{ matrix: number[] }>).detail.matrix
+    const bounds = transformedImageBounds(
+        image.getBoundingClientRect(),
+        image.$getTransform(),
+        next,
+      ),
+      selected = selectionBounds()
+    if (!bounds || !selected || !containsCrop(bounds, selected)) event.preventDefault()
+  })
+  ready.value = true
+}
+async function rotateImage() {
+  if (!ready.value || exporting.value) return
+  error.value = ''
+  const image = cropper?.getCropperImage()
+  if (!image) return
+  // Rotation is handled by Cropper's transform, so it never re-encodes or reloads the source.
+  // Its selection is transformed with the image; replacing it from a stale DOM rectangle would
+  // crop only a quarter of a portrait image on narrow screens.
+  ready.value = false
+  guard = false
+  image.$rotate('90deg')
+  image.$center('contain')
+  // Cropper preserves the old portrait selection after a right-angle transform.
+  // Replacing it from the *new* image bounds keeps the default as the whole image
+  // while leaving any later user adjustment entirely in Cropper's coordinate system.
+  await new Promise<void>((resolve) =>
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
+  )
+  if (disposed) return
+  const selection = cropper?.getCropperSelection(),
+    canvas = cropper?.getCropperCanvas()
+  if (!selection || !canvas) return
+  const imageRect = image.getBoundingClientRect(),
+    canvasRect = canvas.getBoundingClientRect()
+  selection.$change(
+    imageRect.left - canvasRect.left,
+    imageRect.top - canvasRect.top,
+    imageRect.width,
+    imageRect.height,
+  )
+  rotation = (rotation + 1) % 4
+  guard = true
+  ready.value = true
+}
 onMounted(async () => {
   let bitmap: ImageBitmap | undefined, normalized: HTMLCanvasElement | undefined
   try {
@@ -156,44 +228,7 @@ onMounted(async () => {
     sourceImage = new Image()
     sourceImage.src = sourceUrl
     await sourceImage.decode()
-    const { default: CropperClass } = await import('cropperjs')
-    if (disposed || !host.value) return
-    cropper = new CropperClass(sourceImage, {
-      container: host.value,
-      template: cropperTemplate,
-    })
-    const image = cropper.getCropperImage()!,
-      selection = cropper.getCropperSelection()!
-    await image.$ready()
-    if (disposed) return
-    reset()
-    selection.addEventListener('change', (event) => {
-      if (!guard) return
-      const data = (event as CustomEvent<{ x: number; y: number; width: number; height: number }>)
-        .detail
-      const canvas = cropper!.getCropperCanvas()!.getBoundingClientRect()
-      if (
-        !containsCrop(image.getBoundingClientRect(), {
-          left: canvas.left + data.x,
-          top: canvas.top + data.y,
-          width: data.width,
-          height: data.height,
-        })
-      )
-        event.preventDefault()
-    })
-    image.addEventListener('transform', (event) => {
-      if (!guard) return
-      const next = (event as CustomEvent<{ matrix: number[] }>).detail.matrix
-      const bounds = transformedImageBounds(
-          image.getBoundingClientRect(),
-          image.$getTransform(),
-          next,
-        ),
-        selected = selectionBounds()
-      if (!bounds || !selected || !containsCrop(bounds, selected)) event.preventDefault()
-    })
-    ready.value = true
+    await mountCropper(sourceImage)
   } catch (cause) {
     if (!disposed)
       error.value = cause instanceof Error ? cause.message : '图片无法裁剪，请重新选择。'
@@ -222,35 +257,25 @@ onScopeDispose(() => {
     full-screen
     @close="close"
   >
-    <p class="info-note">拖动边框调整区域，双指缩放图片。裁剪不限比例，重新裁剪始终使用原图。</p>
+    <p class="info-note">拖动边框调整区域，双指缩放图片；重新裁剪始终使用原图。</p>
     <div ref="host" class="crop-host" aria-label="公式图片自由裁剪区" />
-    <p v-if="!ready && !error" role="status" class="info-note">正在校正图片方向…</p>
+    <p v-if="!ready && !error" role="status" class="info-note">正在准备图片…</p>
     <p v-if="error" role="alert" class="error-text">{{ error }}</p>
     <div class="crop-tools">
       <button
-        class="button button-white"
+        type="button"
+        class="text-button rotate-image"
         :disabled="!ready || exporting"
-        aria-label="缩小图片"
-        @click="zoom(-0.1)"
+        @click="rotateImage"
       >
-        缩小
-      </button>
-      <button
-        class="button button-white"
-        :disabled="!ready || exporting"
-        aria-label="放大图片"
-        @click="zoom(0.1)"
-      >
-        放大
-      </button>
-      <button class="button button-white" :disabled="!ready || exporting" @click="reset">
-        重置裁剪
+        <AppIcon name="rotate" :size="20" />
+        <span>旋转 90°</span>
       </button>
     </div>
     <div class="crop-actions">
-      <button class="button button-white" :disabled="exporting" @click="close">取消裁剪</button>
+      <button class="button button-white" :disabled="exporting" @click="close">取消</button>
       <button class="button button-primary" :disabled="!ready || exporting" @click="complete">
-        {{ exporting ? '正在生成…' : '确认裁剪' }}
+        {{ exporting ? '正在生成…' : '确认' }}
       </button>
     </div>
   </AppModal>
@@ -258,6 +283,9 @@ onScopeDispose(() => {
 <style scoped>
 .formula-crop-modal {
   max-width: 100%;
+}
+.formula-crop-modal :deep(.modal-heading .icon-button) {
+  display: none;
 }
 /* Keep every resize hit target inside the clipped canvas, including a full-image crop. */
 .crop-host :deep(cropper-handle[action^='n']) {
@@ -291,6 +319,9 @@ onScopeDispose(() => {
   width: 24px;
   height: 24px;
 }
+.crop-host :deep(cropper-handle[action$='resize']) {
+  opacity: 0;
+}
 .crop-host {
   height: clamp(220px, 48dvh, 440px);
   margin: 18px 0;
@@ -305,16 +336,24 @@ onScopeDispose(() => {
   touch-action: none;
   --theme-color: var(--color-primary);
 }
-.crop-tools,
+.crop-tools {
+  display: flex;
+  justify-content: center;
+}
+.rotate-image {
+  display: inline-flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 16px;
+}
 .crop-actions {
   display: flex;
   gap: 8px;
   flex-wrap: wrap;
   margin-top: 16px;
-}
-.crop-tools .button {
-  flex: 1;
-  padding: 10px 8px;
 }
 .crop-actions .button {
   flex: 1;

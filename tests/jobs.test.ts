@@ -157,11 +157,13 @@ test('识别HTTP提交202且真实排队，Worker未启动时刷新仍可读取'
     fileId: imageId,
     mode: 'handwritten',
     requestKey: randomUUID(),
+    requestedTitle: '三角恒等式',
   })
   assert.equal(response.status, 202)
   recognition = (await response.json()) as RecognitionTaskState
   assert.equal(recognition.status, 'QUEUED')
   assert.equal(recognition.formulaId, null)
+  assert.equal(recognition.requestedTitle, '三角恒等式')
   const refreshed = await api(`/tasks/${recognition.id}`)
   assert.equal(((await refreshed.json()) as RecognitionTaskState).status, 'QUEUED')
 })
@@ -174,6 +176,7 @@ test('真实Worker处理后原子保存公式和首版，重复执行不会再�
   })
   assert.equal(saved.status, 'COMPLETED')
   assert.equal(saved.formula?.versions.length, 1)
+  assert.equal(saved.formula?.title, '三角恒等式')
   assert.equal(saved.formula?.versions[0]?.isMock, true)
   assert.equal((await boss.getJobById(queues.recognition, job.id))?.state, 'completed')
   await processRecognition(db, boss, store, job)
@@ -199,6 +202,10 @@ test('并发重放只入队一次、只扣一次识别额度，换图片或模�
     2,
   )
   assert.equal((await api('/recognitions', 'POST', { ...body, mode: 'printed' })).status, 409)
+  assert.equal(
+    (await api('/recognitions', 'POST', { ...body, requestedTitle: '另一个名称' })).status,
+    409,
+  )
   await processRecognition(db, boss, store, await fetchJob('recognition'))
 })
 test('两个数据库客户端并发扣额不会突破上限', async () => {

@@ -35,10 +35,14 @@ function date(value: string) {
         :aria-label="'修改' + title + '的分类'"
         @click="emit('category')"
       >
-        {{ category }}
-        <AppIcon name="pencil" :size="11" />
+        <span class="category-badge">
+          {{ category }}
+          <AppIcon name="pencil" :size="11" />
+        </span>
       </button>
-      <span v-else class="category-tag">{{ category }}</span>
+      <span v-else class="category-tag">
+        <span class="category-badge">{{ category }}</span>
+      </span>
       <FavoriteButton
         :active="favorite"
         :label="(favorite ? '取消收藏' : '收藏') + title"
@@ -49,12 +53,10 @@ function date(value: string) {
     <NuxtLink :to="to" :aria-label="'查看' + title" class="formula-card-body">
       <h3>{{ title }}</h3>
       <div class="formula-card-meta">
-        <FormulaThumbnail :src="imageSrc" :latex="latex" :sample="sample" />
         <div>
-          <p>{{ sourceLabel }}</p>
+          <p v-if="sourceLabel">{{ sourceLabel }}</p>
           <time :datetime="createdAt">{{ date(createdAt) }}</time>
         </div>
-        <AppIcon name="chevron" :size="17" />
       </div>
     </NuxtLink>
     <MathFormula
@@ -83,18 +85,25 @@ function date(value: string) {
   min-width: 0;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
   max-width: calc(100% - 56px);
-  padding: 7px 12px;
+  padding: 0;
   border: 0;
-  border-radius: 9px;
-  background: #efeaff;
-  color: var(--color-primary);
-  font-size: 11px;
+  background: transparent;
   overflow-wrap: anywhere;
 }
 button.category-tag {
   min-height: 44px;
+}
+.category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  padding: 4px 8px;
+  border-radius: 8px;
+  background: #efeaff;
+  color: var(--color-primary);
+  font-size: 11px;
 }
 .card-latex:focus-visible {
   outline: 3px solid var(--color-focus);
@@ -110,7 +119,7 @@ h3 {
   min-width: 0;
 }
 .card-latex {
-  padding: 18px 0 4px;
+  padding: 12px 0 4px;
 }
 .formula-card-body :deep(.katex-display) {
   margin: 0;
@@ -133,9 +142,6 @@ time {
 time {
   display: block;
   margin-top: 4px;
-}
-.formula-card-meta > svg {
-  color: #9c8eb6;
 }
 .compact {
   padding: 14px 18px;

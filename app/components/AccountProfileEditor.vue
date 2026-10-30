@@ -128,8 +128,6 @@ async function save() {
         </button>
         <div>
           <h2>一个头像，认识你</h2>
-          <p>选择后可裁剪，保存资料时才会更新。</p>
-          <small>JPG / PNG · 最大 10MB · 2000 万像素以内</small>
         </div>
       </section>
       <section class="card fields-card">
@@ -162,7 +160,6 @@ async function save() {
       <button v-if="feedback" type="button" class="text-button" :disabled="busy" @click="reload">
         重新读取最新资料
       </button>
-      <p class="info-note privacy-note">头像仅在你的账号内展示。新头像保存成功后，才会替换原图。</p>
     </form>
     <input
       ref="fileInput"
@@ -174,8 +171,7 @@ async function save() {
       @change="choose"
     />
     <AppModal :open="showOptions" title="更换头像" sheet @close="showOptions = false">
-      <p class="info-note">选择后可裁剪，保存资料后才会更新头像。</p>
-      <div class="stack section">
+      <div class="stack">
         <button class="button button-white" :disabled="busy" @click="fileInput?.click()">
           <AppIcon name="image" :size="18" />
           选择图片
@@ -202,8 +198,8 @@ async function save() {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
-  padding: 28px 20px;
+  gap: 16px;
+  padding: 20px;
   text-align: center;
 }
 .avatar-editor h2 {

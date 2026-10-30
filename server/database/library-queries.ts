@@ -17,10 +17,14 @@ export async function readCategories(
       db.category.findMany({
         where: { ownerId },
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-        select: { id: true, name: true, _count: { select: { formulas: { where: { ownerId } } } } },
+        select: {
+          id: true,
+          name: true,
+          _count: { select: { formulas: { where: { ownerId, deletedAt: null } } } },
+        },
       }),
-      db.formula.count({ where: { ownerId } }),
-      db.formula.count({ where: { ownerId, categoryId: null } }),
+      db.formula.count({ where: { ownerId, deletedAt: null } }),
+      db.formula.count({ where: { ownerId, categoryId: null, deletedAt: null } }),
     ],
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   )
@@ -55,7 +59,7 @@ export async function readFormulaLibrary(
   filters: FormulaLibraryFilters,
 ): Promise<FormulaLibraryPage> {
   if (!hasValidResourceIdentity(ownerId, ownerId)) throw new WorkspaceError(401, '请先登录。')
-  const conditions = [Prisma.sql`f."ownerId" = ${ownerId}::uuid`]
+  const conditions = [Prisma.sql`f."ownerId" = ${ownerId}::uuid`, Prisma.sql`f."deletedAt" IS NULL`]
   if (filters.category === 'uncategorized') conditions.push(Prisma.sql`f."categoryId" IS NULL`)
   else if (filters.category) {
     const category =
@@ -71,7 +75,7 @@ export async function readFormulaLibrary(
     const anchor =
       hasValidResourceIdentity(ownerId, filters.cursor) &&
       (await db.formula.findFirst({
-        where: { id: filters.cursor, ownerId },
+        where: { id: filters.cursor, ownerId, deletedAt: null },
         select: { id: true, createdAt: true },
       }))
     if (!anchor) throw new WorkspaceError(404, '分页位置已失效，请重新加载。')

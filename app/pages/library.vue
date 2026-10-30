@@ -7,6 +7,7 @@ definePageMeta({
 })
 useHead({ title: '我的公式库 · Formula AI' })
 const route = useRoute()
+const { query, search } = useLibraryFilters()
 const { data: account, error, refresh, demo, status } = useWorkspace()
 await useAccountSession()
 let confirmedOwner = account.value?.user?.id
@@ -48,9 +49,17 @@ watch(
   </div>
   <DemoLibrary v-else-if="demo" />
   <template v-else-if="account?.user">
+    <div class="section-heading library-create">
+      <NuxtLink class="text-button" to="/formulas/new">手动创建公式</NuxtLink>
+    </div>
+    <LibrarySearch v-model="query" @search="search" />
+    <LibraryViews />
     <template v-if="libraryView(route.query.view) === 'recent'">
-      <LibraryViews />
-      <AccountHistory :key="account.user.id" :owner-id="account.user.id" />
+      <AccountHistory
+        :key="account.user.id + ':' + String(route.query.q || '')"
+        :owner-id="account.user.id"
+        :query="typeof route.query.q === 'string' ? route.query.q : ''"
+      />
     </template>
     <AccountLibrary
       v-else
@@ -75,8 +84,11 @@ watch(
   grid-template-columns: minmax(0, 1fr) 96px;
   align-items: center;
   gap: 12px;
-  margin: 4px 0 24px;
-  min-height: 136px;
+  margin: 4px 0 10px;
+  min-height: 112px;
+}
+.library-create {
+  margin-bottom: 8px;
 }
 h1 {
   font-size: 30px;

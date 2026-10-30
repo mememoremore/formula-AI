@@ -22,13 +22,11 @@ const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.stat
     </span>
     <h2>{{ labels[task.status] }}</h2>
     <p class="task-title">{{ title }}</p>
-    <p class="info-note">
+    <p v-if="!waiting" class="info-note">
       {{
-        waiting
-          ? '任务已保存，可稍后回来继续查看。'
-          : task.status === 'COMPLETED'
-            ? '结果已保存在你的账号。'
-            : '已保留原始资料，可检查原因后重试。'
+        task.status === 'COMPLETED'
+          ? '结果已保存在你的账号。'
+          : '已保留原始资料，可检查原因后重试。'
       }}
     </p>
     <p v-if="task.errorMessage" :class="task.status === 'FAILED' ? 'error-text' : 'info-note'">
@@ -41,21 +39,22 @@ const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.stat
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 18px;
+  gap: 11px;
   text-align: center;
-  padding: 4px 12px 24px;
+  padding: 2px 12px 18px;
 }
 .task-ring {
   position: relative;
   display: grid;
   place-items: center;
-  width: 82px;
-  height: 82px;
-  border: 6px solid #e9e2fb;
+  width: 76px;
+  height: 76px;
+  border: 5px solid #eee9fb;
   border-top-color: #8c70e5;
   border-radius: 50%;
   color: var(--color-primary);
-  margin: 2px 0 8px;
+  margin: 0 0 4px;
+  background: linear-gradient(145deg, #fff, #fbf9ff);
 }
 .task-title {
   color: #887b9f;
@@ -63,7 +62,8 @@ const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.stat
   line-height: 1.8;
 }
 h2 {
-  font-size: 25px;
+  font-size: 24px;
+  line-height: 1.35;
 }
 p {
   max-width: 100%;
@@ -76,8 +76,8 @@ p {
 .waiting::after {
   content: '';
   position: absolute;
-  inset: -6px;
-  border: 6px solid transparent;
+  inset: -5px;
+  border: 5px solid transparent;
   border-top-color: #8c70e5;
   border-radius: 50%;
   animation: spin 1.5s linear infinite;

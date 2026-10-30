@@ -43,10 +43,6 @@ useHead({ title: '关于项目 · Formula AI' })
       </div>
     </article>
   </div>
-  <p class="page-footnote">把每一次思考，整理成知识</p>
-  <p class="info-note">
-    模型结果需要核对；游客演示与账号数据相互独立。实际识别与 AI 服务取决于管理员配置。
-  </p>
   <NuxtLink to="/help" class="button button-secondary button-block section">
     了解使用方式
     <AppIcon name="arrowRight" :size="16" />
@@ -80,7 +76,7 @@ useHead({ title: '关于项目 · Formula AI' })
   display: flex;
   align-items: flex-start;
   gap: 18px;
-  padding: 18px 2px;
+  padding: 12px 2px;
 }
 .about-feature h2 {
   font-size: 16px;

@@ -24,26 +24,36 @@ export function containsCrop(image: CropBounds, selection: CropBounds) {
     selection.top + selection.height <= image.top + image.height + 0.5
   )
 }
-/** Only translation and positive, axis-aligned scaling are enabled in the cropper. */
+/** Calculate the screen bounds after a translation, scale, or right-angle rotation. */
 export function transformedImageBounds(
   rect: CropBounds,
   current: number[],
   next: number[],
 ): CropBounds | null {
+  if (current.length !== 6 || next.length !== 6 || ![...current, ...next].every(Number.isFinite))
+    return null
+  const [a, b, c, d] = current,
+    [nextA, nextB, nextC, nextD] = next,
+    determinant = a! * d! - b! * c!,
+    nextDeterminant = nextA! * nextD! - nextB! * nextC!
+  if (determinant <= 0 || nextDeterminant <= 0) return null
+  const tolerance = 1e-6
   if (
-    current.length !== 6 ||
-    next.length !== 6 ||
-    !next.every(Number.isFinite) ||
-    next[0]! <= 0 ||
-    next[3]! <= 0 ||
-    next[1] !== 0 ||
-    next[2] !== 0 ||
-    current[0]! <= 0 ||
-    current[3]! <= 0
+    Math.abs(a! * c! + b! * d!) > tolerance ||
+    Math.abs(nextA! * nextC! + nextB! * nextD!) > tolerance
   )
     return null
-  const width = (rect.width * next[0]!) / current[0]!,
-    height = (rect.height * next[3]!) / current[3]!
+  const x1 = Math.abs(a!),
+    x2 = Math.abs(c!),
+    y1 = Math.abs(b!),
+    y2 = Math.abs(d!),
+    absoluteDeterminant = x1 * y2 - x2 * y1
+  if (Math.abs(absoluteDeterminant) <= tolerance) return null
+  const sourceWidth = (rect.width * y2 - x2 * rect.height) / absoluteDeterminant,
+    sourceHeight = (x1 * rect.height - rect.width * y1) / absoluteDeterminant
+  if (sourceWidth <= 0 || sourceHeight <= 0) return null
+  const width = Math.abs(nextA!) * sourceWidth + Math.abs(nextC!) * sourceHeight,
+    height = Math.abs(nextB!) * sourceWidth + Math.abs(nextD!) * sourceHeight
   return {
     left: rect.left + (rect.width - width) / 2 + next[4]! - current[4]!,
     top: rect.top + (rect.height - height) / 2 + next[5]! - current[5]!,

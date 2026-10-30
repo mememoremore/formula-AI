@@ -61,7 +61,7 @@ export async function createFormulaInTransaction(
 export async function getFormula(db: PrismaClient, ownerId: string, formulaId: string) {
   if (!hasValidResourceIdentity(ownerId, formulaId)) return null
   return db.formula.findFirst({
-    where: { id: formulaId, ownerId },
+    where: { id: formulaId, ownerId, deletedAt: null },
     include: {
       category: true,
       versions: { orderBy: { number: 'asc' } },
@@ -102,7 +102,7 @@ export async function appendFormulaVersion(db: PrismaClient, input: AppendVersio
       return await db.$transaction(
         async (tx) => {
           const formula = await tx.formula.findFirst({
-            where: { id: input.formulaId, ownerId: input.ownerId },
+            where: { id: input.formulaId, ownerId: input.ownerId, deletedAt: null },
           })
           if (!formula) throw new DatabaseOperationError('NOT_FOUND', '未找到这条公式。')
 
@@ -156,4 +156,22 @@ export async function appendFormulaVersion(db: PrismaClient, input: AppendVersio
     }
   }
   throw new Error('未能完成公式版本事务。')
+}
+
+/** Soft deletion hides a formula while preserving immutable versions and their historical links. */
+export async function softDeleteFormula(db: PrismaClient, ownerId: string, formulaId: string) {
+  if (!hasValidResourceIdentity(ownerId, formulaId)) return false
+  return db.$transaction(async (tx) => {
+    const formula = await tx.formula.findFirst({
+      where: { id: formulaId, ownerId },
+      select: { id: true, deletedAt: true },
+    })
+    if (!formula) return false
+    if (formula.deletedAt) return true
+    const result = await tx.formula.updateMany({
+      where: { id: formulaId, ownerId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    })
+    return result.count === 1
+  })
 }

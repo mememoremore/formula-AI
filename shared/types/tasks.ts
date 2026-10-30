@@ -10,6 +10,7 @@ export interface TaskState {
 export interface RecognitionTaskState extends TaskState {
   fileId: string
   mode: 'handwritten' | 'printed'
+  requestedTitle: string | null
   formulaId: string | null
   isMock: boolean
 }

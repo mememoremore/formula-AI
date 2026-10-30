@@ -17,6 +17,15 @@ const mode = ref<'login' | 'register'>('login'),
   acknowledged = ref(false),
   busy = ref(false),
   composing = ref(false)
+const registrationPending = ref(false), otp = ref(''), resendWait = ref(0)
+let resendTimer: ReturnType<typeof setInterval> | undefined
+function startResendWait() {
+  resendWait.value = 60
+  if (resendTimer) clearInterval(resendTimer)
+  resendTimer = setInterval(() => {
+    if (--resendWait.value <= 0 && resendTimer) clearInterval(resendTimer)
+  }, 1000)
+}
 const isRegister = computed(() => mode.value === 'register')
 let controller: AbortController | undefined,
   disposed = false,
@@ -28,6 +37,7 @@ onBeforeRouteLeave(() => {
 onScopeDispose(() => {
   disposed = true
   controller?.abort()
+  if (resendTimer) clearInterval(resendTimer)
 })
 function changeMode() {
   if (busy.value || acknowledged.value) return
@@ -94,7 +104,19 @@ async function submit() {
     if (disposed || current !== sequence) return
     if (result.error) {
       feedback.value = authenticationError(result.error.code, result.error.status)
-      if (!result.error.status || result.error.status >= 500) await confirmSession(true)
+      if (!isRegister.value && result.error.status === 403) {
+        registrationPending.value = true
+        feedback.value = '如果账号尚未验证，请重新发送验证码。'
+      } else if (isRegister.value && result.error.status !== 503 && (!result.error.status || result.error.status >= 500)) {
+        registrationPending.value = true
+        feedback.value = '注册结果或邮件发送状态未确认。若没有收到验证码，请稍后重发。'
+      } else if (!result.error.status || result.error.status >= 500) await confirmSession(true)
+      return
+    }
+    if (isRegister.value) {
+      registrationPending.value = true
+      startResendWait()
+      feedback.value = ''
       return
     }
     acknowledged.value = true
@@ -109,6 +131,58 @@ async function submit() {
       feedback.value = '尚未确认登录，请核对网络后重试。若注册已完成，可切换到登录。'
   } finally {
     if (!disposed && current === sequence) busy.value = false
+  }
+}
+async function resendCode() {
+  if (busy.value || resendWait.value > 0) return
+  busy.value = true
+  feedback.value = ''
+  try {
+    const result = await authClient.emailOtp.sendVerificationOtp({
+      email: email.value.trim().toLowerCase(),
+      type: 'email-verification',
+    })
+    if (result.error) feedback.value = '验证码发送失败，请稍后重试。'
+    else {
+      feedback.value = '如果账号已创建，验证码将发送到该邮箱。'
+      startResendWait()
+    }
+  } catch {
+    feedback.value = '验证码发送状态未确认，请稍后重试。'
+  } finally {
+    if (!disposed) busy.value = false
+  }
+}
+async function verifyRegistration() {
+  if (busy.value || !/^[0-9]{6}$/.test(otp.value)) {
+    feedback.value = '请输入 6 位邮箱验证码。'
+    return
+  }
+  busy.value = true
+  feedback.value = ''
+  try {
+    const address = email.value.trim().toLowerCase()
+    const verified = await authClient.emailOtp.verifyEmail({ email: address, otp: otp.value })
+    if (verified.error) {
+      feedback.value = '验证码错误、已过期或尝试次数过多，请检查或重新发送。'
+      return
+    }
+    const signedIn = await authClient.signIn.email({ email: address, password: password.value })
+    if (signedIn.error) {
+      password.value = ''
+      registrationPending.value = false
+      mode.value = 'login'
+      feedback.value = '邮箱验证完成，请使用邮箱和密码登录。'
+      return
+    }
+    acknowledged.value = true
+    password.value = ''
+    boundary.clearPrivate()
+    await confirmSession(true)
+  } catch {
+    feedback.value = '验证结果暂未确认，请稍后重试或尝试登录。'
+  } finally {
+    if (!disposed) busy.value = false
   }
 }
 </script>
@@ -148,6 +222,7 @@ async function submit() {
         </button>
       </div>
       <form
+        v-if="!registrationPending"
         class="stack login-fields"
         :aria-busy="busy"
         aria-describedby="login-feedback"
@@ -224,10 +299,28 @@ async function submit() {
           {{ busy ? '正在确认…' : isRegister ? '创建账号' : '登录' }}
         </button>
       </form>
+      <form v-else class="stack login-fields" @submit.prevent="verifyRegistration">
+        <p class="info-note">请查收 {{ email }} 的验证码，有效期为 5 分钟。</p>
+        <label>
+          <span class="field-label">邮箱验证码</span>
+          <input v-model.trim="otp" class="input" inputmode="numeric" autocomplete="one-time-code"
+            maxlength="6" required placeholder="请输入 6 位验证码" :disabled="busy" />
+        </label>
+        <p v-if="feedback" class="form-feedback" role="status">{{ feedback }}</p>
+        <button class="button button-primary" type="submit" :disabled="busy">
+          {{ busy ? '正在确认…' : '验证并登录' }}
+        </button>
+        <button class="text-button" type="button" :disabled="busy || resendWait > 0" @click="resendCode">
+          {{ resendWait > 0 ? resendWait + ' 秒后可重发' : '重新发送验证码' }}
+        </button>
+        <button class="text-button" type="button" :disabled="busy" @click="registrationPending = false; mode = 'login'; feedback = ''">
+          返回登录
+        </button>
+      </form>
       <button
         type="button"
         class="switch-mode text-button"
-        :disabled="busy || acknowledged"
+        :disabled="busy || acknowledged || registrationPending"
         @click="changeMode"
       >
         {{ isRegister ? '已有账号？去登录' : '还没有账号？创建一个' }}
@@ -276,6 +369,10 @@ async function submit() {
 }
 .password-field {
   position: relative;
+}
+.password-field .input::-ms-reveal,
+.password-field .input::-ms-clear {
+  display: none;
 }
 .password-field .input {
   padding-right: 54px;

@@ -349,9 +349,7 @@ async function checkDetail(page) {
   await page.getByRole('button', { name: '重新加载分类', exact: true }).waitFor()
   await mode('account')
   await page.getByRole('button', { name: '重新加载分类', exact: true }).click()
-  await page
-    .getByRole('combobox', { name: '公式分类', exact: true })
-    .selectOption('22222222-2222-4222-8222-222222222222')
+  await page.getByRole('dialog').getByText('微积分', { exact: true }).click()
   await page.getByRole('button', { name: '保存分类', exact: true }).click()
   await page.getByRole('dialog').waitFor({ state: 'hidden' })
   ensure(

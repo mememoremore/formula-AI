@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { displayFormulaTitle } from '#shared/formula-title'
 import type { SavedFormula } from '#shared/types/workspace'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { formulaDraftFeedback, formulaDraftChanged } from '~/utils/formula-editor'
@@ -10,7 +11,8 @@ const emit = defineEmits<{
 }>()
 const title = ref(''),
   latex = ref(''),
-  expectedVersionId = ref('')
+  expectedVersionId = ref(''),
+  expectedTitle = ref('')
 const original = ref({ title: '', latex: '' })
 const operation = ref<'save' | 'reload' | null>(null)
 const busy = computed(() => operation.value !== null)
@@ -25,7 +27,11 @@ const { canLeave } = useFormulaDraftGuard(open, dirty, busy)
 let controller: AbortController | undefined
 let disposed = false
 function fill(formula: SavedFormula) {
-  original.value = { title: formula.title, latex: formula.versions.at(-1)?.latex ?? '' }
+  expectedTitle.value = formula.title
+  original.value = {
+    title: displayFormulaTitle(formula.title, formula.versions[0]?.origin === 'RECOGNITION'),
+    latex: formula.versions.at(-1)?.latex ?? '',
+  }
   title.value = original.value.title
   latex.value = original.value.latex
   expectedVersionId.value = formula.versions.at(-1)?.id ?? ''
@@ -56,10 +62,10 @@ async function save() {
       timeout: 20_000,
       signal: controller.signal,
       body: {
-        title: title.value,
+        title: title.value === original.value.title ? expectedTitle.value : title.value,
         latex: latex.value,
         expectedVersionId: expectedVersionId.value,
-        expectedTitle: original.value.title,
+        expectedTitle: expectedTitle.value,
       },
     })
     if (disposed || props.formula.id !== id) return

@@ -26,11 +26,40 @@ const displayValidation = computed(() =>
 )
 const syntax = computed(() => (latex.value.trim() ? formulaSyntaxFeedback(latex.value) : ''))
 const dirty = computed(() => !!title.value.trim() || !!latex.value.trim() || !!receipt.value)
-useFormulaDraftGuard(
-  computed(() => !completed.value),
-  dirty,
-  busy,
-)
+const showLeaveConfirmation = ref(false)
+let resolveLeave: ((leave: boolean) => void) | undefined
+let leavingConfirmed = false
+const removeAfterEach = useRouter().afterEach((_to, _from, failure) => {
+  if (failure) leavingConfirmed = false
+})
+function confirmLeave(leave: boolean) {
+  showLeaveConfirmation.value = false
+  leavingConfirmed = leave
+  const resolve = resolveLeave
+  resolveLeave = undefined
+  resolve?.(leave)
+}
+function canLeave() {
+  if (completed.value) return true
+  if (busy.value) return false
+  if (!dirty.value) return true
+  if (resolveLeave) return false
+  showLeaveConfirmation.value = true
+  return new Promise<boolean>((resolve) => { resolveLeave = resolve })
+}
+onBeforeRouteLeave(canLeave)
+onBeforeRouteUpdate(canLeave)
+function beforeUnload(event: BeforeUnloadEvent) {
+  if (completed.value || leavingConfirmed || (!dirty.value && !busy.value)) return
+  event.preventDefault()
+  event.returnValue = ''
+}
+onMounted(() => window.addEventListener('beforeunload', beforeUnload))
+onScopeDispose(() => {
+  confirmLeave(false)
+  removeAfterEach()
+  if (import.meta.client) window.removeEventListener('beforeunload', beforeUnload)
+})
 async function save() {
   if (busy.value || !ready.value || validation.value) return
   feedback.value = ''
@@ -76,7 +105,6 @@ function discard() {
         :aria-invalid="!!syntax"
         aria-describedby="manual-feedback"
       />
-      <p class="info-note">{{ latex.length }} / 5000 · 直接输入公式源码，无需添加 $ 或整篇文档。</p>
       <p v-if="dirty && validation" id="manual-feedback" class="error-text" role="status">
         {{ displayValidation }}
       </p>
@@ -105,7 +133,6 @@ function discard() {
       >
         {{ busy ? '正在保存…' : receipt ? '确认上次保存' : '保存到账号公式库' }}
       </button>
-      <p class="info-note">手动创建不调用识别模型，不消耗识别额度。</p>
       <div v-if="receipt || recoveryError" class="manual-recovery">
         <NuxtLink class="text-button" to="/library?space=account">到公式库核对</NuxtLink>
         <button class="text-button" type="button" :disabled="busy" @click="discard">
@@ -113,6 +140,15 @@ function discard() {
         </button>
       </div>
     </div>
+    <AppModal :open="showLeaveConfirmation" :title="receipt ? '保存结果待确认' : '公式还未保存'" @close="confirmLeave(false)">
+      <p class="leave-message">
+        {{ receipt ? '上次保存结果尚未确认，回执会保留。离开后可回到此页继续核对。' : '离开后，当前输入的内容将丢失。' }}
+      </p>
+      <div class="leave-actions">
+        <button class="button button-white" type="button" @click="confirmLeave(false)">继续编辑</button>
+        <button class="button button-primary" type="button" @click="confirmLeave(true)">{{ receipt ? '离开并保留回执' : '放弃并离开' }}</button>
+      </div>
+    </AppModal>
   </form>
 </template>
 <style scoped>
@@ -156,6 +192,21 @@ function discard() {
 }
 .error-text {
   overflow-wrap: anywhere;
+}
+.leave-message {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.leave-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 24px;
+}
+.leave-actions .button {
+  min-width: 0;
+  padding-inline: 8px;
 }
 @media (min-width: 768px) {
   .manual-layout {

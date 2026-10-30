@@ -9,7 +9,7 @@ const categoryRequest = useFetch<CategoryCollection>('/api/account/categories', 
   key: 'account-categories',
 })
 const { data: categories, error: categoryError } = categoryRequest
-const { query, activeCategory, search, selectCategory } = useLibraryFilters()
+const { activeCategory, selectCategory } = useLibraryFilters()
 const showManager = ref(false)
 const selectedFormula = ref<FormulaLibraryItem | null>(null)
 const categoryFilters = computed(() => [
@@ -48,11 +48,6 @@ await Promise.all([listing.ready, categoryRequest])
 </script>
 
 <template>
-  <div class="section-heading">
-    <NuxtLink class="text-button" to="/formulas/new">手动创建公式</NuxtLink>
-  </div>
-  <LibrarySearch v-model="query" @search="search" />
-  <LibraryViews />
   <section class="section">
     <div class="section-heading">
       <h2>我的分类</h2>
@@ -77,24 +72,18 @@ await Promise.all([listing.ready, categoryRequest])
         :aria-pressed="activeCategory === category.id"
         @click="selectCategory(category.id)"
       >
-        <span>{{ category.name }}</span>
-        <small>{{ category.count }}</small>
+        <span class="category-chip">
+          <span>{{ category.name }}</span>
+          <small>{{ category.count }}</small>
+        </span>
       </button>
     </div>
-    <p v-if="favoritesOnly" class="filter-hint">分类数字为账号内的公式总数</p>
   </section>
   <section class="section" :aria-busy="status === 'pending'">
     <div class="section-heading">
       <h2>{{ heading }}</h2>
       <div class="row">
         <span class="text-small muted">{{ items.length }} 条已显示</span>
-        <button
-          class="text-button"
-          :disabled="status === 'pending' || loadingMore"
-          @click="listing.reload"
-        >
-          刷新
-        </button>
       </div>
     </div>
     <div v-if="error" class="card library-error" role="alert">
@@ -156,7 +145,6 @@ await Promise.all([listing.ready, categoryRequest])
       </button>
     </template>
   </section>
-  <p class="library-note">分类与收藏已保存到你的账号</p>
   <AccountCategoryManager
     v-if="showManager"
     :categories="categories?.items ?? []"
@@ -173,6 +161,12 @@ await Promise.all([listing.ready, categoryRequest])
 </template>
 
 <style scoped>
+.section {
+  margin-top: 16px;
+}
+.section-heading {
+  margin-bottom: 10px;
+}
 .section-heading h2 {
   min-width: 0;
   overflow-wrap: anywhere;
@@ -195,20 +189,31 @@ await Promise.all([listing.ready, categoryRequest])
 .category-filters button {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
   max-width: 100%;
+  min-width: 44px;
   min-height: 44px;
-  padding: 7px 12px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.category-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 5px 9px;
   border: 1px solid #eae6f1;
-  border-radius: 11px;
+  border-radius: 9px;
   color: var(--color-text-secondary);
   background: white;
   font-size: 11px;
 }
-.category-filters button span {
+.category-chip > span {
+  min-width: 0;
   overflow-wrap: anywhere;
 }
-.category-filters button.selected {
+.category-filters button.selected .category-chip {
   border-color: #d9ccef;
   color: var(--color-primary);
   background: var(--color-primary-soft);
@@ -216,11 +221,6 @@ await Promise.all([listing.ready, categoryRequest])
 .category-filters small {
   font-size: 12px;
   opacity: 0.7;
-}
-.filter-hint {
-  color: #ada5b7;
-  font-size: 12px;
-  margin-top: 9px;
 }
 .library-loading,
 .library-error {
@@ -231,11 +231,5 @@ await Promise.all([listing.ready, categoryRequest])
 }
 .library-error .row {
   margin-top: 14px;
-}
-.library-note {
-  margin-top: 27px;
-  text-align: center;
-  color: var(--color-text-secondary);
-  font-size: 12px;
 }
 </style>

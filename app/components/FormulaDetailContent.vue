@@ -9,8 +9,10 @@ const props = defineProps<{
   sample?: boolean
   manual?: boolean
   badge?: string
+  needsName?: boolean
+  deletable?: boolean
 }>()
-const emit = defineEmits<{ edit: []; versions: [] }>()
+const emit = defineEmits<{ edit: []; versions: []; remove: [] }>()
 const original = ref(false),
   imageFailed = ref(false)
 watch(
@@ -25,8 +27,11 @@ watch(
     <header class="detail-title">
       <p class="detail-kicker">保留每一步，理解每一式</p>
       <h2>{{ title }}</h2>
+      <button v-if="needsName" type="button" class="text-button" @click="emit('edit')">
+        命名公式
+      </button>
       <div class="detail-meta">
-        <span class="badge">v{{ version }} · 当前版本</span>
+        <span v-if="versionCount > 1" class="badge">当前版本 · v{{ version }}</span>
         <span v-if="badge" class="detail-badge">{{ badge }}</span>
       </div>
       <slot name="organization" />
@@ -52,7 +57,6 @@ watch(
       </div>
       <div v-if="!original" class="paper-preview detail-paper">
         <MathFormula :latex="latex" tabindex="0" role="group" aria-label="数学公式，可横向滚动" />
-        <p class="paper-caption">当前已保存内容 · 长公式可左右滚动</p>
       </div>
       <div v-else class="source-image">
         <img
@@ -92,13 +96,18 @@ watch(
         <button class="menu-item" @click="emit('edit')">
           <AppIcon name="pencil" :size="18" />
           <span>编辑公式</span>
-          <span class="menu-chevron text-small">v{{ version }}</span>
+          <span v-if="versionCount > 1" class="menu-chevron text-small">v{{ version }}</span>
           <AppIcon name="chevron" :size="15" />
         </button>
         <button class="menu-item" @click="emit('versions')">
           <AppIcon name="history" :size="18" />
           <span>版本记录</span>
           <span class="menu-chevron text-small">{{ versionCount }} 个版本</span>
+          <AppIcon name="chevron" :size="15" />
+        </button>
+        <button v-if="deletable" class="menu-item danger-item" @click="emit('remove')">
+          <AppIcon name="trash" :size="18" />
+          <span>删除公式</span>
           <AppIcon name="chevron" :size="15" />
         </button>
       </div>
@@ -149,14 +158,12 @@ watch(
   min-width: 100px;
 }
 .detail-paper {
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  min-height: 206px;
   padding: 28px 16px 18px;
   min-width: 0;
-}
-.paper-caption {
-  margin-top: 20px;
-  font-size: 11px;
-  text-align: center;
-  color: var(--color-text-secondary);
 }
 .source-image {
   display: grid;
@@ -212,6 +219,9 @@ code {
   margin-top: 20px;
   line-height: 1.9;
   color: var(--color-text-secondary);
+}
+.danger-item {
+  color: var(--color-danger);
 }
 @media (min-width: 900px) {
   .formula-detail {
