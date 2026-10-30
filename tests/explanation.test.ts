@@ -123,3 +123,25 @@ test('账号回执拒绝损坏内容及其他账号/公式', () => {
   assert.equal(parseExplanationIntent(raw, id, other), null)
   assert.equal(parseExplanationIntent('{', id, id), null)
 })
+
+import { explanationCopyText } from '../app/utils/explanation-copy'
+test('完整解释复制以确定顺序保留LaTeX，不含协议或内部元数据', () => {
+  const output = explanationCopyText(value)
+  assert.equal(
+    output,
+    [
+      '概述\n' + value.summary,
+      '符号含义\n$x$：待求的未知数',
+      '适用条件\n1. 在给定数域中讨论。',
+      '理解与推导\n1. 观察结构\n识别运算顺序和等式关系。\n$$x^2-5x+6=0$$',
+      '应用例子\n1. 可以用因式分解法核对解。',
+      '注意事项\n1. 这是一份受控测试解释，不是数学正确性证明。',
+    ].join('\n\n'),
+  )
+  assert.doesNotMatch(output, /schemaVersion|promptVersion|turnId|messageId/)
+})
+test('复制空区块不产生标题，不改变原结构', () => {
+  const empty = { ...value, symbols: [], conditions: [], steps: [], examples: [], warnings: [] }
+  assert.equal(explanationCopyText(empty), '概述\n' + value.summary)
+  assert.deepEqual(empty.symbols, [])
+})

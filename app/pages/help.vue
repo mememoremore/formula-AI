@@ -3,6 +3,21 @@ definePageMeta({ bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '使用帮助 · Formula AI' })
 const questions = [
   {
+    title: '没有图片，也能创建公式吗？',
+    answer:
+      '可以。从首页点击「输入 LaTeX」，登录后填写名称与源码，实时预览并保存。手动输入不使用识别次数，保存后可分类、收藏、编辑、解释和导出。',
+  },
+  {
+    title: '自由提问与 AI 结构化解释有什么区别？',
+    answer:
+      '自由提问由你输入问题；AI 结构化解释按概述、符号、条件、步骤、例子及注意事项整理固定公式版本，可查看历史、重新生成或基于原解释继续追问。两者共用 AI 可用次数。重新生成会创建新的解释，查看历史不会。',
+  },
+  {
+    title: '复制 LaTeX 后，如何放入 Word？',
+    answer:
+      '支持 LaTeX 输入的 Windows Word 可按 Alt+= 插入公式，选择兼容的 LaTeX 输入模式后粘贴并转换。Word/WPS 并非支持所有命令；复杂情况优先下载可编辑 DOCX。复制完整解释是普通文本，不等于 Word 原生可编辑公式。',
+  },
+  {
     title: '分类和收藏会保存在哪里？删除分类会删除公式吗？',
     answer:
       '登录后的公式库、分类和收藏保存在账号，刷新后仍可读取。删除分类只把公式移至未分类，公式、版本和收藏都会保留。未登录时仍为此浏览器的独立演示。',
@@ -20,7 +35,7 @@ const questions = [
   {
     title: '如何修改公式？',
     answer:
-      '打开公式详情并点击「编辑」，修改 LaTeX 后实时预览。账号公式确认后保存，原始识别结果保留为第一版；访客演示修改仍只保存在本机。其他页面已修改同一版本时，会提示冲突。',
+      '打开公式详情并点击「编辑」，修改 LaTeX 后实时预览。账号公式确认后保存，首个识别或手动输入版本会保留；访客演示修改仍只保存在本机。其他页面已修改同一版本时，会提示冲突。',
   },
   {
     title: '支持什么图片？',
@@ -54,15 +69,15 @@ const questions = [
   <PageHeader title="使用帮助" back-to="/profile" />
   <PageIntro
     :level="2"
-    title="从一张图片开始"
+    title="从图片或 LaTeX 开始"
     subtitle="上传、校正、理解，每一步都有清晰的思路。"
     artwork="formula"
     inline-artwork
   />
   <ol class="help-steps">
     <li>
-      <strong>上传清晰图片</strong>
-      <p>尽量完整拍摄一条公式，保持光线充足。</p>
+      <strong>选择你的输入方式</strong>
+      <p>裁剪清晰图片，或从首页直接输入 LaTeX。</p>
     </li>
     <li>
       <strong>查看并校正公式</strong>
@@ -70,7 +85,7 @@ const questions = [
     </li>
     <li>
       <strong>借助 AI 理解</strong>
-      <p>围绕公式继续追问，理清推导与计算过程。</p>
+      <p>选择结构化解释或自由提问，再继续追问；需要文档时导出 DOCX。</p>
     </li>
   </ol>
   <div class="stack">

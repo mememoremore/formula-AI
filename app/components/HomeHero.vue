@@ -13,7 +13,7 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
       <p class="hero-description">
         从手写的疑问，
         <br />
-        到清晰的答案。
+        到清晰的答案。也可直接输入 LaTeX，保存后让 AI 帮你理解。
       </p>
       <svg class="ink-stroke" viewBox="0 0 150 40" aria-hidden="true">
         <path
@@ -35,7 +35,7 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
       fetchpriority="high"
     />
   </section>
-  <div class="stack home-actions" aria-label="开始识别">
+  <div class="stack home-actions" aria-label="创建公式">
     <NuxtLink :to="cameraTo" class="button button-primary home-action">
       <AppIcon name="camera" :size="26" />
       <span>
@@ -49,6 +49,14 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
       <span>
         <strong>上传图片</strong>
         <small>从相册选一张清晰图片</small>
+      </span>
+      <AppIcon name="chevron" :size="18" class="action-arrow" />
+    </NuxtLink>
+    <NuxtLink to="/formulas/new" class="button button-white home-action">
+      <AppIcon name="pencil" :size="25" />
+      <span>
+        <strong>输入 LaTeX</strong>
+        <small>实时预览，保存到账号公式库</small>
       </span>
       <AppIcon name="chevron" :size="18" class="action-arrow" />
     </NuxtLink>

@@ -70,6 +70,7 @@
     "preview:design": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/design-preview.ts",
     "typecheck:design": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/design-preview.ts typecheck",
     "check:source-format": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/check-source-format.ts",
+    "quality": "npm run quality:quick",
     "quality:quick": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/check-quality.ts",
     "test:isolated": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts integration",
     "test:e2e": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-browser-matrix.ts",

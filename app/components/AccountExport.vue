@@ -77,7 +77,9 @@ onScopeDispose(() => {
                 ? '原始识别'
                 : item.origin === 'DEMO'
                   ? '模拟示例'
-                  : '人工修订'
+                  : item.number === 1
+                    ? '手动输入'
+                    : '人工修订'
             }}
           </option>
         </select>
@@ -94,6 +96,7 @@ onScopeDispose(() => {
         导出原生可编辑公式，并附上所选版本的 LaTeX。未保存的编辑草稿不会导出。
       </p>
     </form>
+    <WordUseGuide />
   </AppModal>
 </template>
 <style scoped>

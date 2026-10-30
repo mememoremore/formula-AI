@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { explanationCopyText } from '~/utils/explanation-copy'
 const props = defineProps<{ conversationId: string; ownerId: string }>()
 const chat = useAccountChat(props.conversationId, props.ownerId)
 const { data: conversation, error, status } = chat.request
@@ -30,7 +31,6 @@ watch(
   },
   { immediate: true },
 )
-const { showToast } = useToast()
 const { following, bottom } = useChatReading([
   () => conversation.value?.messages.length,
   () => turn.value?.partialContent,
@@ -39,14 +39,6 @@ async function submit() {
   if (await chat.send(draft.value)) {
     draft.value = ''
     bottom()
-  }
-}
-async function copy(content: string) {
-  try {
-    await navigator.clipboard.writeText(content)
-    showToast('回答已复制。')
-  } catch {
-    showToast('复制不可用，请手动选择文字。')
   }
 }
 await chat.request
@@ -67,7 +59,7 @@ await chat.request
     <template v-if="conversation">
       <section v-if="conversation.purpose === 'EXPLANATION'" class="card explanation-base">
         <template v-if="conversation.baseExplanation">
-          <h2>公式结构化解释</h2>
+          <h2>AI 结构化解释</h2>
           <p class="info-note">
             固定 v{{ conversation.context?.number }} ·
             {{
@@ -76,21 +68,38 @@ await chat.request
                 : conversation.baseExplanation.modelVersion || 'AI解释'
             }}
           </p>
+          <TextCopyAction
+            :text="explanationCopyText(conversation.baseExplanation.structured)"
+            label="复制完整解释"
+          />
           <FormulaExplanationContent :value="conversation.baseExplanation.structured" />
         </template>
         <p v-else role="status">
           {{ busy ? '正在整理结构化解释，完成校验后展示。' : '这次解释未完成，可返回重新生成。' }}
         </p>
-        <NuxtLink
-          v-if="conversation.context"
-          :to="{
-            path: '/formulas/' + conversation.context.formulaId,
-            query: { explainVersion: conversation.context.id },
-          }"
-          class="text-button"
-        >
-          重新生成 / 解释历史
-        </NuxtLink>
+        <nav v-if="conversation.context" class="explanation-navigation" aria-label="解释操作">
+          <NuxtLink
+            :to="{
+              path: '/formulas/' + conversation.context.formulaId,
+              query: { explainVersion: conversation.context.id },
+              hash: '#explanation-create',
+            }"
+            class="text-button"
+          >
+            重新生成
+          </NuxtLink>
+          <NuxtLink
+            v-if="conversation.context"
+            :to="{
+              path: '/formulas/' + conversation.context.formulaId,
+              query: { explainVersion: conversation.context.id },
+              hash: '#explanation-history',
+            }"
+            class="text-button"
+          >
+            查看历史
+          </NuxtLink>
+        </nav>
       </section>
       <p class="info-note">上下文仅使用已完成问答；失败和停止记录不参与，当前提问会单独加入。</p>
       <p v-if="!conversation.messages.length" class="info-note section">
@@ -115,14 +124,13 @@ await chat.request
               <span v-if="message.status === 'FAILED'">· 回答未完成</span>
             </div>
             <ChatMessageContent :content="message.content" />
-            <button
-              class="text-button copy-answer"
+            <TextCopyAction
+              class="copy-answer"
+              :text="message.content"
+              label="复制"
               aria-label="复制回答"
-              @click="copy(message.content)"
-            >
-              <AppIcon name="copy" :size="14" />
-              复制
-            </button>
+              success-message="回答已复制。"
+            />
           </template>
           <p v-else>{{ message.content }}</p>
         </article>
@@ -199,6 +207,13 @@ await chat.request
   </div>
 </template>
 <style scoped>
+.explanation-navigation {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 24px;
+  row-gap: 8px;
+  margin-top: 12px;
+}
 .explanation-base {
   padding: 20px;
   margin: 20px 0;

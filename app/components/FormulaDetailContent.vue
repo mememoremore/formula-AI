@@ -19,15 +19,6 @@ watch(
     imageFailed.value = false
   },
 )
-const { showToast } = useToast()
-async function copy() {
-  try {
-    await navigator.clipboard.writeText(props.latex)
-    showToast('LaTeX 已复制。')
-  } catch {
-    showToast('复制不可用，请手动选择代码。')
-  }
-}
 </script>
 <template>
   <article class="formula-detail">
@@ -86,16 +77,14 @@ async function copy() {
         </template>
         <p v-else class="info-note">原图暂时不可用，已保存的公式不受影响。</p>
       </div>
+      <TextCopyAction :text="latex" label="复制 LaTeX" success-message="LaTeX 已复制。" />
+      <WordUseGuide />
       <details class="card latex-card">
         <summary>
           LaTeX 代码
           <AppIcon name="chevron" :size="15" />
         </summary>
         <code>{{ latex }}</code>
-        <button class="text-button" @click="copy">
-          <AppIcon name="copy" :size="14" />
-          复制代码
-        </button>
       </details>
     </section>
     <section class="detail-tools" aria-label="公式操作">

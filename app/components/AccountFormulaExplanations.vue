@@ -148,8 +148,10 @@ const labels = { QUEUED: '排队中', PROCESSING: '生成中', COMPLETED: '解�
 <template>
   <section class="card explanation-entry" aria-label="结构化解释与历史">
     <header>
-      <h2>把公式读懂</h2>
-      <p class="info-note">解释符号、条件和推导。每次生成绑定所选版本，使用一次 CHAT 额度。</p>
+      <h2 id="explanation-create">AI 结构化解释</h2>
+      <p class="info-note">
+        解释符号、条件和推导。每次生成绑定所选版本，使用一次 AI 提问次数（解释与自由提问共用）。
+      </p>
     </header>
     <label class="field">
       <span>解释公式版本</span>
@@ -172,7 +174,7 @@ const labels = { QUEUED: '排队中', PROCESSING: '生成中', COMPLETED: '解�
     <p v-if="pending" class="info-note">原请求待确认，重试沿用同一编号；已有结果不会重复扣额度。</p>
     <p v-if="feedback" class="error-text" role="alert">{{ feedback }}</p>
     <div class="history-heading">
-      <h3>解释历史</h3>
+      <h3 id="explanation-history">解释历史</h3>
       <label>
         <input v-model="allVersions" type="checkbox" />
         全部版本
