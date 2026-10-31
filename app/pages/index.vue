@@ -9,7 +9,7 @@ await home.request
 </script>
 <template>
   <div class="home-brand">
-    <AppBrand tagline :account-user="home.session.data.value?.user ?? null" />
+    <AppBrand :account-user="home.session.data.value?.user ?? null" />
   </div>
   <HomeHero :camera-to="home.cameraTo.value" :upload-to="home.uploadTo.value" />
   <section class="home-recents" aria-labelledby="home-recents-title" :aria-busy="loading">
@@ -59,7 +59,11 @@ await home.request
       <RecentEntryCard
         v-if="!demo && recent.conversation"
         label="最近创建的对话"
-        :title="recent.conversation.title"
+        :title="
+          recent.conversation.latex
+            ? recent.conversation.title.replace(/ · v[0-9]+$/, '')
+            : recent.conversation.title
+        "
         :subtitle="
           recent.conversation.preview &&
           recent.conversation.preview.trim() !== recent.conversation.title.trim()
@@ -141,7 +145,7 @@ await home.request
   min-width: var(--control-hit-area);
 }
 .home-recents {
-  margin-top: 32px;
+  margin-top: 20px;
 }
 .section-heading {
   align-items: flex-end;

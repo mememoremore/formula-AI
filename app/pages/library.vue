@@ -31,12 +31,11 @@ watch(
 <template>
   <div class="library-brand"><AppBrand :account-user="account?.user ?? null" /></div>
   <header class="library-hero">
-    <div>
-      <p class="library-kicker">每一次思考，都值得留存</p>
-      <h1>我的公式库</h1>
-      <p>整理、回顾，也继续探索。</p>
-    </div>
-    <img src="/images/library-paper.svg" alt="" aria-hidden="true" width="220" height="240" />
+    <h1>我的公式库</h1>
+    <NuxtLink class="text-button library-create-link" to="/formulas/new">
+      <AppIcon name="plus" :size="16" />
+      创建公式
+    </NuxtLink>
   </header>
   <div v-if="error" class="card status-panel" role="alert">
     <p>账号状态暂时无法读取。</p>
@@ -49,9 +48,6 @@ watch(
   </div>
   <DemoLibrary v-else-if="demo" />
   <template v-else-if="account?.user">
-    <div class="section-heading library-create">
-      <NuxtLink class="text-button" to="/formulas/new">手动创建公式</NuxtLink>
-    </div>
     <LibrarySearch v-model="query" @search="search" />
     <LibraryViews />
     <template v-if="libraryView(route.query.view) === 'recent'">
@@ -81,17 +77,23 @@ watch(
 }
 .library-hero {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   margin: 4px 0 10px;
-  min-height: 112px;
+  min-height: 56px;
+}
+.library-create-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 44px;
 }
 .library-create {
   margin-bottom: 8px;
 }
 h1 {
-  font-size: 30px;
+  font-size: 26px;
   letter-spacing: -1px;
   line-height: 1.5;
 }
@@ -121,10 +123,10 @@ h1 {
 }
 @media (min-width: 390px) {
   .library-hero {
-    grid-template-columns: minmax(0, 1fr) 116px;
+    grid-template-columns: minmax(0, 1fr) auto;
   }
   h1 {
-    font-size: 34px;
+    font-size: 28px;
   }
 }
 </style>

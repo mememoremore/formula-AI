@@ -358,14 +358,16 @@ const buttonLabel = computed(() =>
         {{ draft.recoveryWarning.value }}
       </p>
       <p v-if="feedback" class="error-text upload-error" role="alert">{{ feedback }}</p>
-      <button
-        class="button button-primary button-block recognize-button"
-        :disabled="blocked || (!file && !flow.receipt.value)"
-        :aria-busy="pending"
-        @click="recognize"
-      >
-        {{ buttonLabel }}
-      </button>
+      <div class="recognize-action" :class="{ 'crop-active': cropping }">
+        <button
+          class="button button-primary button-block recognize-button"
+          :disabled="blocked || (!file && !flow.receipt.value)"
+          :aria-busy="pending"
+          @click="recognize"
+        >
+          {{ buttonLabel }}
+        </button>
+      </div>
       <NuxtLink
         v-if="accountFlow"
         to="/library?space=account&view=recent"
@@ -383,6 +385,7 @@ const buttonLabel = computed(() =>
     </section>
   </div>
   <AccountUsage v-if="ownerId" :key="ownerId" :owner-id="ownerId" />
+  <div class="mobile-action-spacer" aria-hidden="true" />
 </template>
 <style scoped>
 .upload-intro {
@@ -517,6 +520,33 @@ const buttonLabel = computed(() =>
   line-height: 1.9;
   color: var(--color-text-secondary);
   margin-top: 8px;
+}
+.mobile-action-spacer {
+  display: none;
+}
+@media (max-width: 899px) {
+  .recognize-action {
+    position: fixed;
+    z-index: 30;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 12px 16px calc(12px + env(safe-area-inset-bottom, 0px));
+    background: #f6f7fc;
+    border-top: 1px solid var(--color-border);
+  }
+  .recognize-action .recognize-button {
+    width: 100%;
+    margin: 0;
+    min-height: 52px;
+  }
+  .recognize-action.crop-active {
+    visibility: hidden;
+  }
+  .mobile-action-spacer {
+    display: block;
+    height: calc(88px + env(safe-area-inset-bottom, 0px));
+  }
 }
 @media (min-width: 900px) {
   .upload-workspace {

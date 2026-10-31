@@ -17,7 +17,9 @@ const mode = ref<'login' | 'register'>('login'),
   acknowledged = ref(false),
   busy = ref(false),
   composing = ref(false)
-const registrationPending = ref(false), otp = ref(''), resendWait = ref(0)
+const registrationPending = ref(false),
+  otp = ref(''),
+  resendWait = ref(0)
 let resendTimer: ReturnType<typeof setInterval> | undefined
 function startResendWait() {
   resendWait.value = 60
@@ -39,6 +41,12 @@ onScopeDispose(() => {
   controller?.abort()
   if (resendTimer) clearInterval(resendTimer)
 })
+function returnToLogin() {
+  registrationPending.value = false
+  mode.value = 'login'
+  feedback.value = ''
+}
+
 function changeMode() {
   if (busy.value || acknowledged.value) return
   mode.value = isRegister.value ? 'login' : 'register'
@@ -107,7 +115,11 @@ async function submit() {
       if (!isRegister.value && result.error.status === 403) {
         registrationPending.value = true
         feedback.value = '如果账号尚未验证，请重新发送验证码。'
-      } else if (isRegister.value && result.error.status !== 503 && (!result.error.status || result.error.status >= 500)) {
+      } else if (
+        isRegister.value &&
+        result.error.status !== 503 &&
+        (!result.error.status || result.error.status >= 500)
+      ) {
         registrationPending.value = true
         feedback.value = '注册结果或邮件发送状态未确认。若没有收到验证码，请稍后重发。'
       } else if (!result.error.status || result.error.status >= 500) await confirmSession(true)
@@ -188,7 +200,7 @@ async function verifyRegistration() {
 </script>
 <template>
   <div class="login-page">
-    <PageHeader :title="isRegister ? '创建账号' : '账号登录'" back-to="/profile" />
+    <PageHeader :title="isRegister ? '创建账号' : '账号登录'" />
     <header class="login-intro">
       <span class="soft-icon"><AppIcon name="shield" :size="26" /></span>
       <h1>让思考，有自己的归处</h1>
@@ -208,10 +220,7 @@ async function verifyRegistration() {
       </NuxtLink>
     </section>
     <section v-else class="card login-card">
-      <div class="mode-heading">
-        <h2>{{ isRegister ? '创建公式空间' : '欢迎回来' }}</h2>
-        <span class="badge">{{ isRegister ? '注册' : '登录' }}</span>
-      </div>
+      <h2>{{ isRegister ? '创建公式空间' : '欢迎回来' }}</h2>
       <p class="info-note">
         {{ isRegister ? '创建账号，开始积累你的数学灵感。' : '登录后继续你的公式与学习记录。' }}
       </p>
@@ -280,7 +289,7 @@ async function verifyRegistration() {
               :disabled="busy || acknowledged"
               @click="showPassword = !showPassword"
             >
-              <AppIcon :name="showPassword ? 'eyeOff' : 'eye'" :size="18" />
+              <AppIcon :name="showPassword ? 'eye' : 'eyeOff'" :size="18" />
             </button>
           </div>
         </label>
@@ -303,17 +312,30 @@ async function verifyRegistration() {
         <p class="info-note">请查收 {{ email }} 的验证码，有效期为 5 分钟。</p>
         <label>
           <span class="field-label">邮箱验证码</span>
-          <input v-model.trim="otp" class="input" inputmode="numeric" autocomplete="one-time-code"
-            maxlength="6" required placeholder="请输入 6 位验证码" :disabled="busy" />
+          <input
+            v-model.trim="otp"
+            class="input"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="6"
+            required
+            placeholder="请输入 6 位验证码"
+            :disabled="busy"
+          />
         </label>
         <p v-if="feedback" class="form-feedback" role="status">{{ feedback }}</p>
         <button class="button button-primary" type="submit" :disabled="busy">
           {{ busy ? '正在确认…' : '验证并登录' }}
         </button>
-        <button class="text-button" type="button" :disabled="busy || resendWait > 0" @click="resendCode">
+        <button
+          class="text-button"
+          type="button"
+          :disabled="busy || resendWait > 0"
+          @click="resendCode"
+        >
           {{ resendWait > 0 ? resendWait + ' 秒后可重发' : '重新发送验证码' }}
         </button>
-        <button class="text-button" type="button" :disabled="busy" @click="registrationPending = false; mode = 'login'; feedback = ''">
+        <button class="text-button" type="button" :disabled="busy" @click="returnToLogin">
           返回登录
         </button>
       </form>
@@ -326,16 +348,14 @@ async function verifyRegistration() {
         {{ isRegister ? '已有账号？去登录' : '还没有账号？创建一个' }}
       </button>
     </section>
-    <NuxtLink to="/" class="button button-secondary button-block guest-button">
-      先体验演示版
-      <AppIcon name="arrowRight" :size="16" />
-    </NuxtLink>
-    <p class="info-note login-note">账号与本机演示记录独立，演示内容不会自动导入。</p>
   </div>
 </template>
 <style scoped>
+.login-page :deep(.page-header) {
+  margin-bottom: 12px;
+}
 .login-intro {
-  padding: 20px 0 28px;
+  padding: 4px 0 28px;
 }
 .login-intro h1 {
   font-size: clamp(22px, 5vw, 28px);
@@ -350,12 +370,6 @@ async function verifyRegistration() {
 .login-card {
   padding: 24px;
   min-width: 0;
-}
-.mode-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
 }
 .login-card h2 {
   font-size: 20px;
@@ -385,14 +399,6 @@ async function verifyRegistration() {
 .switch-mode {
   display: flex;
   margin: 12px auto 0;
-}
-.guest-button {
-  margin-top: 20px;
-}
-.login-note {
-  text-align: center;
-  margin-top: 20px;
-  line-height: 1.8;
 }
 .form-feedback {
   color: var(--color-danger);

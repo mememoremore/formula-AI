@@ -112,6 +112,7 @@
     "vue-tsc": "^3.1.0"
   },
   "imports": {
+    "#shared/formula-title": "./shared/formula-title.ts",
     "#shared/formula-validation": "./shared/formula-validation.ts",
     "#shared/explanation": "./shared/explanation.ts"
   }

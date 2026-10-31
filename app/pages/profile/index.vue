@@ -34,10 +34,10 @@ const personal = [
       <section class="profile-hero">
         <span class="profile-decoration" aria-hidden="true">✧</span>
         <UserAvatar :user="account?.user" :size="96" />
-        <p class="eyebrow">{{ account?.user ? '你的公式空间' : '本机演示空间' }}</p>
+        <p class="eyebrow">你的公式空间</p>
         <h1>{{ account?.user?.name || '保持好奇，探索公式' }}</h1>
         <p class="profile-email">
-          {{ account?.user?.email || '登录保存公式与对话，本机演示仍然独立。' }}
+          {{ account?.user?.email || '' }}
         </p>
         <NuxtLink
           :to="account?.user ? '/profile/edit' : '/login?redirect=/profile'"
@@ -54,14 +54,6 @@ const personal = [
           <span>{{ item.detail }}</span>
         </NuxtLink>
       </section>
-      <NuxtLink v-else to="/library?space=demo" class="card demo-entry">
-        <span class="soft-icon"><AppIcon name="book" :size="21" /></span>
-        <div>
-          <h2>浏览本机演示</h2>
-          <p>公式与模拟对话，仅保存在此浏览器。</p>
-        </div>
-        <AppIcon name="chevron" :size="17" />
-      </NuxtLink>
     </template>
     <div class="card menu-list section">
       <NuxtLink v-for="item in menus" :key="item.to" :to="item.to" class="menu-item">

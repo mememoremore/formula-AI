@@ -4,26 +4,12 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
 <template>
   <section class="home-hero" aria-labelledby="home-title">
     <div class="hero-copy">
-      <p class="hero-kicker">随手记录 · 慢慢理解</p>
       <h1 id="home-title">
         写下灵感，
         <br />
         <em>读懂公式。</em>
       </h1>
-      <p class="hero-description">
-        从手写的疑问，
-        <br />
-        到清晰的答案。也可直接输入 LaTeX，保存后让 AI 帮你理解。
-      </p>
-      <svg class="ink-stroke" viewBox="0 0 150 40" aria-hidden="true">
-        <path
-          d="M5 35Q70 -2 145 5"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1.8"
-          stroke-linecap="round"
-        />
-      </svg>
+      <p class="hero-description">拍照识别、输入公式，继续你的学习。</p>
     </div>
     <img
       class="hero-art"
@@ -68,8 +54,8 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);
   align-items: center;
   gap: 8px;
-  margin: 4px 0 24px;
-  min-height: 250px;
+  margin: 0 0 16px;
+  min-height: 150px;
 }
 .hero-copy {
   min-width: 0;
@@ -92,11 +78,11 @@ em {
   font-style: normal;
 }
 .hero-description {
-  margin-top: 18px;
-  font-size: 14px;
-  line-height: 1.9;
+  margin-top: 8px;
+  font-size: 13px;
+  line-height: 1.7;
   color: var(--color-text-secondary);
-  letter-spacing: 1px;
+  letter-spacing: 0;
 }
 .ink-stroke {
   display: block;
@@ -118,8 +104,8 @@ em {
 .home-action {
   justify-content: flex-start;
   gap: 14px;
-  padding: 15px 20px;
-  min-height: 72px;
+  padding: 12px 16px;
+  min-height: 60px;
   text-align: left;
 }
 .home-action span {
@@ -148,7 +134,7 @@ em {
 }
 @media (max-width: 360px) {
   .home-hero {
-    min-height: 230px;
+    min-height: 140px;
   }
   .hero-kicker {
     letter-spacing: 0;

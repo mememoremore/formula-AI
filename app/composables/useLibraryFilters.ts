@@ -13,6 +13,7 @@ export function useLibraryFilters(live = false) {
     },
   )
   function search() {
+    if ((typeof route.query.q === 'string' ? route.query.q : '') === query.value.trim()) return
     return router[live ? 'replace' : 'push']({
       query: { ...route.query, q: query.value.trim() || undefined },
     })

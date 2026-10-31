@@ -120,13 +120,6 @@ const errorCode = computed(
         <AccountFormulaOrganization :formula="formula" @saved="update" />
       </template>
       <template #actions>
-        <NuxtLink
-          :to="'/ai/new?versionId=' + current.id"
-          class="button button-secondary button-block"
-        >
-          <AppIcon name="sparkles" :size="19" />
-          自由提问
-        </NuxtLink>
         <AccountExport :formula="formula" />
       </template>
       <template #note>

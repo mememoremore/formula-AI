@@ -1,7 +1,11 @@
 <script setup lang="ts">
 const model = defineModel<string>({ required: true })
 defineProps<{ live?: boolean }>()
-defineEmits<{ search: [] }>()
+const emit = defineEmits<{ search: [] }>()
+function clearSearch() {
+  model.value = ''
+  emit('search')
+}
 const id = useId()
 </script>
 <template>
@@ -15,8 +19,12 @@ const id = useId()
       placeholder="搜索公式名称或 LaTeX"
       maxlength="200"
       @search="$emit('search')"
-      @input="live && $emit('search')"
+      @input="(live || !model.trim()) && $emit('search')"
+      @blur="!model.trim() && $emit('search')"
     />
+    <button v-if="model" type="button" aria-label="清除搜索" @click="clearSearch">
+      <span aria-hidden="true">×</span>
+    </button>
   </form>
 </template>
 <style scoped>

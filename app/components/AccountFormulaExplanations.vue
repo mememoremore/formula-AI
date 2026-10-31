@@ -146,11 +146,11 @@ async function generate() {
 const labels = { QUEUED: '排队中', PROCESSING: '生成中', COMPLETED: '解释完成', FAILED: '未完成' }
 </script>
 <template>
-  <section class="card explanation-entry" aria-label="结构化解释与历史">
+  <section class="card explanation-entry" aria-label="AI 帮我理解">
     <header>
-      <h2 id="explanation-create">AI 结构化解释</h2>
+      <h2 id="explanation-create">AI 帮我理解</h2>
       <p class="info-note">
-        解释符号、条件和推导。每次生成绑定所选版本，使用一次 AI 提问次数（解释与自由提问共用）。
+        一键梳理符号、条件和推导，也可以带着问题继续提问。每次生成解释或发送提问使用一次 AI 次数。
       </p>
     </header>
     <label class="field">
@@ -166,8 +166,15 @@ const labels = { QUEUED: '排队中', PROCESSING: '生成中', COMPLETED: '解�
       :disabled="sending || !ready"
       @click="generate"
     >
-      {{ sending ? '正在确认提交…' : pending ? '确认原解释请求' : '生成新的结构化解释' }}
+      {{ sending ? '正在确认提交…' : pending ? '确认原解释请求' : '一键解释' }}
     </button>
+    <NuxtLink
+      :to="'/ai/new?versionId=' + encodeURIComponent(selected)"
+      class="button button-secondary button-block ask-question"
+    >
+      <AppIcon name="sparkles" :size="18" />
+      继续提问
+    </NuxtLink>
     <NuxtLink v-if="otherFormula" :to="'/formulas/' + otherFormula" class="text-button">
       返回待确认公式
     </NuxtLink>
@@ -205,6 +212,9 @@ const labels = { QUEUED: '排队中', PROCESSING: '生成中', COMPLETED: '解�
   </section>
 </template>
 <style scoped>
+.ask-question {
+  margin-top: 10px;
+}
 .explanation-entry {
   padding: 20px;
   margin-top: 20px;

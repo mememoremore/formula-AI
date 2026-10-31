@@ -32,12 +32,19 @@ export function createAuthentication(db: PrismaClient, config: AuthConfiguration
       before: createAuthMiddleware(async (context) => {
         const violation = authProfileViolation(context.path, context.body)
         if (violation) throw new APIError('BAD_REQUEST', { message: violation })
-        if (context.path === '/sign-up/email' && !config.sendRegistrationCode && !registrationMailConfigured()) {
+        if (
+          context.path === '/sign-up/email' &&
+          !config.sendRegistrationCode &&
+          !registrationMailConfigured()
+        ) {
           throw new APIError('SERVICE_UNAVAILABLE', { message: '邮箱验证服务尚未配置。' })
         }
         if (context.path === '/sign-in/email' && typeof context.body?.email === 'string') {
           const email = context.body.email.trim().toLowerCase()
-          const user = await db.user.findUnique({ where: { email }, select: { id: true, emailVerified: true } })
+          const user = await db.user.findUnique({
+            where: { email },
+            select: { id: true, emailVerified: true },
+          })
           if (user && !user.emailVerified) {
             const pending = await db.authVerification.findFirst({
               where: { identifier: 'formula:registration-verification:' + user.id },
@@ -48,7 +55,13 @@ export function createAuthentication(db: PrismaClient, config: AuthConfiguration
                 where: { userId: user.id, providerId: 'credential' },
                 select: { password: true },
               })
-              if (credential?.password && await verifyPassword({ hash: credential.password, password: context.body.password })) {
+              if (
+                credential?.password &&
+                (await verifyPassword({
+                  hash: credential.password,
+                  password: context.body.password,
+                }))
+              ) {
                 throw new APIError('FORBIDDEN', { message: '请先验证邮箱。' })
               }
             }
@@ -78,7 +91,12 @@ export function createAuthentication(db: PrismaClient, config: AuthConfiguration
         },
       }),
     ],
-    disabledPaths: ['/sign-in/email-otp', '/email-otp/forget-password', '/email-otp/request-password-reset', '/email-otp/reset-password'],
+    disabledPaths: [
+      '/sign-in/email-otp',
+      '/email-otp/forget-password',
+      '/email-otp/request-password-reset',
+      '/email-otp/reset-password',
+    ],
     session: {
       modelName: 'AuthSession',
       expiresIn: 60 * 60 * 24 * 7,

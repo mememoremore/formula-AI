@@ -1,5 +1,5 @@
 import type { RecognitionTaskState } from '../../shared/types/tasks'
-import { optionalFormulaTitleFeedback } from '../../shared/formula-title'
+import { optionalFormulaTitleFeedback } from '#shared/formula-title'
 import { formulaViewsInvalidated, usageInvalidated } from './account-cache'
 export interface RecognitionReceipt {
   ownerId: string

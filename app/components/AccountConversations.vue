@@ -77,7 +77,13 @@ await listing.request
           <div>
             <h3>{{ item.latex ? item.title.replace(/ · v[0-9]+$/, '') : item.title }}</h3>
             <MathFormula v-if="item.latex" :latex="item.latex" :display="false" />
-            <p v-else>{{ item.preview || '打开并继续这段思考' }}</p>
+            <p v-else>
+              {{
+                item.preview?.trim() && item.preview.trim() !== item.title.trim()
+                  ? item.preview
+                  : '打开并继续这段思考'
+              }}
+            </p>
           </div>
           <AppIcon name="chevron" :size="16" />
         </NuxtLink>

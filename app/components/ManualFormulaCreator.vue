@@ -2,6 +2,8 @@
 import { formulaSyntaxFeedback, manualFormulaFeedback } from '#shared/formula-validation'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 const props = defineProps<{ ownerId: string }>()
+const titleTouched = ref(false),
+  latexTouched = ref(false)
 const title = ref(''),
   latex = ref(''),
   feedback = ref(''),
@@ -19,11 +21,17 @@ watch(
   { immediate: true },
 )
 const validation = computed(() => manualFormulaFeedback(title.value, latex.value))
-const displayValidation = computed(() =>
-  validation.value.startsWith('LaTeX 暂时无法预览：')
-    ? '公式暂时无法预览，请检查命令、括号与参数是否完整。'
-    : validation.value,
-)
+const displayValidation = computed(() => {
+  const titleError = manualFormulaFeedback(title.value, 'x')
+  if (titleTouched.value && titleError)
+    return !title.value.trim()
+      ? '请为公式起个名字。'
+      : '名称请控制在 100 个字符以内，避免特殊控制字符。'
+  if (latex.value.trim() && syntax.value)
+    return '公式暂时无法预览，请检查命令、括号与参数是否完整。'
+  if (latexTouched.value && !latex.value.trim()) return '请输入公式源码。'
+  return ''
+})
 const syntax = computed(() => (latex.value.trim() ? formulaSyntaxFeedback(latex.value) : ''))
 const dirty = computed(() => !!title.value.trim() || !!latex.value.trim() || !!receipt.value)
 const showLeaveConfirmation = ref(false)
@@ -45,7 +53,9 @@ function canLeave() {
   if (!dirty.value) return true
   if (resolveLeave) return false
   showLeaveConfirmation.value = true
-  return new Promise<boolean>((resolve) => { resolveLeave = resolve })
+  return new Promise<boolean>((resolve) => {
+    resolveLeave = resolve
+  })
 }
 onBeforeRouteLeave(canLeave)
 onBeforeRouteUpdate(canLeave)
@@ -87,6 +97,7 @@ function discard() {
       <input
         id="manual-title"
         v-model="title"
+        @blur="titleTouched = true"
         class="input"
         maxlength="100"
         autocomplete="off"
@@ -97,6 +108,7 @@ function discard() {
       <textarea
         id="manual-latex"
         v-model="latex"
+        @blur="latexTouched = true"
         class="input manual-source"
         maxlength="5000"
         spellcheck="false"
@@ -105,7 +117,7 @@ function discard() {
         :aria-invalid="!!syntax"
         aria-describedby="manual-feedback"
       />
-      <p v-if="dirty && validation" id="manual-feedback" class="error-text" role="status">
+      <p v-if="displayValidation" id="manual-feedback" class="error-text" role="status">
         {{ displayValidation }}
       </p>
       <details v-if="dirty && syntax && validation === syntax" class="info-note">
@@ -140,13 +152,25 @@ function discard() {
         </button>
       </div>
     </div>
-    <AppModal :open="showLeaveConfirmation" :title="receipt ? '保存结果待确认' : '公式还未保存'" @close="confirmLeave(false)">
+    <AppModal
+      :open="showLeaveConfirmation"
+      :title="receipt ? '保存结果待确认' : '公式还未保存'"
+      @close="confirmLeave(false)"
+    >
       <p class="leave-message">
-        {{ receipt ? '上次保存结果尚未确认，回执会保留。离开后可回到此页继续核对。' : '离开后，当前输入的内容将丢失。' }}
+        {{
+          receipt
+            ? '上次保存结果尚未确认，回执会保留。离开后可回到此页继续核对。'
+            : '离开后，当前输入的内容将丢失。'
+        }}
       </p>
       <div class="leave-actions">
-        <button class="button button-white" type="button" @click="confirmLeave(false)">继续编辑</button>
-        <button class="button button-primary" type="button" @click="confirmLeave(true)">{{ receipt ? '离开并保留回执' : '放弃并离开' }}</button>
+        <button class="button button-white" type="button" @click="confirmLeave(false)">
+          继续编辑
+        </button>
+        <button class="button button-primary" type="button" @click="confirmLeave(true)">
+          {{ receipt ? '离开并保留回执' : '放弃并离开' }}
+        </button>
       </div>
     </AppModal>
   </form>
