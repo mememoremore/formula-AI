@@ -4,7 +4,10 @@ import { randomUUID, randomBytes } from 'node:crypto'
 import { readFileSync } from 'node:fs'
 import { before, after, test } from 'node:test'
 import pg from 'pg'
-import { createAuthentication } from '../server/auth/config'
+import {
+  createTestAuthentication as createAuthentication,
+  registerVerifiedTestAccount,
+} from './support/verified-account'
 import { createDatabaseClient } from '../server/database/client'
 import { createFormula, appendFormulaVersion } from '../server/database/formulas'
 import type { SavedFormula } from '../shared/types/workspace'
@@ -41,7 +44,7 @@ before(async () => {
     isDevelopment: false,
   })
   for (let i = 0; i < 3; i++) {
-    const value = await auth.api.signUpEmail({
+    const value = await registerVerifiedTestAccount(auth, {
       body: {
         name: 'R18隔离用户',
         email: `r18-${randomUUID()}@formula.test`,

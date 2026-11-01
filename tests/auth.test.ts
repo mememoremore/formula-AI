@@ -2,6 +2,7 @@ import { testEnvironment } from './support/integration.ts'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { before, after, test } from 'node:test'
+import { readTestOtp } from './support/registration-mail'
 import { verifyPassword } from 'better-auth/crypto'
 import { createAuthentication } from '../server/auth/config'
 import { createDatabaseClient } from '../server/database/client'
@@ -61,13 +62,27 @@ async function register(email: string, name: string) {
   assert.equal(response.status, 200, '注册应成功，检查账号服务与数据库配置。')
   const data = (await response.json()) as { user: { id: string }; token: string }
   assert.notEqual(data.user.id, requestedId, '不能通过注册请求指定数据库用户标识。')
-  const cookies = response.headers.getSetCookie()
+  assert.equal(data.token, null, '邮箱验证前不得返回登录令牌')
+  assert.equal(
+    (await db.user.findUniqueOrThrow({ where: { id: data.user.id } })).emailVerified,
+    false,
+  )
+  assert.equal((await request('/api/auth/sign-in/email', '', { email, password })).status, 403)
+  const verified = await request('/api/auth/email-otp/verify-email', '', {
+    email,
+    otp: readTestOtp(email),
+  })
+  assert.equal(verified.status, 200)
+  const signedIn = await request('/api/auth/sign-in/email', '', { email, password })
+  assert.equal(signedIn.status, 200)
+  const login = (await signedIn.json()) as { token: string }
+  const cookies = signedIn.headers.getSetCookie()
   assert.equal(
     cookies.some((value) => /HttpOnly/i.test(value) && /SameSite=Lax/i.test(value)),
     true,
   )
   const cookie = cookies.map((value) => value.split(';')[0]).join('; ')
-  const session = await db.authSession.findUniqueOrThrow({ where: { token: data.token } })
+  const session = await db.authSession.findUniqueOrThrow({ where: { token: login.token } })
   return { id: data.user.id, cookie, sessionId: session.id }
 }
 
@@ -140,7 +155,7 @@ test('注册关联原有用户模型，邮箱归一化且密码只保存哈希',
   const user = await db.user.findUniqueOrThrow({ where: { id: accountA.id } })
   assert.equal(user.email, emails[0])
   assert.equal(user.displayName, '测试用户甲')
-  assert.equal(user.emailVerified, false, '不能通过注册请求伪造邮箱已验证。')
+  assert.equal(user.emailVerified, true, '只有完成邮箱验证码验证后才成为已验证账号。')
   const credential = await db.authAccount.findFirstOrThrow({
     where: { userId: user.id, providerId: 'credential' },
   })
@@ -161,7 +176,7 @@ test('未登录只能读到空会话，私有 API 返回 401，账号页面引�
   assert.equal(page.headers.get('location')?.startsWith('/login'), true)
 })
 
-test('注册拒绝短密码、空昵称和重复邮箱，不产生半成品用户', async () => {
+test('注册拒绝无效资料，重复邮箱返回通用响应且不产生新用户或会话', async () => {
   const short = await request('/api/auth/sign-up/email', '', {
     email: emails[2],
     name: '无效注册',
@@ -179,7 +194,12 @@ test('注册拒绝短密码、空昵称和重复邮箱，不产生半成品用�
     name: '重复注册',
     password,
   })
-  assert.equal(duplicate.status, 422)
+  assert.equal(duplicate.status, 200, '不通过注册响应泄漏邮箱是否已存在')
+  assert.equal(((await duplicate.json()) as { token: string | null }).token, null)
+  assert.equal(
+    duplicate.headers.getSetCookie().some((cookie) => cookie.includes('session_token=')),
+    false,
+  )
   assert.equal(await db.user.count({ where: { email: emails[2] } }), 0)
   assert.equal(await db.user.count({ where: { email: emails[0] } }), 1)
 })

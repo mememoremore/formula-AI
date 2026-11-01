@@ -9,7 +9,10 @@ import { createObjectStore } from '../server/storage/object-store'
 import { reserveResource } from '../server/resources/leases'
 import { prepareFile, publishFile, putAndPublish } from '../server/resources/files'
 import { startLeaseRecovery } from '../server/resources/lease-recovery'
-import { createAuthentication } from '../server/auth/config'
+import {
+  createTestAuthentication as createAuthentication,
+  registerVerifiedTestAccount,
+} from './support/verified-account'
 import { processChat } from '../server/worker/chat'
 import { queues, type JobPayload } from '../server/queue/client'
 
@@ -316,7 +319,7 @@ test('真实HTTP请求标识与任务/模型尝试诊断关联，原202/v2契约
     secret: testEnvironment.authSecret,
     isDevelopment: false,
   })
-  const registered = await auth.api.signUpEmail({
+  const registered = await registerVerifiedTestAccount(auth, {
     body: {
       name: 'R15诊断',
       email: `r15-${randomUUID()}@formula.test`,

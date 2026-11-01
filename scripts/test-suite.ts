@@ -44,6 +44,7 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
       'tests/api.test.mjs',
       'tests/database.test.ts',
       'tests/auth.test.ts',
+      'tests/registration.test.ts',
       'tests/library.test.ts',
       'tests/manual-formula-api.test.ts',
       'tests/explanation-api.test.ts',

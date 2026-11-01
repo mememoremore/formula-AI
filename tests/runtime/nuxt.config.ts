@@ -19,10 +19,12 @@ export default defineNuxtConfig({
           '**/.git/**',
           '**/environment.json',
           '**/compose.env',
+          '**/mailbox/**',
         ],
       },
     },
   },
+  alias: { '#registration-mail': resolve('tests/support/registration-mail.ts') },
   nitro: {
     handlers: [
       {

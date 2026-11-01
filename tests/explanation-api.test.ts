@@ -8,7 +8,10 @@ import { before, after, test } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { createDatabaseClient } from '../server/database/client'
-import { createAuthentication } from '../server/auth/config'
+import {
+  createTestAuthentication as createAuthentication,
+  registerVerifiedTestAccount,
+} from './support/verified-account'
 import { createFormula, appendFormulaVersion } from '../server/database/formulas'
 import { submitExplanation, readExplanationHistory } from '../server/database/explanations'
 import { readConversation, submitChatTurn } from '../server/database/conversations'
@@ -42,7 +45,7 @@ before(async () => {
     secret: process.env.NUXT_AUTH_SECRET ?? '',
     isDevelopment: false,
   })
-  const registered = await auth.api.signUpEmail({
+  const registered = await registerVerifiedTestAccount(auth, {
     body: {
       name: 'R19隔离用户',
       email: `r19-${randomUUID()}@formula.test`,

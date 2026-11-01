@@ -4,7 +4,10 @@ import { randomBytes, randomUUID } from 'node:crypto'
 import { mkdir, writeFile } from 'node:fs/promises'
 import { before, after, test, type TestContext } from 'node:test'
 import sharp from 'sharp'
-import { createAuthentication } from '../server/auth/config'
+import {
+  createTestAuthentication as createAuthentication,
+  registerVerifiedTestAccount,
+} from './support/verified-account'
 import { createDatabaseClient } from '../server/database/client'
 import { createObjectStore } from '../server/storage/object-store'
 import { uploadPrivateImage } from '../server/services/image-upload'
@@ -120,7 +123,7 @@ async function registerFixture(email: string) {
     secret: process.env.NUXT_AUTH_SECRET ?? '',
     isDevelopment: false,
   })
-  const result = await auth.api.signUpEmail({
+  const result = await registerVerifiedTestAccount(auth, {
     body: { email, password, name: '上传业务临时用户' },
     returnHeaders: true,
   })

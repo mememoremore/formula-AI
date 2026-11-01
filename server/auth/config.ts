@@ -4,7 +4,7 @@ import { authProfileViolation } from './profile-policy'
 import { prismaAdapter } from '@better-auth/prisma-adapter'
 import { emailOTP } from 'better-auth/plugins'
 import { verifyPassword } from 'better-auth/crypto'
-import { sendRegistrationCode, registrationMailConfigured } from './registration-mail'
+import { sendRegistrationCode, registrationMailConfigured } from '#registration-mail'
 import type { PrismaClient } from '../generated/prisma/client'
 
 interface AuthConfiguration {

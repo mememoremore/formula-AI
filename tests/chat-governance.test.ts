@@ -5,7 +5,10 @@ import assert from 'node:assert/strict'
 import { randomUUID } from 'node:crypto'
 import { setTimeout as delay } from 'node:timers/promises'
 import { createDatabaseClient } from '../server/database/client'
-import { createAuthentication } from '../server/auth/config'
+import {
+  createTestAuthentication as createAuthentication,
+  registerVerifiedTestAccount,
+} from './support/verified-account'
 import { createFormula, appendFormulaVersion } from '../server/database/formulas'
 import {
   createConversation,
@@ -40,7 +43,7 @@ before(async () => {
     secret: process.env.NUXT_AUTH_SECRET ?? '',
     isDevelopment: false,
   })
-  const registered = await auth.api.signUpEmail({
+  const registered = await registerVerifiedTestAccount(auth, {
     body: {
       name: 'R14隔离测试',
       email: `r14-${randomUUID()}@formula.test`,

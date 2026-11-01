@@ -3,7 +3,10 @@ import { readFile, writeFile } from 'node:fs/promises'
 import { randomBytes, randomUUID } from 'node:crypto'
 import assert from 'node:assert/strict'
 import { createDatabaseClient } from '../../server/database/client'
-import { createAuthentication } from '../../server/auth/config'
+import {
+  createTestAuthentication as createAuthentication,
+  registerVerifiedTestAccount,
+} from '../support/verified-account'
 import { createQueueClient, queues, type JobPayload } from '../../server/queue/client'
 import { createConversation, submitChatTurn } from '../../server/database/conversations'
 import { defaultUsageLimits } from '../../server/database/usage'
@@ -34,7 +37,7 @@ try {
       secret: testEnvironment.authSecret,
       isDevelopment: false,
     })
-    const result = await auth.api.signUpEmail({
+    const result = await registerVerifiedTestAccount(auth, {
       body: {
         name: 'R13浏览器验收',
         email: `r13-browser-${randomUUID()}@formula.test`,

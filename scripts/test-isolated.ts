@@ -103,7 +103,7 @@ try {
     await delay(1000)
   }
   if (!ready) throw new Error('隔离 API 身份未确认')
-  const publicPage = await fetch(`${config.apiUrl}/about`, {
+  const publicPage = await fetch(`${config.apiUrl}/login`, {
     headers: { accept: 'application/json' },
     redirect: 'error',
     signal: AbortSignal.timeout(30000),

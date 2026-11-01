@@ -2,7 +2,7 @@ import type { RouteLocationNormalized } from 'vue-router'
 import auth from './auth'
 
 export default defineNuxtRouteMiddleware(async (to, from) => {
-  if (to.path === '/login') return
+  if (!to.matched.length || to.path === '/login') return
   if (to.path.startsWith('/result/')) return navigateTo('/library', { replace: true })
   if (to.query.space === 'demo') {
     const query = { ...to.query }

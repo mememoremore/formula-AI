@@ -25,7 +25,7 @@ test('health exposes the mock boundary without private configuration', async () 
 })
 
 test('server-rendered page does not serialize the injected private config marker', async () => {
-  const response = await fetch(base)
+  const response = await fetch(base + '/login')
   assert.equal(response.status, 200)
   const html = await response.text()
   assert.ok(html.includes('Formula AI'))

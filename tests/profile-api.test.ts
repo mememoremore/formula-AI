@@ -1,10 +1,14 @@
+import { readTestOtp } from './support/registration-mail'
 import { testEnvironment } from './support/integration.ts'
 import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
 import { randomUUID, randomBytes } from 'node:crypto'
 import sharp from 'sharp'
 import { setTimeout as delay } from 'node:timers/promises'
-import { createAuthentication } from '../server/auth/config'
+import {
+  createTestAuthentication as createAuthentication,
+  registerVerifiedTestAccount,
+} from './support/verified-account'
 import { createDatabaseClient } from '../server/database/client'
 import { createObjectStore } from '../server/storage/object-store'
 const base = testEnvironment.apiUrl
@@ -17,7 +21,7 @@ before(async () => {
     baseURL: base,
     isDevelopment: true,
   })
-  const response = await auth.api.signUpEmail({
+  const response = await registerVerifiedTestAccount(auth, {
     body: {
       email: 'profile-' + randomUUID() + '@formula.test',
       name: '资料验收用户',
@@ -44,9 +48,12 @@ async function update(body: unknown, source = base, identity = cookie) {
   })
 }
 
-test('公开关于页SSR不序列化登录身份，私有页面仍拒绝共享缓存', async () => {
+test('帮助和关于页要求登录且SSR不序列化身份，私有页面仍拒绝共享缓存', async () => {
   const user = await db.user.findUniqueOrThrow({ where: { id: ownerId } })
   for (const path of ['/about', '/help', '/feedback']) {
+    const anonymous = await fetch(base + path, { redirect: 'manual' })
+    assert.equal(anonymous.status, 302)
+    assert.ok(anonymous.headers.get('location')?.startsWith('/login'))
     const response = await fetch(base + path, { headers: { cookie } })
     assert.equal(response.status, 200)
     const html = await response.text()
@@ -191,11 +198,12 @@ test('R9 默认资料入口允许合法昵称，拒绝头像、空昵称和受�
 })
 test('R9 注册不能插入任意头像引用，不影响正常注册与账号归属', async () => {
   const email = 'profile-other-' + randomUUID() + '@formula.test'
+  const otherPassword = randomBytes(24).toString('base64url')
   const register = async (image?: string) => {
     const body = JSON.stringify({
       email,
       name: '另一名用户',
-      password: randomBytes(24).toString('base64url'),
+      password: otherPassword,
       ...(image === undefined ? {} : { image }),
     })
     const send = () =>
@@ -224,7 +232,21 @@ test('R9 注册不能插入任意头像引用，不影响正常注册与账号�
   assert.equal(await db.user.count({ where: { email } }), 0)
   const response = await register()
   assert.equal(response.status, 200)
-  const otherCookie = response.headers
+  assert.equal(
+    response.headers.getSetCookie().some((v) => v.includes('session_token=')),
+    false,
+  )
+  const postAuth = (path: string, body: unknown) =>
+    fetch(base + '/api/auth' + path, {
+      method: 'POST',
+      headers: { origin: base, 'content-type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  const verified = await postAuth('/email-otp/verify-email', { email, otp: readTestOtp(email) })
+  assert.equal(verified.status, 200)
+  const login = await postAuth('/sign-in/email', { email, password: otherPassword })
+  assert.equal(login.status, 200)
+  const otherCookie = login.headers
     .getSetCookie()
     .map((value) => value.split(';')[0])
     .join('; ')

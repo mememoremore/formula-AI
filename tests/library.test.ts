@@ -2,7 +2,10 @@ import { testEnvironment } from './support/integration.ts'
 import assert from 'node:assert/strict'
 import { randomBytes, randomUUID } from 'node:crypto'
 import { before, after, test } from 'node:test'
-import { createAuthentication } from '../server/auth/config'
+import {
+  createTestAuthentication as createAuthentication,
+  registerVerifiedTestAccount,
+} from './support/verified-account'
 import { createDatabaseClient } from '../server/database/client'
 import { createFormula, appendFormulaVersion } from '../server/database/formulas'
 import type {
@@ -47,7 +50,7 @@ before(async () => {
     isDevelopment: false,
   })
   for (const label of ['a', 'b']) {
-    const result = await auth.api.signUpEmail({
+    const result = await registerVerifiedTestAccount(auth, {
       body: {
         name: '公式库验收临时用户',
         email: `library-${label}-${randomUUID()}@formula.test`,

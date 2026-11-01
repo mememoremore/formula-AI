@@ -10,7 +10,10 @@ import sharp from 'sharp'
 import { unzipSync, strFromU8 } from 'fflate'
 import type { PgBoss } from 'pg-boss'
 import { createDatabaseClient } from '../server/database/client'
-import { createAuthentication } from '../server/auth/config'
+import {
+  createTestAuthentication as createAuthentication,
+  registerVerifiedTestAccount,
+} from './support/verified-account'
 import { createObjectStore } from '../server/storage/object-store'
 import { uploadPrivateImage } from '../server/services/image-upload'
 import { createFormula, appendFormulaVersion } from '../server/database/formulas'
@@ -83,7 +86,7 @@ before(async () => {
     isDevelopment: false,
   })
   for (const label of ['a', 'b']) {
-    const result = await auth.api.signUpEmail({
+    const result = await registerVerifiedTestAccount(auth, {
       body: {
         name: '队列验收临时账号',
         email: `jobs-${label}-${randomUUID()}@formula.test`,

@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "baseUrl": ".",
-    "paths": { "#shared/*": ["shared/*"] },
+    "paths": {
+      "#shared/*": ["shared/*"],
+      "#registration-mail": ["server/auth/registration-mail.ts"]
+    },
     "target": "ES2023",
     "module": "ESNext",
     "moduleResolution": "Bundler",
