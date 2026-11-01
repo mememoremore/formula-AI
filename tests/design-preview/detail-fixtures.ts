@@ -110,7 +110,7 @@ export async function detailFixture(event: H3Event) {
     if (mode === 'slow') await new Promise((r) => setTimeout(r, 800))
     return formula
   }
-  if (path === '/api/account/formulas/r6-formula/versions') {
+  if (path === '/api/account/formulas/r6-formula' && event.method === 'PATCH') {
     const body = await readBody<{
       title: string
       latex: string

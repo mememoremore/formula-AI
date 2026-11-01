@@ -2,8 +2,6 @@
 const props = defineProps<{
   title: string
   latex: string
-  version: number
-  versionCount: number
   imageSrc?: string
   originalLatex?: string
   sample?: boolean
@@ -12,7 +10,7 @@ const props = defineProps<{
   needsName?: boolean
   deletable?: boolean
 }>()
-const emit = defineEmits<{ edit: []; versions: []; remove: [] }>()
+const emit = defineEmits<{ edit: []; remove: [] }>()
 const original = ref(false),
   imageFailed = ref(false)
 watch(
@@ -25,19 +23,26 @@ watch(
 <template>
   <article class="formula-detail">
     <header class="detail-title">
-      <p class="detail-kicker">保留每一步，理解每一式</p>
-      <h2>{{ title }}</h2>
-      <button v-if="needsName" type="button" class="text-button" @click="emit('edit')">
-        命名公式
-      </button>
-      <div class="detail-meta">
-        <span v-if="versionCount > 1" class="badge">当前版本 · v{{ version }}</span>
+      <div class="detail-heading">
+        <h2>{{ title }}</h2>
+        <button
+          v-if="needsName"
+          type="button"
+          class="text-button"
+          aria-label="命名公式"
+          @click="emit('edit')"
+        >
+          <AppIcon name="pencil" :size="15" />
+          命名
+        </button>
+      </div>
+      <div v-if="badge" class="detail-meta">
         <span v-if="badge" class="detail-badge">{{ badge }}</span>
       </div>
       <slot name="organization" />
     </header>
     <section class="detail-reading" aria-label="公式与原图">
-      <div class="detail-tabs" aria-label="公式展示">
+      <div v-if="!manual" class="detail-tabs" aria-label="公式展示">
         <button
           class="chip"
           :class="{ active: !original }"
@@ -47,6 +52,7 @@ watch(
           数学公式
         </button>
         <button
+          v-if="!manual"
           class="chip"
           :class="{ active: original }"
           :aria-pressed="original"
@@ -72,17 +78,22 @@ watch(
             :aria-label="manual ? '原始输入公式，可横向滚动' : '原始示例公式，可横向滚动'"
           />
           <p class="info-note">
-            {{
-              manual
-                ? '手动输入，未上传原图；这里保留首个已保存版本。'
-                : '预置公式示例，并非上传原图'
-            }}
+            {{ manual ? '手动输入，未上传原图。' : '预置公式示例，并非上传原图' }}
           </p>
         </template>
         <p v-else class="info-note">原图暂时不可用，已保存的公式不受影响。</p>
       </div>
-      <TextCopyAction :text="latex" label="复制 LaTeX" success-message="LaTeX 已复制。" />
-      <WordUseGuide />
+    </section>
+    <slot name="primary" />
+    <section class="detail-tools" aria-label="公式操作">
+      <div class="detail-toolbar">
+        <button class="button button-white" @click="emit('edit')">
+          <AppIcon name="pencil" :size="16" />
+          编辑公式
+        </button>
+        <TextCopyAction :text="latex" label="复制 LaTeX" success-message="LaTeX 已复制。" />
+        <div class="detail-actions"><slot name="actions" /></div>
+      </div>
       <details class="card latex-card">
         <summary>
           LaTeX 代码
@@ -90,29 +101,17 @@ watch(
         </summary>
         <code>{{ latex }}</code>
       </details>
-    </section>
-    <section class="detail-tools" aria-label="公式操作">
-      <div class="card menu-list">
-        <button class="menu-item" @click="emit('edit')">
-          <AppIcon name="pencil" :size="18" />
-          <span>编辑公式</span>
-          <span v-if="versionCount > 1" class="menu-chevron text-small">v{{ version }}</span>
+      <details v-if="deletable" class="more-tools">
+        <summary>
+          更多操作
           <AppIcon name="chevron" :size="15" />
+        </summary>
+        <button class="text-button danger-item" @click="emit('remove')">
+          <AppIcon name="trash" :size="16" />
+          删除公式
         </button>
-        <button class="menu-item" @click="emit('versions')">
-          <AppIcon name="history" :size="18" />
-          <span>版本记录</span>
-          <span class="menu-chevron text-small">{{ versionCount }} 个版本</span>
-          <AppIcon name="chevron" :size="15" />
-        </button>
-        <button v-if="deletable" class="menu-item danger-item" @click="emit('remove')">
-          <AppIcon name="trash" :size="18" />
-          <span>删除公式</span>
-          <AppIcon name="chevron" :size="15" />
-        </button>
-      </div>
-      <div class="detail-actions"><slot name="actions" /></div>
-      <div class="info-note detail-note"><slot name="note" /></div>
+      </details>
+      <div v-if="$slots.note" class="info-note detail-note"><slot name="note" /></div>
     </section>
   </article>
 </template>
@@ -123,7 +122,7 @@ watch(
   min-width: 0;
 }
 .detail-title {
-  margin-bottom: 24px;
+  margin-bottom: 12px;
 }
 .detail-kicker {
   font-size: 12px;
@@ -131,7 +130,7 @@ watch(
   margin-bottom: 10px;
 }
 .detail-title h2 {
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1.45;
   overflow-wrap: anywhere;
   letter-spacing: -0.6px;
@@ -141,7 +140,7 @@ watch(
   flex-wrap: wrap;
   align-items: center;
   gap: 10px;
-  margin-top: 14px;
+  margin-top: 4px;
 }
 .detail-badge {
   font-size: 12px;
@@ -151,7 +150,7 @@ watch(
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 16px;
+  margin-bottom: 10px;
 }
 .detail-tabs .chip {
   min-height: 44px;
@@ -161,8 +160,8 @@ watch(
   display: grid;
   place-items: center;
   box-sizing: border-box;
-  min-height: 206px;
-  padding: 28px 16px 18px;
+  min-height: 132px;
+  padding: 16px;
   min-width: 0;
 }
 .source-image {
@@ -224,25 +223,61 @@ code {
   color: var(--color-danger);
 }
 @media (min-width: 900px) {
-  .formula-detail {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr);
-  }
   .detail-paper {
-    padding: 40px 24px 24px;
+    min-height: 160px;
   }
-  .detail-tools {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    gap: 20px;
-    align-items: start;
-  }
-  .detail-actions {
-    margin-top: 0;
-  }
-  .detail-note {
-    grid-column: 1 / -1;
-    margin-top: 0;
-  }
+}
+.detail-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+.detail-heading h2 {
+  min-width: 0;
+}
+.detail-heading > button {
+  flex-shrink: 0;
+}
+.detail-toolbar {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  align-items: start;
+}
+.detail-toolbar > *,
+.detail-actions {
+  min-width: 0;
+  margin: 0;
+}
+.detail-toolbar :deep(.button),
+.detail-toolbar :deep(.text-copy-action > .text-button) {
+  min-height: 44px;
+  width: 100%;
+  padding: 8px 5px;
+  gap: 5px;
+  font-size: 12px;
+  border: 1px solid var(--color-border);
+  background: var(--color-surface);
+  border-radius: var(--radius-control);
+  color: var(--color-text);
+  margin: 0;
+}
+.detail-toolbar > :has(.copy-fallback) {
+  grid-column: 1 / -1;
+}
+.more-tools {
+  margin-top: 12px;
+}
+.more-tools summary {
+  color: var(--color-text-secondary);
+  justify-content: flex-start;
+}
+details[open] > summary > .app-icon {
+  transform: rotate(90deg);
+}
+.detail-note {
+  font-size: 12px;
+  margin-top: 8px;
 }
 </style>

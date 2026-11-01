@@ -20,7 +20,7 @@ const segments = computed(() => chatSegments(props.content))
   min-width: 0;
   max-width: 100%;
   white-space: normal;
-  line-height: 1.85;
+  line-height: 1.75;
   overflow-wrap: anywhere;
 }
 .message-content :deep(.math-inline) {

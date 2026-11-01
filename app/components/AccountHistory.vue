@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { recognitionHistoryTitle, recognitionResultPresentation } from '#shared/recognition-result'
 const props = defineProps<{ ownerId: string; query: string }>()
 const {
   request,
@@ -15,9 +16,14 @@ await request
 </script>
 <template>
   <div class="section-heading">
-    <h2>每一次识别，都有迹可循</h2>
-    <button class="text-button" :disabled="loading || status === 'pending'" @click="reload">
-      刷新
+    <h2>识别记录</h2>
+    <button
+      class="icon-button"
+      aria-label="刷新识别记录"
+      :disabled="loading || status === 'pending'"
+      @click="reload"
+    >
+      <AppIcon name="rotate" :size="17" />
     </button>
   </div>
   <div v-if="status === 'pending' && !items.length" class="card status-panel" role="status">
@@ -41,7 +47,7 @@ await request
       class="card history-item"
     >
       <div class="row between">
-        <h3>{{ item.title }}</h3>
+        <h3>{{ recognitionHistoryTitle(item) }}</h3>
         <AppIcon name="chevron" :size="16" />
       </div>
       <MathFormula v-if="item.latex" :latex="item.latex" :display="false" />
@@ -49,7 +55,9 @@ await request
         {{ item.errorMessage || '请打开任务查看原因并重试。' }}
       </p>
       <div class="history-meta">
-        <span :class="{ failed: item.status === 'FAILED' }">{{ labels[item.status] }}</span>
+        <span :class="{ failed: item.status === 'FAILED' }">
+          {{ recognitionResultPresentation(item)?.label || labels[item.status] }}
+        </span>
         <span>{{ item.createdAt.slice(0, 10) }}</span>
       </div>
     </NuxtLink>
@@ -74,7 +82,7 @@ await request
 <style scoped>
 .history-item {
   display: block;
-  padding: 22px;
+  padding: 16px;
 }
 h3 {
   font-size: 14px;
@@ -87,7 +95,7 @@ h3 {
   display: flex;
   justify-content: space-between;
   gap: 12px;
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-muted);
   margin-top: 16px;
 }

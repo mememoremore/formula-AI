@@ -129,7 +129,7 @@ await Promise.all([listing.ready, categoryRequest])
               ? '试试其他关键词，或切换到全部分类。'
               : favoritesOnly
                 ? '点击公式旁的爱心，常用公式就会留在这里。'
-                : '上传一张公式图片，把识别结果和修改版本保存到你的账号。'
+                : '上传一张公式图片，把识别结果保存到你的账号。'
         "
         :action-label="nextCursor ? undefined : favoritesOnly ? '浏览公式库' : '上传公式图片'"
         :action-to="nextCursor ? undefined : favoritesOnly ? '/library' : '/upload'"

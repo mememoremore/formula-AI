@@ -46,7 +46,7 @@ export async function processExport(
         kind: 'DOCX',
         bucket: store.bucket,
         objectKey: `${task.ownerId}/exports/${task.id}/${fileId}.docx`,
-        name: `${task.title.slice(0, 80)}-v${task.formulaVersion.number}.docx`,
+        name: `${task.title.slice(0, 80)}.docx`,
         mimeType: docxMimeType,
         sizeBytes: bytes.length,
       })

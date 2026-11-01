@@ -4,7 +4,7 @@ import type { SavedConversation, VersionContext } from '#shared/types/tasks'
 import type { SavedFormula } from '#shared/types/workspace'
 import type { FormulaLibraryItem } from '#shared/types/library'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
-const props = defineProps<{ ownerId: string; versionId: string }>()
+const props = defineProps<{ ownerId: string; versionId: string; formulaId?: string }>()
 const route = useRoute(),
   fetcher = useRequestFetch(),
   intents = useNuxtApp().$chatDraft
@@ -12,13 +12,31 @@ const {
   data: context,
   error: contextError,
   refresh: reloadContext,
-} = await useAsyncData('draft-context-' + props.ownerId + '-' + props.versionId, () =>
-  props.versionId
-    ? fetcher<VersionContext>('/api/account/versions/' + encodeURIComponent(props.versionId), {
-        retry: 0,
-        timeout: 15000,
-      })
-    : Promise.resolve(null),
+} = await useAsyncData(
+  'draft-context-' + props.ownerId + '-' + (props.formulaId || props.versionId),
+  async () => {
+    if (props.formulaId) {
+      const formula = await fetcher<SavedFormula>(
+        '/api/account/formulas/' + encodeURIComponent(props.formulaId),
+        { retry: 0, timeout: 15000 },
+      )
+      const content = formula.versions.at(-1)
+      if (!content) throw new Error('公式内容不存在')
+      return {
+        id: content.id,
+        formulaId: formula.id,
+        title: formula.title,
+        number: content.number,
+        latex: content.latex,
+      }
+    }
+    return props.versionId
+      ? fetcher<VersionContext>('/api/account/versions/' + encodeURIComponent(props.versionId), {
+          retry: 0,
+          timeout: 15000,
+        })
+      : null
+  },
 )
 const {
   data: settings,
@@ -36,6 +54,17 @@ const pending = computed(() =>
 async function reload() {
   await Promise.all([reloadContext(), reloadSettings()])
 }
+const suggestions = computed(() =>
+  context.value
+    ? [
+        { label: '解释符号含义', question: '请解释这个公式中各个符号的含义' },
+        { label: '看看推导过程', question: '请一步步说明推导过程' },
+      ]
+    : [
+        { label: '理解一个概念', question: '请用直观的例子解释导数的含义' },
+        { label: '看看解题思路', question: '遇到一道数学题，应该怎样分析解题思路？' },
+      ],
+)
 const draft = intents.question,
   busy = ref(false),
   feedback = ref(''),
@@ -90,12 +119,9 @@ async function selectFormula(formula: FormulaLibraryItem) {
     })
     if (disposed) return
     const latest = saved.versions.at(-1)
-    if (!latest) throw new Error('缺少公式版本')
+    if (!latest) throw new Error('缺少公式内容')
     showPicker.value = false
-    await navigateTo(
-      { path: '/ai/new', query: { ...route.query, versionId: latest.id } },
-      { replace: true },
-    )
+    await navigateTo({ path: '/ai/new', query: { formulaId: saved.id } }, { replace: true })
   } catch (error) {
     if (!disposed) feedback.value = workspaceFeedback(error, '公式暂时无法读取，请重试。')
   } finally {
@@ -165,7 +191,7 @@ async function send() {
   <div class="new-chat">
     <PageHeader title="新对话" :back-to="context ? '/formulas/' + context.formulaId : '/ai'" />
     <div v-if="context" class="card draft-context">
-      <p class="info-note">{{ context.title }} · v{{ context.number }}</p>
+      <p class="info-note">{{ context.title }}</p>
       <MathFormula :latex="context.latex" />
     </div>
     <section class="new-chat-welcome">
@@ -182,33 +208,13 @@ async function send() {
       <AppIcon name="book" :size="18" />
       选择库中公式
     </button>
-    <div class="chip-list section">
-      <button
-        class="chip"
-        :disabled="!!pending || busy"
-        @click="draft = '请解释这个公式中各个符号的含义'"
-      >
-        解释符号含义
-      </button>
-      <button class="chip" :disabled="!!pending || busy" @click="draft = '请一步步说明推导过程'">
-        看看推导过程
-      </button>
-    </div>
     <div v-if="contextError || settingsError" class="status-panel section" role="alert">
-      <p>公式版本或 AI 服务暂时不可用。</p>
+      <p>公式或 AI 服务暂时不可用。</p>
       <button class="text-button" @click="reload">重新读取</button>
     </div>
     <p v-else-if="!settings?.ready" class="error-text section">AI 服务尚未就绪，暂时无法发送。</p>
-    <p v-else class="info-note section">
-      {{
-        settings.provider === 'deepseek'
-          ? '使用 DeepSeek，提问及公式上下文会发送给模型服务。'
-          : '当前为固定模拟回答。'
-      }}首次发送才创建账号对话。
-    </p>
-    <p v-if="pending" class="info-note section">
-      有一条待确认的原提问。重试沿用原请求，不会另建对话；原问题和请求标识暂存于此标签页，确认成功后移除。
-    </p>
+    <p v-else-if="settings.provider !== 'deepseek'" class="info-note section">当前为模拟回答。</p>
+    <p v-if="pending" class="info-note section">有一条提问待确认，重试不会重复创建对话。</p>
     <p v-if="feedback || intents.warning.value" class="error-text section" role="alert">
       {{ feedback || intents.warning.value }}
     </p>
@@ -220,6 +226,17 @@ async function send() {
     >
       确认原提问
     </button>
+    <div class="chip-list chat-suggestions" aria-label="建议提问">
+      <button
+        v-for="suggestion in suggestions"
+        :key="suggestion.label"
+        class="chip"
+        :disabled="!!pending || busy"
+        @click="draft = suggestion.question"
+      >
+        {{ suggestion.label }}
+      </button>
+    </div>
     <ChatComposer
       v-model="draft"
       :readonly="!!pending"
@@ -240,6 +257,9 @@ async function send() {
 <style scoped>
 .new-chat {
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100dvh - 56px);
   padding-bottom: calc(var(--chat-composer-height, 80px) + 32px);
 }
 .draft-context {
@@ -247,7 +267,7 @@ async function send() {
   min-width: 0;
 }
 .new-chat-welcome {
-  padding: 32px 0 24px;
+  padding: 20px 0;
 }
 .new-chat-welcome h1 {
   font-size: clamp(22px, 5vw, 28px);
@@ -269,5 +289,15 @@ async function send() {
 }
 .info-note {
   line-height: 1.8;
+}
+.chat-suggestions {
+  margin-top: auto;
+  padding-top: 20px;
+}
+.chat-suggestions .chip {
+  flex: 1;
+  font-size: 13px;
+  min-width: 0;
+  padding-inline: 8px;
 }
 </style>

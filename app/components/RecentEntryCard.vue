@@ -18,7 +18,7 @@ defineProps<{
         <h2>{{ label }}</h2>
       </div>
       <div class="entry-body">
-        <FormulaThumbnail v-if="!formula" :src="imageSrc" :latex="latex" :sample="sample" />
+        <span v-if="!formula" class="entry-symbol"><AppIcon name="message" :size="20" /></span>
         <div class="entry-copy">
           <h3>{{ title }}</h3>
           <p>{{ subtitle }}</p>
@@ -27,7 +27,7 @@ defineProps<{
       </div>
     </NuxtLink>
     <MathFormula
-      v-if="latex"
+      v-if="latex && formula"
       class="entry-formula"
       :latex="latex"
       tabindex="0"
@@ -43,7 +43,7 @@ defineProps<{
 }
 .entry-link {
   display: block;
-  padding: 18px 20px 8px;
+  padding: 14px 16px;
   border-radius: var(--radius-card);
 }
 .entry-formula {
@@ -54,7 +54,7 @@ defineProps<{
   outline-offset: 2px;
 }
 .entry-heading {
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 }
 h2 {
   font-size: 12px;
@@ -102,5 +102,21 @@ p {
     flex-basis: 82px;
     width: 82px;
   }
+}
+.entry-symbol {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 12px;
+  color: var(--color-primary);
+  background: var(--color-primary-soft);
+}
+.entry-copy p {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 </style>

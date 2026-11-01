@@ -416,7 +416,7 @@ test('Word导出绑定指定旧版本并提供私有下载', async () => {
   const files = unzipSync(new Uint8Array(await download.arrayBuffer()))
   const xml = strFromU8(files['word/document.xml']!)
   assert.match(xml, /<m:f[ >]/)
-  assert.ok(xml.includes('v1'))
+  assert.doesNotMatch(xml, /公式版本 v[0-9]+/)
   assert.ok(!xml.includes('E=mc^2'))
 })
 

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { recognitionResultPresentation } from '#shared/recognition-result'
 import type { RecognitionTaskState } from '#shared/types/tasks'
 import { safeReturnPath } from '#shared/navigation'
 import {
@@ -40,6 +41,7 @@ const request = useTaskPolling<RecognitionTaskState>(
   },
 )
 const { data: task, error, status, refresh } = request
+const outcome = computed(() => (task.value ? recognitionResultPresentation(task.value) : null))
 const feedback = ref(''),
   busy = computed(() => flow.stage.value !== 'idle')
 const uncertain = computed(() => !!flow.retryReceipt(props.id))
@@ -117,12 +119,19 @@ await request
   </div>
   <template v-if="task">
     <div class="card task-card">
-      <TaskProgress :task="task" title="公式识别" compact />
-      <RecognitionSteps :status="task.status" />
+      <TaskProgress
+        :task="task"
+        title="公式识别"
+        compact
+        :heading="outcome?.heading"
+        :description="outcome?.description"
+        :warning="!!outcome"
+      />
+      <RecognitionSteps v-if="!outcome" :status="task.status" />
       <p class="task-note">
         {{ task.mode === 'handwritten' ? '手写公式' : '印刷公式' }} · 已尝试
         {{ task.attemptCount }} 次{{
-          task.isMock && task.status === 'COMPLETED' ? ' · 模拟结果' : ''
+          task.isMock && task.status === 'COMPLETED' && !outcome ? ' · 模拟结果' : ''
         }}
       </p>
     </div>
@@ -134,13 +143,9 @@ await request
     >
       查看识别结果
     </NuxtLink>
-    <p
-      v-else-if="task.status === 'COMPLETED' && !task.formulaId"
-      class="error-text section"
-      role="alert"
-    >
-      结果暂时未关联，请重新读取任务。
-    </p>
+    <NuxtLink v-else-if="outcome" to="/upload" class="button button-primary button-block section">
+      重新选择图片识别
+    </NuxtLink>
     <button
       v-if="task.status === 'FAILED'"
       class="button button-primary button-block section"

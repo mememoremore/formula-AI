@@ -127,7 +127,7 @@ async function save() {
           <span><AppIcon name="camera" :size="17" /></span>
         </button>
         <div>
-          <h2>一个头像，认识你</h2>
+          <h2>个人头像</h2>
         </div>
       </section>
       <section class="card fields-card">

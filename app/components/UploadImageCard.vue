@@ -43,8 +43,8 @@ defineEmits<{ choose: []; remove: [] }>()
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 16px;
-  min-height: 220px;
+  gap: 10px;
+  min-height: 158px;
   width: 100%;
   min-width: 0;
   padding: 20px 12px;
@@ -71,14 +71,14 @@ defineEmits<{ choose: []; remove: [] }>()
 .upload-symbol {
   display: grid;
   place-items: center;
-  width: 64px;
-  height: 64px;
+  width: 44px;
+  height: 44px;
   border-radius: var(--radius-card);
   background: var(--color-primary-soft);
   color: var(--color-primary);
 }
 .image-tip {
-  margin-top: 16px;
+  margin-top: 10px;
 }
 .preview-meta {
   margin-top: 14px;

@@ -297,45 +297,47 @@ const buttonLabel = computed(() =>
       </div>
     </div>
     <section class="upload-controls" aria-label="识别设置与提交">
-      <label class="name-field card">
-        <span class="field-label">
-          公式名称
-          <small>选填</small>
-        </span>
-        <input
-          v-model="requestedTitle"
-          class="input"
-          maxlength="100"
-          placeholder="例如：三角恒等式"
-          :disabled="selectionLocked"
-        />
-        <span v-if="titleFeedback" class="error-text">{{ titleFeedback }}</span>
-      </label>
-      <section class="mode-card card" aria-labelledby="recognition-mode-title">
-        <h2 id="recognition-mode-title">识别模式</h2>
-        <div class="mode-options">
-          <label :class="{ selected: mode === 'handwritten' }">
-            <input
-              v-model="mode"
-              class="sr-only"
-              type="radio"
-              value="handwritten"
-              :disabled="selectionLocked"
-            />
-            手写公式
-          </label>
-          <label :class="{ selected: mode === 'printed' }">
-            <input
-              v-model="mode"
-              class="sr-only"
-              type="radio"
-              value="printed"
-              :disabled="selectionLocked"
-            />
-            印刷公式
-          </label>
-        </div>
-      </section>
+      <div class="card upload-settings">
+        <label class="name-field">
+          <span class="field-label">
+            公式名称
+            <small>选填</small>
+          </span>
+          <input
+            v-model="requestedTitle"
+            class="input"
+            maxlength="100"
+            placeholder="例如：三角恒等式"
+            :disabled="selectionLocked"
+          />
+          <span v-if="titleFeedback" class="error-text">{{ titleFeedback }}</span>
+        </label>
+        <section class="mode-card" aria-labelledby="recognition-mode-title">
+          <h2 id="recognition-mode-title">识别模式</h2>
+          <div class="mode-options">
+            <label :class="{ selected: mode === 'handwritten' }">
+              <input
+                v-model="mode"
+                class="sr-only"
+                type="radio"
+                value="handwritten"
+                :disabled="selectionLocked"
+              />
+              手写公式
+            </label>
+            <label :class="{ selected: mode === 'printed' }">
+              <input
+                v-model="mode"
+                class="sr-only"
+                type="radio"
+                value="printed"
+                :disabled="selectionLocked"
+              />
+              印刷公式
+            </label>
+          </div>
+        </section>
+      </div>
       <div v-if="pending" class="submission-status" role="status" aria-live="polite">
         <span class="busy-indicator" />
         {{ buttonLabel }}
@@ -384,7 +386,13 @@ const buttonLabel = computed(() =>
       </NuxtLink>
     </section>
   </div>
-  <AccountUsage v-if="ownerId" :key="ownerId" :owner-id="ownerId" />
+  <details v-if="ownerId" class="upload-usage">
+    <summary>
+      查看今日额度
+      <AppIcon name="chevron" :size="15" />
+    </summary>
+    <AccountUsage :key="ownerId" :owner-id="ownerId" />
+  </details>
   <div class="mobile-action-spacer" aria-hidden="true" />
 </template>
 <style scoped>
@@ -393,10 +401,10 @@ const buttonLabel = computed(() =>
   grid-template-columns: minmax(0, 1fr) 82px;
   align-items: center;
   gap: 10px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 .upload-intro h2 {
-  font-size: 28px;
+  font-size: 24px;
   line-height: 1.5;
   letter-spacing: -0.7px;
   overflow-wrap: anywhere;
@@ -426,7 +434,7 @@ const buttonLabel = computed(() =>
 }
 .upload-workspace {
   display: grid;
-  gap: 24px;
+  gap: 16px;
 }
 .upload-picture,
 .upload-controls {
@@ -450,8 +458,8 @@ const buttonLabel = computed(() =>
   display: block;
   min-width: 0;
   margin: 0;
-  padding: 16px;
-  border: 1px solid var(--color-border);
+  padding: 0;
+  border: 0;
 }
 .name-field small {
   color: var(--color-text-secondary);
@@ -556,5 +564,33 @@ const buttonLabel = computed(() =>
   .upload-intro {
     grid-template-columns: minmax(0, 1fr) 110px;
   }
+}
+.upload-settings {
+  padding: 16px;
+  border: 1px solid var(--color-border);
+}
+.mode-card {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--color-border);
+}
+.mode-options {
+  margin-top: 8px;
+}
+.upload-usage {
+  margin-top: 16px;
+}
+.upload-usage summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--color-text-secondary);
+  font-size: 13px;
+}
+.upload-usage[open] summary .app-icon {
+  transform: rotate(90deg);
 }
 </style>

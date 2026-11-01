@@ -32,7 +32,7 @@ const labels = { ready: '已连接', configured: '已配置', demo: '模拟模�
         <dt>{{ item.name }}</dt>
         <dd>
           <span class="service-state" :class="item.state">{{ labels[item.state] }}</span>
-          <p>{{ item.detail }}</p>
+          <p v-if="item.detail !== labels[item.state]">{{ item.detail }}</p>
         </dd>
       </div>
     </dl>
@@ -53,7 +53,7 @@ const labels = { ready: '已连接', configured: '已配置', demo: '模拟模�
 </template>
 <style scoped>
 .service-status {
-  padding: 22px;
+  padding: 10px 18px;
 }
 summary {
   display: flex;
@@ -85,7 +85,7 @@ dd {
   text-align: right;
 }
 dd p {
-  font-size: 11px;
+  font-size: 12px;
   color: var(--color-muted);
   line-height: 1.8;
   margin-top: 7px;
@@ -99,5 +99,8 @@ dd p {
 }
 .service-state.unavailable {
   color: var(--color-danger);
+}
+details[open] summary .app-icon {
+  transform: rotate(90deg);
 }
 </style>

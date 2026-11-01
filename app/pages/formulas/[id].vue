@@ -20,14 +20,12 @@ await request
 const manual = computed(() => formula.value?.versions[0]?.origin === 'MANUAL')
 const current = computed(() => formula.value?.versions.at(-1))
 const showEditor = ref(false),
-  showVersions = ref(false),
   showDelete = ref(false),
   deleting = ref(false),
   deleteError = ref('')
 const identity = computed(() => id.value + ':' + (ownerId.value ?? 'unconfirmed'))
 watch(identity, () => {
   showEditor.value = false
-  showVersions.value = false
   showDelete.value = false
 })
 const { showToast } = useToast()
@@ -54,20 +52,6 @@ async function removeFormula() {
     deleting.value = false
   }
 }
-const versions = computed(() =>
-  (formula.value?.versions ?? []).map((version) => ({
-    ...version,
-    label:
-      version.origin === 'RECOGNITION'
-        ? '原始识别'
-        : version.origin === 'DEMO'
-          ? '模拟示例'
-          : version.number === 1
-            ? '手动输入'
-            : '人工修订',
-    to: '/ai/new?versionId=' + encodeURIComponent(version.id),
-  })),
-)
 const errorCode = computed(
   () => (request.error.value as { statusCode?: number } | null)?.statusCode,
 )
@@ -105,34 +89,28 @@ const errorCode = computed(
         (isRandomFormulaName(formula.title) || formula.title === '未命名公式')
       "
       :latex="current.latex"
-      :version="current.number"
-      :version-count="formula.versions.length"
       :image-src="formula.image ? '/api/account/files/' + formula.image.id + '/content' : undefined"
       :badge="manual ? '手动输入' : current.isMock ? '模拟结果' : undefined"
       :manual="manual"
       deletable
-      :original-latex="manual ? formula.versions[0]?.latex : undefined"
+      :original-latex="manual ? current.latex : undefined"
       @edit="showEditor = true"
-      @versions="showVersions = true"
       @remove="showDelete = true"
     >
       <template #organization>
         <AccountFormulaOrganization :formula="formula" @saved="update" />
       </template>
+      <template #primary>
+        <AccountFormulaExplanations
+          :key="identity + ':explanations'"
+          :formula="formula"
+          :owner-id="ownerId"
+        />
+      </template>
       <template #actions>
         <AccountExport :formula="formula" />
       </template>
-      <template #note>
-        {{
-          manual ? '此公式由手动输入创建，不关联识别任务。' : '识别后请核对公式。'
-        }}每次内容修改独立保存，AI 讨论与导出均绑定所选版本。
-      </template>
     </FormulaDetailContent>
-    <AccountFormulaExplanations
-      :key="identity + ':explanations'"
-      :formula="formula"
-      :owner-id="ownerId"
-    />
     <AccountFormulaEditor
       :key="identity + ':editor'"
       :open="showEditor"
@@ -141,10 +119,9 @@ const errorCode = computed(
       @saved="saved"
       @reloaded="update"
     />
-    <FormulaVersions :open="showVersions" :versions="versions" @close="showVersions = false" />
     <AppModal :open="showDelete" title="删除公式" @close="!deleting && (showDelete = false)">
       <div class="stack">
-        <p>删除后，这条公式将从公式库中隐藏。已有版本、对话和导出记录会保留。</p>
+        <p>删除后，这条公式将从公式库中隐藏。已有对话和导出记录会保留。</p>
         <p v-if="deleteError" class="error-text" role="alert">{{ deleteError }}</p>
         <div class="delete-actions">
           <button class="button button-white" :disabled="deleting" @click="showDelete = false">

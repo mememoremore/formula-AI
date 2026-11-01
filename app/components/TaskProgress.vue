@@ -1,6 +1,13 @@
 <script setup lang="ts">
 import type { TaskState } from '#shared/types/tasks'
-const props = defineProps<{ task: TaskState; title: string; compact?: boolean }>()
+const props = defineProps<{
+  task: TaskState
+  title: string
+  compact?: boolean
+  heading?: string
+  description?: string
+  warning?: boolean
+}>()
 const labels = {
   QUEUED: '正在排队',
   PROCESSING: '正在处理',
@@ -10,23 +17,34 @@ const labels = {
 const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.status))
 </script>
 <template>
-  <section class="task-progress" :class="{ failed: task.status === 'FAILED' }" aria-live="polite">
+  <section
+    class="task-progress"
+    :class="{ failed: task.status === 'FAILED', warning }"
+    aria-live="polite"
+  >
     <PaperArtwork v-if="!compact" />
     <span class="task-ring" :class="{ waiting }">
       <AppIcon
         :name="
-          task.status === 'COMPLETED' ? 'check' : task.status === 'FAILED' ? 'info' : 'sparkles'
+          warning
+            ? 'info'
+            : task.status === 'COMPLETED'
+              ? 'check'
+              : task.status === 'FAILED'
+                ? 'info'
+                : 'sparkles'
         "
         :size="29"
       />
     </span>
-    <h2>{{ labels[task.status] }}</h2>
+    <h2>{{ heading || labels[task.status] }}</h2>
     <p class="task-title">{{ title }}</p>
     <p v-if="!waiting" class="info-note">
       {{
-        task.status === 'COMPLETED'
+        description ||
+        (task.status === 'COMPLETED'
           ? '结果已保存在你的账号。'
-          : '已保留原始资料，可检查原因后重试。'
+          : '已保留原始资料，可检查原因后重试。')
       }}
     </p>
     <p v-if="task.errorMessage" :class="task.status === 'FAILED' ? 'error-text' : 'info-note'">
@@ -86,5 +104,9 @@ p {
   to {
     transform: rotate(360deg);
   }
+}
+.warning .task-ring {
+  border-top-color: var(--color-warning);
+  color: var(--color-warning);
 }
 </style>

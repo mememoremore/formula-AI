@@ -39,7 +39,7 @@ for (const [index, sample] of samples.entries())
       Object.keys(files).some((path) => path.startsWith('word/media/')),
       false,
     )
-    assert.ok(xml.includes('v2'))
+    assert.doesNotMatch(xml, /公式版本 v[0-9]+/)
     assert.ok(xml.includes('固定模拟识别'))
     await mkdir('tmp/r1-test/documents', { recursive: true })
     await writeFile(`tmp/r1-test/documents/${sample.name}.docx`, bytes)

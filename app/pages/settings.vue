@@ -64,10 +64,6 @@ async function logout() {
 <template>
   <div class="settings-page">
     <PageHeader title="设置" back-to="/profile" />
-    <header class="settings-intro">
-      <p>你的空间，由你掌握</p>
-      <h1>账号与偏好</h1>
-    </header>
     <section aria-labelledby="account-heading">
       <div class="section-heading"><h2 id="account-heading">账号</h2></div>
       <div class="card menu-list">
@@ -106,7 +102,10 @@ async function logout() {
     <p v-if="feedback" class="error-text section" role="alert">{{ feedback }}</p>
     <template v-if="ownerId">
       <details :key="ownerId + '-usage'" class="card settings-copy section" :inert="busy">
-        <summary>账号使用额度</summary>
+        <summary>
+          账号使用额度
+          <AppIcon name="chevron" :size="17" />
+        </summary>
         <AccountUsage :owner-id="ownerId" />
       </details>
       <ServiceStatus :key="ownerId + '-services'" :owner-id="ownerId" :inert="busy" />
@@ -126,7 +125,7 @@ async function logout() {
   font-size: 28px;
 }
 .settings-copy {
-  padding: 22px;
+  padding: 10px 18px;
   font-size: 14px;
   line-height: 1.8;
 }
@@ -135,7 +134,7 @@ async function logout() {
   color: var(--color-text-secondary);
 }
 .menu-item {
-  min-height: 76px;
+  min-height: 64px;
 }
 .account-row > div {
   min-width: 0;
@@ -173,5 +172,15 @@ summary {
 }
 .error-text {
   line-height: 1.8;
+}
+summary {
+  justify-content: space-between;
+  list-style: none;
+}
+summary::-webkit-details-marker {
+  display: none;
+}
+details[open] > summary .app-icon {
+  transform: rotate(90deg);
 }
 </style>

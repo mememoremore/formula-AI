@@ -96,3 +96,15 @@ test('识别缓存规则覆盖历史前缀、首页及账号额度而不清理�
   for (const key of ['demo-store', 'saved-formula-id-owner', 'account-conversations'])
     assert.equal(recognitionInvalidates(key, 'completed'), false)
 })
+
+test('完成任务刷新可以反映公式删除，迟到的可用结果不能恢复已删除状态', () => {
+  const completed = {
+    ...task,
+    status: 'COMPLETED' as const,
+    formulaId: 'formula',
+    resultState: 'available' as const,
+  }
+  const removed = { ...completed, formulaId: null, resultState: 'deleted' as const }
+  assert.equal(acceptRecognitionSnapshot(completed, removed), removed)
+  assert.equal(acceptRecognitionSnapshot(removed, completed), removed)
+})

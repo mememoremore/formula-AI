@@ -1,0 +1,1 @@
+CREATE TABLE "formula_version_reviews" ("formulaVersionId" UUID NOT NULL, "ownerId" UUID NOT NULL, "reviewedAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY ("formulaVersionId", "ownerId"), FOREIGN KEY ("formulaVersionId", "ownerId") REFERENCES "formula_versions"("id", "ownerId") ON DELETE CASCADE ON UPDATE RESTRICT);

@@ -129,7 +129,7 @@ async function remove() {
       </div>
     </div>
     <div v-if="deleting" class="delete-confirm" role="alert">
-      <p>删除“{{ deleting.name }}”？其中的公式将移至“未分类”，公式、版本和收藏都会保留。</p>
+      <p>删除“{{ deleting.name }}”？其中的公式将移至“未分类”，公式和收藏都会保留。</p>
       <div class="manager-actions">
         <button class="text-button danger" :disabled="busy" @click="remove">确认删除分类</button>
         <button class="text-button" :disabled="busy" @click="deleting = null">取消</button>

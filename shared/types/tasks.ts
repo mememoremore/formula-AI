@@ -8,6 +8,7 @@ export interface TaskState {
   errorMessage: string | null
 }
 export interface RecognitionTaskState extends TaskState {
+  resultState?: import('../recognition-result').RecognitionResultState
   fileId: string
   mode: 'handwritten' | 'printed'
   requestedTitle: string | null
@@ -15,6 +16,7 @@ export interface RecognitionTaskState extends TaskState {
   isMock: boolean
 }
 export interface RecognitionHistoryItem {
+  resultState?: import('../recognition-result').RecognitionResultState
   id: string
   status: JobStatus
   title: string

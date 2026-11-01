@@ -10,7 +10,7 @@ const questions = [
   {
     title: '自由提问与 AI 结构化解释有什么区别？',
     answer:
-      '自由提问由你输入问题；AI 结构化解释按概述、符号、条件、步骤、例子及注意事项整理固定公式版本，可查看历史、重新生成或基于原解释继续追问。两者共用 AI 可用次数。重新生成会创建新的解释，查看历史不会。',
+      '自由提问由你输入问题；AI 结构化解释按概述、符号、条件、步骤、例子及注意事项整理公式内容，可查看历史、重新生成或基于原解释继续追问。两者共用 AI 可用次数。重新生成会创建新的解释，查看历史不会。',
   },
   {
     title: '复制 LaTeX 后，如何放入 Word？',
@@ -20,17 +20,17 @@ const questions = [
   {
     title: '分类和收藏会保存在哪里？删除分类会删除公式吗？',
     answer:
-      '登录后的公式库、分类和收藏保存在账号，刷新后仍可读取。删除分类只把公式移至未分类，公式、版本和收藏都会保留。',
+      '登录后的公式库、分类和收藏保存在账号，刷新后仍可读取。删除分类只把公式移至未分类，公式和收藏都会保留。',
   },
   {
     title: '现在可以真实识别图片吗？',
     answer:
-      '账号识别支持调用图片识别模型，图片会上传到私有存储，识别结果和修改版本保存到账号。是否使用真实模型由管理员配置，模拟结果会明确标注；模型识别也可能出错，请核对公式。',
+      '账号识别支持调用图片识别模型，图片会上传到私有存储，识别结果保存到账号。是否使用真实模型由管理员配置，模拟结果会明确标注；模型识别也可能出错，请核对公式。',
   },
   {
     title: '如何修改公式？',
     answer:
-      '打开公式详情并点击「编辑」，修改 LaTeX 后实时预览。公式确认后保存，首个识别或手动输入版本会保留。其他页面已修改同一版本时，会提示冲突。',
+      '打开公式详情并点击「编辑」，修改 LaTeX 后实时预览。公式确认后保存，保存后使用更新后的内容。其他窗口同时编辑时，会提示先读取最新内容。',
   },
   {
     title: '支持什么图片？',
@@ -40,12 +40,12 @@ const questions = [
   {
     title: '为什么刷新后图片不见了？',
     answer:
-      '上传的图片会保存，可从账号识别历史重新打开；如果暂时无法读取原图，可以稍后重试，已保存的公式版本仍保留。',
+      '上传的图片会保存，可从账号识别历史重新打开；如果暂时无法读取原图，可以稍后重试，已保存的公式仍保留。',
   },
   {
     title: 'AI 回答和 Word 导出能用了吗？',
     answer:
-      '账号 AI 对话支持逐步显示已保存的回答、连续追问、刷新恢复和停止生成，并不保证逐 Token 实时传输。管理员配置 DeepSeek 后可使用真实回答；模拟模式会明确标注。AI 可能出错，请核对推导和结论。从账号公式详情可选择已保存的版本，生成并下载包含原生可编辑公式的 Word。',
+      '账号 AI 对话支持逐步显示已保存的回答、连续追问、刷新恢复和停止生成，并不保证逐 Token 实时传输。管理员配置 DeepSeek 后可使用真实回答；模拟模式会明确标注。AI 可能出错，请核对推导和结论。从账号公式详情可生成并下载包含原生可编辑公式的 Word。',
   },
   {
     title: '提交后网络断开，要再点一次吗？',
@@ -76,15 +76,15 @@ const questions = [
     </li>
     <li>
       <strong>查看并校正公式</strong>
-      <p>核对结果，必要时编辑 LaTeX 并保存版本。</p>
+      <p>核对结果，必要时编辑 LaTeX 并保存。</p>
     </li>
     <li>
       <strong>借助 AI 理解</strong>
       <p>选择结构化解释或自由提问，再继续追问；需要文档时导出 DOCX。</p>
     </li>
   </ol>
-  <div class="stack">
-    <details v-for="question in questions" :key="question.title" class="card help-item">
+  <div class="card help-questions">
+    <details v-for="question in questions" :key="question.title" class="help-item">
       <summary>
         {{ question.title }}
         <AppIcon name="plus" :size="17" />
@@ -103,10 +103,10 @@ const questions = [
   counter-reset: steps;
   list-style: none;
   padding: 0;
-  margin: 0 0 30px;
+  margin: 0 0 22px;
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: 16px;
 }
 .help-steps li {
   position: relative;
@@ -130,11 +130,11 @@ const questions = [
 }
 .help-steps p {
   margin-top: 5px;
-  font-size: 12px;
-  color: var(--color-muted);
+  font-size: 13px;
+  color: var(--color-text-secondary);
 }
 .help-item {
-  padding: 20px;
+  padding: 8px 18px;
 }
 summary {
   min-height: 44px;
@@ -163,5 +163,11 @@ details[open] summary svg {
   color: var(--color-muted);
   line-height: 1.95;
   margin-top: 15px;
+}
+.help-item + .help-item {
+  border-top: 1px solid var(--color-border);
+}
+.help-item p {
+  margin: 4px 0 12px;
 }
 </style>

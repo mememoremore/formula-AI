@@ -58,6 +58,9 @@ export function acceptRecognitionSnapshot(
   if (!previous) return next
   if (previous.id !== next.id || previous.fileId !== next.fileId || previous.mode !== next.mode)
     throw new Error('任务响应不匹配')
+  // A completed task stays terminal, but its linked formula may later be deleted.
+  if (previous.resultState === 'deleted' && next.resultState !== 'deleted') return previous
+  if (next.status === previous.status && next.attemptCount === previous.attemptCount) return next
   if (
     next.attemptCount < previous.attemptCount ||
     ['COMPLETED', 'FAILED'].includes(previous.status)

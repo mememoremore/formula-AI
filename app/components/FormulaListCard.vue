@@ -51,11 +51,13 @@ function date(value: string) {
       />
     </div>
     <NuxtLink :to="to" :aria-label="'查看' + title" class="formula-card-body">
-      <h3>{{ title }}</h3>
+      <div class="formula-card-title">
+        <h3>{{ title }}</h3>
+        <time :datetime="createdAt">{{ date(createdAt) }}</time>
+      </div>
       <div class="formula-card-meta">
         <div>
           <p v-if="sourceLabel">{{ sourceLabel }}</p>
-          <time :datetime="createdAt">{{ date(createdAt) }}</time>
         </div>
       </div>
     </NuxtLink>
@@ -71,7 +73,7 @@ function date(value: string) {
 <style scoped>
 .formula-list-card {
   min-width: 0;
-  padding: 15px 20px 22px;
+  padding: 8px 16px 12px;
   border: 1px solid #eeebf4;
 }
 .formula-card-heading {
@@ -103,7 +105,7 @@ button.category-tag {
   border-radius: 8px;
   background: #efeaff;
   color: var(--color-primary);
-  font-size: 11px;
+  font-size: 12px;
 }
 .card-latex:focus-visible {
   outline: 3px solid var(--color-focus);
@@ -119,7 +121,7 @@ h3 {
   min-width: 0;
 }
 .card-latex {
-  padding: 12px 0 4px;
+  padding: 4px 0 0;
 }
 .formula-card-body :deep(.katex-display) {
   margin: 0;
@@ -151,5 +153,28 @@ time {
 }
 .compact .formula-card-body :deep(.card-latex) {
   padding-block: 12px;
+}
+.formula-card-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+.formula-card-title h3 {
+  min-width: 0;
+}
+.formula-card-title time {
+  flex-shrink: 0;
+  font-size: 12px;
+  margin: 0;
+}
+.card-latex :deep(.katex-display) {
+  margin: 0.35em 0;
+}
+@media (max-width: 360px) {
+  .formula-card-title {
+    flex-wrap: wrap;
+    gap: 0 10px;
+  }
 }
 </style>

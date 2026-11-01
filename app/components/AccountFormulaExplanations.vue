@@ -6,13 +6,7 @@ import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { EXPLANATION_RECOVERY_KEY, parseExplanationIntent } from '~/utils/explanation-intent'
 const props = defineProps<{ formula: SavedFormula; ownerId: string }>()
 const route = useRoute()
-const preferred =
-  typeof route.query.explainVersion === 'string' &&
-  props.formula.versions.some((v) => v.id === route.query.explainVersion)
-    ? route.query.explainVersion
-    : props.formula.versions.at(-1)!.id
-const selected = ref(preferred),
-  allVersions = ref(false)
+const selected = computed(() => props.formula.versions.at(-1)!.id)
 const otherFormula = ref('')
 const items = ref<ExplanationHistoryPage['items']>([]),
   cursor = ref<string | null>(null)
@@ -39,7 +33,6 @@ async function load(more = false) {
       '/api/account/formulas/' + props.formula.id + '/explanations',
       {
         query: {
-          ...(!allVersions.value ? { versionId: selected.value } : {}),
           ...(more ? { cursor: cursor.value } : {}),
         },
         signal: controller.signal,
@@ -59,7 +52,7 @@ async function load(more = false) {
     if (!disposed && ticket === sequence) loading.value = false
   }
 }
-watch([selected, allVersions], () => {
+watch(selected, () => {
   items.value = []
   cursor.value = null
   void load()
@@ -83,7 +76,6 @@ onMounted(() => {
       }
       sessionStorage.removeItem(EXPLANATION_RECOVERY_KEY)
     }
-    if (pending.value) selected.value = pending.value.versionId
     ready.value = true
   } catch {
     feedback.value = '会话存储不可用，无法安全保存请求标识。'
@@ -149,75 +141,70 @@ const labels = { QUEUED: '排队中', PROCESSING: '生成中', COMPLETED: '解�
   <section class="card explanation-entry" aria-label="AI 帮我理解">
     <header>
       <h2 id="explanation-create">AI 帮我理解</h2>
-      <p class="info-note">
-        一键梳理符号、条件和推导，也可以带着问题继续提问。每次生成解释或发送提问使用一次 AI 次数。
-      </p>
+      <p class="info-note">每次解释或提问使用 1 次 AI 额度。</p>
     </header>
-    <label class="field">
-      <span>解释公式版本</span>
-      <select v-model="selected" :disabled="sending || !!pending" aria-label="解释公式版本">
-        <option v-for="version in formula.versions" :key="version.id" :value="version.id">
-          v{{ version.number }}{{ version.id === formula.versions.at(-1)?.id ? ' · 当前版本' : '' }}
-        </option>
-      </select>
-    </label>
-    <button
-      class="button button-primary button-block"
-      :disabled="sending || !ready"
-      @click="generate"
-    >
-      {{ sending ? '正在确认提交…' : pending ? '确认原解释请求' : '一键解释' }}
-    </button>
-    <NuxtLink
-      :to="'/ai/new?versionId=' + encodeURIComponent(selected)"
-      class="button button-secondary button-block ask-question"
-    >
-      <AppIcon name="sparkles" :size="18" />
-      继续提问
-    </NuxtLink>
+    <div class="explanation-actions">
+      <button
+        class="button button-primary button-block"
+        :disabled="sending || !ready"
+        @click="generate"
+      >
+        {{ sending ? '正在确认提交…' : pending ? '确认原解释请求' : '一键解释' }}
+      </button>
+      <NuxtLink
+        :to="'/ai/new?formulaId=' + encodeURIComponent(formula.id)"
+        class="button button-secondary button-block ask-question"
+      >
+        <AppIcon name="sparkles" :size="18" />
+        继续提问
+      </NuxtLink>
+    </div>
     <NuxtLink v-if="otherFormula" :to="'/formulas/' + otherFormula" class="text-button">
       返回待确认公式
     </NuxtLink>
-    <p v-if="pending" class="info-note">原请求待确认，重试沿用同一编号；已有结果不会重复扣额度。</p>
+    <p v-if="pending" class="info-note">提交结果待确认，重试不会重复扣额度。</p>
     <p v-if="feedback" class="error-text" role="alert">{{ feedback }}</p>
-    <div class="history-heading">
-      <h3 id="explanation-history">解释历史</h3>
-      <label>
-        <input v-model="allVersions" type="checkbox" />
-        全部版本
-      </label>
-    </div>
-    <p v-if="loading && !items.length" role="status">正在读取历史…</p>
-    <p v-else-if="!items.length && !error" class="info-note">
-      这个版本还没有解释。生成后可随时回来查看和追问。
-    </p>
-    <p v-if="error" class="error-text" role="alert">
-      {{ error }}
-      <button class="text-button" @click="load()">重新读取历史</button>
-    </p>
-    <ul v-if="items.length" class="explanation-history">
-      <li v-for="item in items" :key="item.id">
-        <NuxtLink :to="'/ai/' + item.id">
-          <span>
-            v{{ item.versionNumber }} · {{ labels[item.status] }} ·
-            {{ item.isMock ? '模拟' : item.modelVersion || 'AI' }}
-          </span>
-          <small>{{ new Date(item.createdAt).toLocaleString('zh-CN') }}</small>
-        </NuxtLink>
-      </li>
-    </ul>
-    <button v-if="cursor" class="button button-secondary" :disabled="loading" @click="load(true)">
-      加载更多解释
-    </button>
+    <details
+      class="explanation-records"
+      :open="!!error || route.hash === '#explanation-history' || undefined"
+    >
+      <summary class="history-heading">
+        <h3 id="explanation-history">
+          解释历史
+          <span v-if="items.length">· {{ items.length }}</span>
+        </h3>
+        <AppIcon name="chevron" :size="15" />
+      </summary>
+      <p v-if="loading && !items.length" role="status">正在读取历史…</p>
+      <p v-else-if="!items.length && !error" class="info-note">暂无解释记录。</p>
+      <p v-if="error" class="error-text" role="alert">
+        {{ error }}
+        <button class="text-button" @click="load()">重新读取历史</button>
+      </p>
+      <ul v-if="items.length" class="explanation-history">
+        <li v-for="item in items" :key="item.id">
+          <NuxtLink :to="'/ai/' + item.id">
+            <span>
+              {{ labels[item.status] }}
+              <span v-if="item.isMock">· 模拟</span>
+            </span>
+            <small>{{ new Date(item.createdAt).toLocaleString('zh-CN') }}</small>
+          </NuxtLink>
+        </li>
+      </ul>
+      <button v-if="cursor" class="button button-secondary" :disabled="loading" @click="load(true)">
+        加载更多解释
+      </button>
+    </details>
   </section>
 </template>
 <style scoped>
 .ask-question {
-  margin-top: 10px;
+  margin-top: 0;
 }
 .explanation-entry {
-  padding: 20px;
-  margin-top: 20px;
+  padding: 16px;
+  margin-top: 14px;
   min-width: 0;
 }
 h2 {
@@ -230,28 +217,12 @@ header p {
   margin-top: 10px;
   line-height: 1.8;
 }
-.field {
-  display: grid;
-  gap: 8px;
-  margin: 18px 0;
-}
-select {
-  min-width: 0;
-  width: 100%;
-  min-height: 44px;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
-  padding: 10px;
-  background: var(--color-surface);
-  font: inherit;
-  color: inherit;
-}
 .history-heading {
   display: flex;
   justify-content: space-between;
   gap: 12px;
   align-items: center;
-  margin: 26px 0 12px;
+  margin: 14px 0 0;
 }
 label {
   font-size: 13px;
@@ -280,5 +251,28 @@ small {
 .error-text {
   margin-top: 12px;
   line-height: 1.8;
+}
+.explanation-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+.explanation-actions .button {
+  min-width: 0;
+  padding-inline: 6px;
+  font-size: 14px;
+}
+.explanation-records summary {
+  min-height: 44px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--color-text-secondary);
+}
+.explanation-records[open] summary .app-icon {
+  transform: rotate(90deg);
+}
+.explanation-records summary::-webkit-details-marker {
+  display: none;
 }
 </style>

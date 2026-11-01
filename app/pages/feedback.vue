@@ -51,7 +51,7 @@ async function copyFeedback() {
   <PageIntro
     :level="2"
     title="让体验更好一点"
-    subtitle="无论是问题、建议还是小小的灵感，我们都愿意听见。"
+    subtitle="发现问题或有新想法？整理后提交到项目反馈页。"
     artwork="book"
     inline-artwork
   />
@@ -84,10 +84,22 @@ async function copyFeedback() {
       <AppIcon name="copy" :size="16" />
       {{ copying ? '正在复制…' : copied ? '再次复制反馈' : '复制反馈内容' }}
     </button>
+    <a
+      class="button button-secondary"
+      href="https://github.com/mememoremore/formula-AI/issues/new"
+      target="_blank"
+      rel="noopener noreferrer"
+    >
+      打开 GitHub 反馈页
+      <AppIcon name="arrowRight" :size="16" />
+    </a>
+    <p class="feedback-destination">
+      复制内容后，到 GitHub 粘贴并提交公开 Issue。需要登录 GitHub，提交前可继续编辑。
+    </p>
   </form>
   <div v-if="copied" class="card copy-result section stack" role="status">
     <h2>已复制，尚未发送</h2>
-    <p>打开你与项目负责人的现有沟通渠道，粘贴并发送这份反馈。这里不会代你发送，也不会上传内容。</p>
+    <p>点击「打开 GitHub 反馈页」，粘贴内容后提交。复制本身不会发送反馈。</p>
   </div>
   <div v-if="manual" class="card copy-result section stack">
     <p class="error-text" role="alert">{{ copyError }}</p>
@@ -121,5 +133,10 @@ textarea {
 .character-count {
   align-self: flex-end;
   margin-top: -8px;
+}
+.feedback-destination {
+  color: var(--color-text-secondary);
+  font-size: 13px;
+  line-height: 1.75;
 }
 </style>

@@ -25,7 +25,7 @@ useHead({ title: '关于项目 · Formula AI' })
       <span class="soft-icon"><AppIcon name="book" :size="23" /></span>
       <div>
         <h2>公式整理</h2>
-        <p>通过分类、收藏与版本记录，把灵感留在手边。</p>
+        <p>通过分类、收藏与学习对话，把灵感留在手边。</p>
       </div>
     </article>
     <article class="about-feature">
@@ -39,7 +39,7 @@ useHead({ title: '关于项目 · Formula AI' })
       <span class="soft-icon"><AppIcon name="book" :size="23" /></span>
       <div>
         <h2>带进文档</h2>
-        <p>复制 LaTeX 或完整解释，也可选择固定版本下载可编辑 DOCX。</p>
+        <p>复制 LaTeX 或完整解释，也可下载可编辑 DOCX。</p>
       </div>
     </article>
   </div>
@@ -83,9 +83,9 @@ useHead({ title: '关于项目 · Formula AI' })
 }
 p {
   margin-top: 8px;
-  font-size: 13px;
+  font-size: 14px;
   line-height: 1.9;
-  color: var(--color-muted);
+  color: var(--color-text-secondary);
 }
 .about-feature {
   border-bottom: 1px solid var(--color-border);

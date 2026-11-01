@@ -61,7 +61,7 @@ await home.request
         label="最近创建的对话"
         :title="
           recent.conversation.latex
-            ? recent.conversation.title.replace(/ · v[0-9]+$/, '')
+            ? recent.conversation.title.replace(/ · v[0-9]+(?= 解释$|$)/, '')
             : recent.conversation.title
         "
         :subtitle="

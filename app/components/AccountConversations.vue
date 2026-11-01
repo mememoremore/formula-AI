@@ -75,13 +75,15 @@ await listing.request
             <AppIcon :name="item.latex ? 'book' : 'message'" :size="20" />
           </span>
           <div>
-            <h3>{{ item.latex ? item.title.replace(/ · v[0-9]+$/, '') : item.title }}</h3>
+            <h3>
+              {{ item.latex ? item.title.replace(/ · v[0-9]+(?= 解释$|$)/, '') : item.title }}
+            </h3>
             <MathFormula v-if="item.latex" :latex="item.latex" :display="false" />
-            <p v-else>
+            <p v-else-if="item.preview?.trim() && item.preview.trim() !== item.title.trim()">
               {{
                 item.preview?.trim() && item.preview.trim() !== item.title.trim()
                   ? item.preview
-                  : '打开并继续这段思考'
+                  : '继续这段对话'
               }}
             </p>
           </div>
@@ -120,7 +122,7 @@ await listing.request
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 18px 16px;
+  padding: 14px 16px;
 }
 .conversation-item > div {
   flex: 1;
@@ -144,9 +146,10 @@ p {
 .conversation-item :deep(.math-inline) {
   margin-top: 8px;
   color: #858099;
-  font-size: 11px;
+  font-size: 13px;
 }
 .search-field {
+  margin-top: 16px;
   padding-right: 5px;
 }
 </style>

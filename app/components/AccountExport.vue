@@ -4,26 +4,18 @@ import type { ExportTaskState } from '#shared/types/tasks'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { usageInvalidated } from '~/utils/account-cache'
 const props = defineProps<{ formula: SavedFormula }>()
-const selected = ref(props.formula.versions.at(-1)?.id ?? '')
 const busy = ref(false),
   open = ref(false),
   feedback = ref('')
-const version = computed(() => props.formula.versions.find((v) => v.id === selected.value))
+const version = computed(() => props.formula.versions.at(-1))
 let requestKey = '',
   controller: AbortController | undefined,
   disposed = false
-watch(selected, () => {
+watch(version, () => {
   requestKey = ''
   feedback.value = ''
 })
-watch(
-  () => props.formula.versions.at(-1)?.id,
-  (id) => {
-    if (!open.value) selected.value = id ?? ''
-  },
-)
 function show() {
-  selected.value = props.formula.versions.at(-1)?.id ?? ''
   feedback.value = ''
   open.value = true
 }
@@ -67,34 +59,15 @@ onScopeDispose(() => {
   </button>
   <AppModal :open="open" title="导出可编辑 Word" @close="!busy && (open = false)">
     <form class="stack" :aria-busy="busy" @submit.prevent="submit">
-      <label>
-        <span class="field-label">选择导出的公式版本</span>
-        <select v-model="selected" class="input" :disabled="busy">
-          <option v-for="item in formula.versions.toReversed()" :key="item.id" :value="item.id">
-            v{{ item.number }} ·
-            {{
-              item.origin === 'RECOGNITION'
-                ? '原始识别'
-                : item.origin === 'DEMO'
-                  ? '模拟示例'
-                  : item.number === 1
-                    ? '手动输入'
-                    : '人工修订'
-            }}
-          </option>
-        </select>
-      </label>
       <div v-if="version" class="export-preview">
-        <p class="field-label">将导出 v{{ version.number }} 的已保存内容</p>
-        <MathFormula :latex="version.latex" tabindex="0" aria-label="导出版本预览，可横向滚动" />
+        <p class="field-label">当前公式</p>
+        <MathFormula :latex="version.latex" tabindex="0" aria-label="导出公式预览，可横向滚动" />
       </div>
       <p v-if="feedback" class="error-text" role="alert">{{ feedback }}</p>
       <button class="button button-primary" type="submit" :disabled="busy || !version">
         {{ busy ? '正在提交…' : '生成 Word 文档' }}
       </button>
-      <p class="info-note">
-        导出原生可编辑公式，并附上所选版本的 LaTeX。未保存的编辑草稿不会导出。
-      </p>
+      <p class="info-note">导出原生可编辑公式，并附上公式 LaTeX。未保存的编辑草稿不会导出。</p>
     </form>
     <WordUseGuide />
   </AppModal>

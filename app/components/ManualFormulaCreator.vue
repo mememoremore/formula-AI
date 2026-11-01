@@ -2,6 +2,14 @@
 import { formulaSyntaxFeedback, manualFormulaFeedback } from '#shared/formula-validation'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 const props = defineProps<{ ownerId: string }>()
+const sourceField = ref<HTMLTextAreaElement>()
+function resizeSource() {
+  const field = sourceField.value
+  if (!field) return
+  field.style.height = 'auto'
+  field.style.height = Math.min(360, Math.max(168, field.scrollHeight)) + 'px'
+}
+onMounted(resizeSource)
 const titleTouched = ref(false),
   latexTouched = ref(false)
 const title = ref(''),
@@ -20,6 +28,7 @@ watch(
   },
   { immediate: true },
 )
+watch(latex, resizeSource, { flush: 'post' })
 const validation = computed(() => manualFormulaFeedback(title.value, latex.value))
 const displayValidation = computed(() => {
   const titleError = manualFormulaFeedback(title.value, 'x')
@@ -107,6 +116,7 @@ function discard() {
       <label class="field-label" for="manual-latex">LaTeX</label>
       <textarea
         id="manual-latex"
+        ref="sourceField"
         v-model="latex"
         @blur="latexTouched = true"
         class="input manual-source"
@@ -129,7 +139,7 @@ function discard() {
       <h2>实时预览</h2>
       <MathFormula v-if="latex.trim() && !syntax" :latex="latex" tabindex="0" />
       <p v-else-if="syntax" class="info-note">修正输入后，预览会自动更新。</p>
-      <p v-else class="info-note">输入后会显示公式预览。预览校验语法，不判断数学结论。</p>
+      <p v-else class="info-note">输入 LaTeX 后在这里预览公式。</p>
     </section>
     <div class="manual-submit">
       <p v-if="receipt" class="info-note" role="status">
@@ -192,10 +202,10 @@ function discard() {
 }
 .manual-fields .input {
   width: 100%;
-  margin-bottom: 16px;
+  margin-bottom: 12px;
 }
 .manual-source {
-  min-height: 200px;
+  min-height: 168px;
   resize: vertical;
   font-family: var(--font-mono, monospace);
   line-height: 1.7;

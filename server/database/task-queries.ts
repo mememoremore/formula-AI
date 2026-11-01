@@ -1,3 +1,4 @@
+import { recognitionResultState } from '../../shared/recognition-result'
 import { Prisma, type PrismaClient } from '../generated/prisma/client'
 export { reconcileTask } from './task-reconciliation'
 import { hasValidResourceIdentity } from './private-resources'
@@ -36,6 +37,7 @@ export async function readRecognitionHistory(
     if (cursor && !anchor) throw new WorkspaceError(404, '未找到这条识别记录。')
     const rows = await db.$queryRaw<
       {
+        resultState: RecognitionHistoryPage['items'][number]['resultState']
         id: string
         status: RecognitionHistoryPage['items'][number]['status']
         title: string
@@ -46,6 +48,7 @@ export async function readRecognitionHistory(
       }[]
     >(Prisma.sql`
       SELECT t.id, t.status, COALESCE(f.title, file.name) AS title,
+        CASE WHEN t.status <> 'COMPLETED' THEN 'pending' WHEN f.id IS NOT NULL THEN 'available' WHEN EXISTS (SELECT 1 FROM formulas archived WHERE archived."recognitionTaskId"=t.id AND archived."ownerId"=t."ownerId" AND archived."deletedAt" IS NOT NULL) THEN 'deleted' ELSE 'missing' END AS "resultState",
         f.id AS "formulaId", version.latex, t."createdAt", t."errorMessage"
       FROM recognition_tasks t
       JOIN stored_files file ON file.id = t."inputFileId" AND file."ownerId" = t."ownerId"
@@ -85,6 +88,7 @@ export async function readRecognitionHistory(
   })
   return {
     items: tasks.slice(0, 25).map((task) => ({
+      resultState: recognitionResultState(task.status, task.formula),
       id: task.id,
       status: task.status,
       title: task.formula && !task.formula.deletedAt ? task.formula.title : task.inputFile.name,
@@ -119,6 +123,7 @@ export async function readRecognitionTask(
   if (!task) throw new WorkspaceError(404, '未找到这个任务。')
   return {
     ...taskState(task),
+    resultState: recognitionResultState(task.status, task.formula),
     fileId: task.inputFileId,
     mode: task.mode === 'HANDWRITTEN' ? 'handwritten' : 'printed',
     requestedTitle: task.requestedTitle,

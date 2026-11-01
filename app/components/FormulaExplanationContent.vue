@@ -48,7 +48,6 @@ defineProps<{ value: FormulaExplanation }>()
         </li>
       </ul>
     </section>
-    <p class="info-note">AI 解释可能有误，请结合课程条件核对；渲染成功不代表数学证明正确。</p>
   </div>
 </template>
 <style scoped>

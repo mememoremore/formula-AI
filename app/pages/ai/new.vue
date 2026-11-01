@@ -19,7 +19,8 @@ const demo = computed(
     session.status.value === 'success' &&
     !session.error.value &&
     (route.query.space === 'demo' || !ownerId.value) &&
-    !route.query.versionId,
+    !route.query.versionId &&
+    !route.query.formulaId,
 )
 const intents = useNuxtApp().$chatDraft
 watch(
@@ -49,8 +50,9 @@ watch(
     />
     <AccountChatDraft
       v-else-if="ownerId"
-      :key="ownerId + ':' + String(route.query.versionId ?? 'general')"
+      :key="ownerId + ':' + String(route.query.formulaId ?? route.query.versionId ?? 'general')"
       :owner-id="ownerId"
+      :formula-id="typeof route.query.formulaId === 'string' ? route.query.formulaId : ''"
       :version-id="typeof route.query.versionId === 'string' ? route.query.versionId : ''"
     />
     <div v-else class="status-panel">

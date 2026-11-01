@@ -93,7 +93,6 @@ export const convertFormulaDocument: FormulaDocumentConverter = async (input) =>
       title: { t: 'MetaString', c: input.title },
     },
     blocks: [
-      text(`公式版本 v${input.versionNumber}`),
       ...(input.isMock ? [text('此公式源于固定模拟识别，请核对内容后使用。')] : []),
       { t: 'Para', c: [{ t: 'Math', c: [{ t: 'DisplayMath' }, latex] }] },
       text('LaTeX 源码'),

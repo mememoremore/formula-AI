@@ -24,9 +24,7 @@ function size(value: number) {
     <div>
       <h3>{{ task.file?.name || task.title + '.docx' }}</h3>
       <p>
-        {{ task.file ? size(task.file.sizeBytes) : 'Word 文档' }} · 公式版本 v{{
-          task.versionNumber
-        }}
+        {{ task.file ? size(task.file.sizeBytes) : 'Word 文档' }}
       </p>
     </div>
   </div>

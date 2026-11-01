@@ -73,7 +73,7 @@ async function retry() {
     const rows = parseExportReceipts(sessionStorage.getItem(EXPORT_RECOVERY_KEY))
     let receipt = rows.find((row) => row.ownerId === props.ownerId && row.taskId === props.id)
     if (receipt && receipt.versionId !== task.value.formulaVersionId)
-      throw new Error('提交记录与当前公式版本不一致')
+      throw new Error('提交记录与当前公式内容不一致')
     if (!receipt) {
       if (rows.length >= 10) throw new Error('未确认的导出提交过多，请先确认原任务')
       receipt = {
@@ -97,7 +97,7 @@ async function retry() {
     })
     if (!current()) return
     if (!next.id || next.formulaVersionId !== receipt.versionId)
-      throw new Error('提交结果与公式版本不一致')
+      throw new Error('提交结果与公式内容不一致')
     try {
       sessionStorage.setItem(
         EXPORT_RECOVERY_KEY,
@@ -214,14 +214,13 @@ await request
     />
     <section v-else class="card export-notice">
       <TaskProgress :task="task" title="Word 文档" compact />
-      <p class="muted">文档按已保存的公式版本生成，离开后可以通过原链接继续查看。</p>
+      <p class="muted">文档按已保存的公式内容生成，离开后可以通过原链接继续查看。</p>
     </section>
     <p v-if="downloadFeedback" class="info-note section" role="status">{{ downloadFeedback }}</p>
     <p v-if="task.status === 'COMPLETED' && !downloadPath" class="error-text section" role="alert">
       文件暂时不可下载，请重新读取任务；不要重复提交导出。
     </p>
     <div class="card export-details section">
-      <span class="badge">固定版本 v{{ task.versionNumber }}</span>
       <h2>{{ task.title }}</h2>
       <p>之后编辑公式，不会改变这份文档。下载已生成的文件不使用新额度。</p>
       <NuxtLink :to="'/formulas/' + encodeURIComponent(task.formulaId)" class="text-button">
@@ -242,7 +241,7 @@ await request
       {{
         uncertain
           ? '将沿用上次请求确认结果，不创建另一个请求。'
-          : '已确认本次失败。重新提交仍使用此版本，并使用 1 次新的导出额度。'
+          : '已确认本次失败。重新提交仍使用本次提交的内容，并使用 1 次新的导出额度。'
       }}
     </p>
     <button class="text-button section" :disabled="busy || status === 'pending'" @click="refresh()">

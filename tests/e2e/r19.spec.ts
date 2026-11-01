@@ -39,16 +39,16 @@ for (const width of [320, 390, 430, 1440])
     expect(created.status()).toBe(201)
     const formula = (await created.json()) as SavedFormula
     await visit(page, '/formulas/' + formula.id)
-    await expect(page.getByRole('link', { name: '自由提问', exact: true })).toHaveAttribute(
+    await expect(page.getByRole('link', { name: '继续提问', exact: true })).toHaveAttribute(
       'href',
-      /ai\/new\?versionId=/,
+      /ai\/new\?formulaId=/,
     )
-    await expect(page.getByRole('heading', { name: 'AI 结构化解释', exact: true })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'AI 帮我理解', exact: true })).toBeVisible()
     await page.screenshot({
       path: 'tmp/ux-final/screens/formula-' + width + '.png',
       fullPage: true,
     })
-    await expect(page.getByRole('button', { name: '生成新的结构化解释' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '一键解释' })).toBeEnabled()
     let lost = false
     await page.route('**/api/account/formulas/*/explanations', async (route) => {
       if (route.request().method() === 'POST' && !lost) {
@@ -58,7 +58,7 @@ for (const width of [320, 390, 430, 1440])
         await route.abort('failed')
       } else await route.continue()
     })
-    await page.getByRole('button', { name: '生成新的结构化解释' }).click()
+    await page.getByRole('button', { name: '一键解释' }).click()
     await expect(page.getByRole('button', { name: '确认原解释请求' })).toBeEnabled()
     await page.reload()
     await expect(page.getByRole('button', { name: '确认原解释请求' })).toBeEnabled()
@@ -66,7 +66,7 @@ for (const width of [320, 390, 430, 1440])
     await expect(page).toHaveURL(/\/ai\/[0-9a-f-]+$/)
     const first = page.url().split('/').at(-1)!
     await expect(page.getByTestId('structured-explanation')).toBeVisible()
-    await expect(page.getByText('固定 v1 · 模拟解释', { exact: true })).toBeVisible()
+    await expect(page.getByText('模拟解释', { exact: true })).toBeVisible()
     await expect(page.getByRole('heading', { name: '符号含义', exact: true })).toBeVisible()
     await expect(
       page.getByText('先理解公式的结构，再核对适用条件。', { exact: true }),
@@ -180,12 +180,12 @@ for (const width of [320, 390, 430, 1440])
     await expect(page.getByTestId('structured-explanation')).toBeVisible()
     await page.getByRole('link', { name: '重新生成', exact: true }).click()
     await expect(page).toHaveURL(/#explanation-create$/)
-    await expect(page.getByRole('button', { name: '生成新的结构化解释' })).toBeEnabled()
+    await expect(page.getByRole('button', { name: '一键解释' })).toBeEnabled()
     await visit(page, '/ai/' + first)
     await page.getByRole('link', { name: '查看历史', exact: true }).click()
     await expect(page).toHaveURL(/#explanation-history$/)
-    await expect(page.getByRole('link', { name: /v1 · 解释完成/ })).toBeVisible()
-    await page.getByRole('button', { name: '生成新的结构化解释' }).click()
+    await expect(page.getByRole('link', { name: /解释完成/ })).toBeVisible()
+    await page.getByRole('button', { name: '一键解释' }).click()
     await expect(page).toHaveURL(/\/ai\/[0-9a-f-]+$/)
     const second = page.url().split('/').at(-1)!
     expect(second).not.toBe(first)

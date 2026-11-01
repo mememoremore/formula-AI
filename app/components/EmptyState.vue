@@ -32,7 +32,7 @@ defineProps<{ title: string; description: string; actionLabel?: string; actionTo
   background: var(--color-primary-soft);
 }
 p {
-  color: var(--color-muted);
+  color: var(--color-text-secondary);
   font-size: 13px;
   line-height: 1.9;
 }

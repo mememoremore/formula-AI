@@ -10,15 +10,32 @@ const menus = [
   { to: '/feedback', label: '意见反馈', icon: 'message' },
   { to: '/about', label: '关于项目', icon: 'info' },
 ] as const
+const fetcher = useRequestFetch()
+const { data: stats, error: statsError } = await useAsyncData(
+  computed(() => 'account-profile-stats-' + (account.value?.user?.id ?? 'none')),
+  () =>
+    account.value?.user
+      ? fetcher<{ ownerId: string; formulas: number; favorites: number; conversations: number }>(
+          '/api/account/profile-stats',
+          { retry: 0, timeout: 12000 },
+        )
+      : Promise.resolve(null),
+  { getCachedData: () => undefined },
+)
+function count(key: 'formulas' | 'favorites' | 'conversations') {
+  return !statsError.value && stats.value?.ownerId === account.value?.user?.id
+    ? stats.value?.[key] + ' 条'
+    : '—'
+}
 const personal = [
-  { to: '/library?space=account', label: '我的公式', detail: '整理和回顾', icon: 'book' },
+  { to: '/library?space=account', label: '我的公式', count: 'formulas', icon: 'book' },
   {
     to: '/library?space=account&view=favorites',
     label: '我的收藏',
-    detail: '再次温习',
+    count: 'favorites',
     icon: 'heart',
   },
-  { to: '/ai?space=account', label: '学习对话', detail: '继续探索', icon: 'sparkles' },
+  { to: '/ai?space=account', label: '学习对话', count: 'conversations', icon: 'sparkles' },
 ] as const
 </script>
 <template>
@@ -51,7 +68,7 @@ const personal = [
         <NuxtLink v-for="item in personal" :key="item.to" :to="item.to" class="card shortcut">
           <AppIcon :name="item.icon" :size="22" />
           <strong>{{ item.label }}</strong>
-          <span>{{ item.detail }}</span>
+          <span>{{ count(item.count) }}</span>
         </NuxtLink>
       </section>
     </template>

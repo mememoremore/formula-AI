@@ -56,8 +56,8 @@ async function save() {
   const id = props.formula.id
   controller = new AbortController()
   try {
-    const formula = await $fetch<SavedFormula>(`/api/account/formulas/${id}/versions`, {
-      method: 'POST',
+    const formula = await $fetch<SavedFormula>(`/api/account/formulas/${id}`, {
+      method: 'PATCH',
       retry: 0,
       timeout: 20_000,
       signal: controller.signal,
@@ -119,11 +119,6 @@ onScopeDispose(() => {
 <template>
   <AppModal :open="open" title="编辑公式" sheet @close="close">
     <form class="stack" :aria-busy="busy" @submit.prevent="save">
-      <p class="info-note">
-        正在编辑 v{{
-          formula.versions.find((v) => v.id === expectedVersionId)?.number
-        }}，原有版本会保留。
-      </p>
       <label>
         <span class="field-label">公式名称</span>
         <input v-model="title" class="input" maxlength="100" required :disabled="busy" />
@@ -169,7 +164,6 @@ onScopeDispose(() => {
           {{ operation === 'save' ? '正在保存…' : '确认并保存' }}
         </button>
       </div>
-      <p class="info-note">保存前请核对名称与公式。历史内容不会被覆盖。</p>
     </form>
   </AppModal>
 </template>

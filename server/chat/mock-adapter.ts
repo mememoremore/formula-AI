@@ -10,7 +10,7 @@ export const mockChatAdapter: ChatAdapter = {
       input.responseKind === 'FORMULA_EXPLANATION'
         ? JSON.stringify({
             schemaVersion: 1,
-            summary: '这是固定版本公式的模拟解释，不代表真实模型结论。',
+            summary: '这是公式的模拟解释，不代表真实模型结论。',
             symbols: [],
             conditions: ['请核对公式适用条件。'],
             steps: [

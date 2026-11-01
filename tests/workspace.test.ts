@@ -53,9 +53,10 @@ async function api(
   cookie = cookieA,
   body?: Record<string, unknown>,
   extraHeaders: Record<string, string> = {},
+  method?: string,
 ) {
   const response = await fetch(`${baseURL}${path}`, {
-    method: body === undefined ? 'GET' : 'POST',
+    method: method ?? (body === undefined ? 'GET' : 'POST'),
     headers: {
       cookie,
       origin,
@@ -371,13 +372,19 @@ test('其他用户不能读取公式或追加版本，未登录不能上传和�
   )
 })
 
-test('确认修改生成新版，刷新可读取，原始结果和原图仍保留', async () => {
-  const response = await api(`/api/account/formulas/${recognitionA.formulaId}/versions`, cookieA, {
-    title: '  保存后的公式  ',
-    latex: 'E = mc^2',
-    expectedVersionId: original.versions[0]!.id,
-    expectedTitle: original.title,
-  })
+test('当前公式 PATCH 保存后刷新可读取，历史任务引用和原图不受影响', async () => {
+  const response = await api(
+    `/api/account/formulas/${recognitionA.formulaId}`,
+    cookieA,
+    {
+      title: '  保存后的公式  ',
+      latex: 'E = mc^2',
+      expectedVersionId: original.versions[0]!.id,
+      expectedTitle: original.title,
+    },
+    {},
+    'PATCH',
+  )
   assert.equal(response.status, 200)
   const refreshed = (await (
     await api(`/api/account/formulas/${recognitionA.formulaId}`)
@@ -644,4 +651,28 @@ test('跨站写请求及不完整的版本参数被拒绝，不修改既有记�
   )
   const path = `/api/account/formulas/${recognitionA.formulaId}/versions`
   assert.equal((await api(path, cookieA, { title: '不完整请求', latex: 'x' })).status, 400)
+})
+
+test('已删除的识别公式返回明确结果状态，历史和搜索不会误报仍可查看', async () => {
+  const formulaId = recognitionA.formulaId
+  await db.formula.update({ where: { id: formulaId }, data: { deletedAt: new Date() } })
+  try {
+    const task = await (await api('/api/account/tasks/' + recognitionA.taskId)).json()
+    assert.equal(task.resultState, 'deleted')
+    assert.equal(task.formulaId, null)
+    for (const suffix of [
+      '',
+      '?q=' +
+        encodeURIComponent(
+          (await db.storedFile.findUniqueOrThrow({ where: { id: imageA.id } })).name,
+        ),
+    ]) {
+      const history = await (await api('/api/account/recognitions' + suffix)).json()
+      const row = history.items.find((item: { id: string }) => item.id === recognitionA.taskId)
+      assert.equal(row.resultState, 'deleted')
+      assert.equal(row.formulaId, null)
+    }
+  } finally {
+    await db.formula.update({ where: { id: formulaId }, data: { deletedAt: null } })
+  }
 })

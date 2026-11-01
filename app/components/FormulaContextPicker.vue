@@ -70,48 +70,54 @@ async function more() {
 }
 </script>
 <template>
-  <AppModal :open="true" title="选择对话中的公式" @close="emit('close')">
-    <form class="picker-search" role="search" @submit.prevent="query = draft.trim()">
-      <label class="sr-only" for="context-search">搜索库中公式</label>
-      <input
-        id="context-search"
-        v-model="draft"
-        class="input"
-        type="search"
-        maxlength="200"
-        placeholder="搜索公式"
-      />
-      <button class="icon-button" type="submit" aria-label="搜索公式">
-        <AppIcon name="search" :size="18" />
-      </button>
-    </form>
-    <div v-if="error" class="status-panel" role="alert">
-      公式暂时无法读取。
-      <button class="text-button" @click="refresh()">重试</button>
+  <AppModal :open="true" title="选择对话中的公式" sheet contained-scroll @close="emit('close')">
+    <div class="picker-content">
+      <form class="picker-search" role="search" @submit.prevent="query = draft.trim()">
+        <label class="sr-only" for="context-search">搜索库中公式</label>
+        <input
+          id="context-search"
+          v-model="draft"
+          class="input"
+          type="search"
+          maxlength="200"
+          placeholder="搜索公式"
+        />
+        <button class="icon-button" type="submit" aria-label="搜索公式">
+          <AppIcon name="search" :size="18" />
+        </button>
+      </form>
+      <div class="picker-results">
+        <div v-if="error" class="status-panel" role="alert">
+          公式暂时无法读取。
+          <button class="text-button" @click="refresh()">重试</button>
+        </div>
+        <p v-else-if="status === 'pending'" class="info-note section" role="status">
+          正在查找公式…
+        </p>
+        <div v-else class="stack picker-options">
+          <button
+            v-for="formula in page?.items"
+            :key="formula.id"
+            class="card context-option"
+            @click="emit('selected', formula)"
+          >
+            <span>{{ formula.title }}</span>
+            <MathFormula :latex="formula.latex" :display="false" />
+            <AppIcon name="plus" :size="16" />
+          </button>
+          <p v-if="!page?.items.length" class="info-note">没有匹配的公式，试试其他关键词。</p>
+        </div>
+        <p v-if="feedback" class="error-text section" role="alert">{{ feedback }}</p>
+        <button
+          v-if="page?.nextCursor && !error"
+          class="button button-secondary button-block section"
+          :disabled="loading || status === 'pending'"
+          @click="more"
+        >
+          {{ loading ? '正在加载…' : '加载更多公式' }}
+        </button>
+      </div>
     </div>
-    <p v-else-if="status === 'pending'" class="info-note section" role="status">正在查找公式…</p>
-    <div v-else class="stack section">
-      <button
-        v-for="formula in page?.items"
-        :key="formula.id"
-        class="card context-option"
-        @click="emit('selected', formula)"
-      >
-        <span>{{ formula.title }}</span>
-        <MathFormula :latex="formula.latex" :display="false" />
-        <AppIcon name="plus" :size="16" />
-      </button>
-      <p v-if="!page?.items.length" class="info-note">没有匹配的公式，试试其他关键词。</p>
-    </div>
-    <p v-if="feedback" class="error-text section" role="alert">{{ feedback }}</p>
-    <button
-      v-if="page?.nextCursor && !error"
-      class="button button-secondary button-block section"
-      :disabled="loading || status === 'pending'"
-      @click="more"
-    >
-      {{ loading ? '正在加载…' : '加载更多公式' }}
-    </button>
   </AppModal>
 </template>
 <style scoped>
@@ -126,8 +132,8 @@ async function more() {
 .context-option {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 12px;
-  padding: 16px;
+  gap: 8px;
+  padding: 12px;
   border: 1px solid var(--color-border);
   text-align: left;
   font-size: 14px;
@@ -140,5 +146,24 @@ async function more() {
   grid-row: 2;
   grid-column: 1/-1;
   max-width: 100%;
+}
+.picker-content {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-height: 0;
+}
+.picker-search {
+  flex-shrink: 0;
+}
+.picker-results {
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 2px;
+}
+.picker-options {
+  gap: 10px;
 }
 </style>

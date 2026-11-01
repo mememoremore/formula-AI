@@ -40,7 +40,7 @@ async function submit() {
     <PageHeader title="演示对话" :back-to="formula ? '/result/' + formula.id : '/ai'" />
     <p class="workspace-label">本机演示 · 使用固定模拟回答</p>
     <p v-if="invalidContext" class="error-text section" role="alert">
-      指定公式或版本不存在，请返回原公式重新选择。
+      指定公式不存在，请返回原公式重新选择。
     </p>
     <div v-if="formula" class="paper-preview"><MathFormula :latex="formula.latex" /></div>
     <div v-if="!messages.length" class="demo-welcome">

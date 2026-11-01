@@ -323,3 +323,19 @@ test('R9 真实私有存储保留仍在使用的头像，仅在成功替换或�
     await update({ name: '资料验收用户', avatar: null })
   }
 })
+
+test('个人中心统计仅来自当前账号，不接受请求头切换身份且隐藏软删除公式', async () => {
+  const response = await fetch(base + '/api/account/profile-stats', {
+    headers: { cookie, 'x-account-id': randomUUID() },
+  })
+  assert.equal(response.status, 200)
+  const stats = await response.json()
+  assert.equal(stats.ownerId, ownerId)
+  assert.equal(stats.formulas, await db.formula.count({ where: { ownerId, deletedAt: null } }))
+  assert.equal(
+    stats.favorites,
+    await db.favorite.count({ where: { ownerId, formula: { deletedAt: null } } }),
+  )
+  assert.equal(stats.conversations, await db.conversation.count({ where: { ownerId } }))
+  assert.equal((await fetch(base + '/api/account/profile-stats')).status, 401)
+})

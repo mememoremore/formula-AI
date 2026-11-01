@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { explanationLayout } from '~/utils/explanation-layout'
 import { explanationCopyText } from '~/utils/explanation-copy'
 const props = defineProps<{ conversationId: string; ownerId: string }>()
 const chat = useAccountChat(props.conversationId, props.ownerId)
@@ -6,6 +7,9 @@ const { data: conversation, error, status } = chat.request
 const { busy, feedback, stopping, streamFeedback, generating, submitting, pendingIntent } = chat
 const { recoveryReady, recoveryWarning } = chat
 const refresh = chat.refresh
+const layout = computed(() =>
+  conversation.value ? explanationLayout(conversation.value) : { question: null, messages: [] },
+)
 const turn = computed(() => conversation.value?.currentTurn)
 const draft = ref('')
 onBeforeRouteLeave(
@@ -50,26 +54,29 @@ await chat.request
       <details v-if="conversation?.context" class="chat-context">
         <summary>
           <AppIcon name="book" :size="15" />
-          <span>{{ conversation.context.title }}</span>
-          <small v-if="conversation.context.number > 1">v{{ conversation.context.number }}</small>
+          <span class="context-label">公式参考</span>
+          <MathFormula
+            class="context-summary"
+            :latex="conversation.context.latex"
+            :display="false"
+          />
           <AppIcon name="chevron" :size="14" />
         </summary>
         <MathFormula :latex="conversation.context.latex" />
-        <p class="info-note">对话绑定此公式版本，后续修改不会改变这里的上下文。</p>
       </details>
     </div>
     <template v-if="conversation">
+      <article
+        v-if="layout.question"
+        class="chat-message user explanation-question"
+        aria-label="解释提问"
+      >
+        <p>{{ layout.question }}</p>
+      </article>
       <section v-if="conversation.purpose === 'EXPLANATION'" class="card explanation-base">
         <template v-if="conversation.baseExplanation">
           <h2>AI 结构化解释</h2>
-          <p class="info-note">
-            固定 v{{ conversation.context?.number }} ·
-            {{
-              conversation.baseExplanation.isMock
-                ? '模拟解释'
-                : conversation.baseExplanation.modelVersion || 'AI解释'
-            }}
-          </p>
+          <p v-if="conversation.baseExplanation.isMock" class="info-note">模拟解释</p>
           <TextCopyAction
             :text="explanationCopyText(conversation.baseExplanation.structured)"
             label="复制完整解释"
@@ -77,13 +84,12 @@ await chat.request
           <FormulaExplanationContent :value="conversation.baseExplanation.structured" />
         </template>
         <p v-else role="status">
-          {{ busy ? '正在整理结构化解释，完成校验后展示。' : '这次解释未完成，可返回重新生成。' }}
+          {{ busy ? '正在生成解释…' : '这次解释未完成，可返回重新生成。' }}
         </p>
         <nav v-if="conversation.context" class="explanation-navigation" aria-label="解释操作">
           <NuxtLink
             :to="{
               path: '/formulas/' + conversation.context.formulaId,
-              query: { explainVersion: conversation.context.id },
               hash: '#explanation-create',
             }"
             class="text-button"
@@ -94,7 +100,6 @@ await chat.request
             v-if="conversation.context"
             :to="{
               path: '/formulas/' + conversation.context.formulaId,
-              query: { explainVersion: conversation.context.id },
               hash: '#explanation-history',
             }"
             class="text-button"
@@ -111,9 +116,7 @@ await chat.request
       </p>
       <div class="chat-messages">
         <article
-          v-for="message in conversation.messages.filter(
-            (row) => row.id !== conversation?.baseExplanation?.messageId,
-          )"
+          v-for="message in layout.messages"
           :key="message.id"
           class="chat-message"
           :class="message.role.toLowerCase()"
@@ -121,7 +124,7 @@ await chat.request
           <template v-if="message.role === 'ASSISTANT'">
             <div class="message-source">
               <AppIcon name="sparkles" :size="14" />
-              <span>{{ message.isMock ? '模拟回答' : 'DeepSeek' }}</span>
+              <span>{{ message.isMock ? '模拟回答' : 'AI' }}</span>
               <span v-if="message.status === 'FAILED'">· 回答未完成</span>
             </div>
             <ChatMessageContent :content="message.content" />
@@ -141,7 +144,7 @@ await chat.request
         >
           <div class="message-source">
             <AppIcon name="sparkles" :size="14" />
-            <span>{{ turn.isMock ? '模拟回答' : 'DeepSeek' }} · 生成中</span>
+            <span>{{ turn.isMock ? '模拟回答' : 'AI' }} · 生成中</span>
           </div>
           <ChatMessageContent :content="turn.partialContent" />
         </article>
@@ -176,7 +179,7 @@ await chat.request
       </button>
     </div>
     <div v-if="pendingIntent" class="status-panel section">
-      <p>原提问尚未确认，重试沿用原请求。原问题和请求标识暂存于此标签页，确认后移除。</p>
+      <p>提问结果待确认，请重试确认。</p>
       <button class="text-button" :disabled="submitting" @click="submit">确认原提问</button>
     </div>
     <p v-if="feedback" class="error-text section" role="alert">{{ feedback }}</p>
@@ -211,7 +214,7 @@ await chat.request
 .explanation-navigation {
   display: flex;
   flex-wrap: wrap;
-  column-gap: 24px;
+  column-gap: 20px;
   row-gap: 8px;
   margin-top: 12px;
 }
@@ -278,7 +281,7 @@ summary::-webkit-details-marker {
 .chat-message {
   min-width: 0;
   font-size: 16px;
-  line-height: 1.85;
+  line-height: 1.75;
 }
 .chat-message.user {
   align-self: flex-end;
@@ -356,5 +359,31 @@ summary::-webkit-details-marker {
   50% {
     opacity: 0.3;
   }
+}
+.context-summary {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  padding: 0;
+}
+.chat-context .context-label {
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+.chat-context:not([open]) .context-label {
+  display: none;
+}
+.chat-context[open] .context-summary {
+  display: none;
+}
+.chat-context[open] summary > .app-icon:last-child {
+  transform: rotate(90deg);
+}
+.chat-context {
+  padding: 9px 12px;
+}
+.explanation-question {
+  width: fit-content;
+  margin: 16px 0 16px auto;
 }
 </style>

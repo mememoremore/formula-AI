@@ -51,7 +51,7 @@ export async function submitExplanation(
                 formulaVersionId: input.versionId,
                 purpose: 'EXPLANATION',
                 requestKey: input.requestKey,
-                title: (context.title + ' · v' + context.number + ' 解释').slice(0, 100),
+                title: (context.title + ' 解释').slice(0, 100),
               },
             })
             const turn = await tx.chatTurn.create({

@@ -1,5 +1,11 @@
 <script setup lang="ts">
-const props = defineProps<{ open: boolean; title: string; sheet?: boolean; fullScreen?: boolean }>()
+const props = defineProps<{
+  open: boolean
+  title: string
+  sheet?: boolean
+  fullScreen?: boolean
+  containedScroll?: boolean
+}>()
 const emit = defineEmits<{ close: [] }>()
 const dialog = ref<HTMLDialogElement>()
 const titleId = useId()
@@ -20,7 +26,7 @@ onMounted(() => {
   <dialog
     ref="dialog"
     class="app-modal"
-    :class="{ 'app-sheet': sheet, 'app-fullscreen': fullScreen }"
+    :class="{ 'app-sheet': sheet, 'app-fullscreen': fullScreen, 'app-contained': containedScroll }"
     :aria-labelledby="titleId"
     @cancel.prevent="emit('close')"
     @click="$event.target === dialog && emit('close')"
@@ -31,7 +37,8 @@ onMounted(() => {
         <AppIcon name="close" />
       </button>
     </div>
-    <slot />
+    <div v-if="containedScroll" class="modal-body"><slot /></div>
+    <slot v-else />
   </dialog>
 </template>
 
@@ -72,5 +79,29 @@ onMounted(() => {
   margin: 0 auto;
   border-radius: 0;
   padding: calc(20px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+}
+.app-contained.app-sheet {
+  max-width: 100%;
+}
+.app-contained[open] {
+  display: flex;
+  flex-direction: column;
+  height: min(82dvh, 720px);
+  overflow: hidden;
+}
+.app-contained .modal-heading {
+  flex-shrink: 0;
+}
+.modal-body {
+  flex: 1;
+  min-height: 0;
+}
+@media (min-width: 900px) {
+  .app-contained.app-sheet {
+    inset: 0;
+    margin: auto;
+    width: 456px;
+    border-radius: var(--radius-dialog);
+  }
 }
 </style>

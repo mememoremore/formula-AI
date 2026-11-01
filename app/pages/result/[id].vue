@@ -15,7 +15,6 @@ const image = computed(() =>
 )
 const showEditor = ref(false),
   showCategory = ref(false),
-  showVersions = ref(false),
   showExport = ref(false)
 const title = ref(''),
   latex = ref(''),
@@ -30,22 +29,10 @@ const editorDirty = computed(
     categoryId.value !== original.value.categoryId,
 )
 const { canLeave } = useFormulaDraftGuard(showEditor, editorDirty, saving)
-const versions = computed(() =>
-  (formula.value?.versions ?? []).map((version, index) => ({
-    ...version,
-    number: index + 1,
-    label: index === 0 ? '本机原始内容' : '本机修订',
-    to: {
-      path: '/ai/new',
-      query: { space: 'demo', formulaId: formula.value!.id, demoVersionId: version.id },
-    },
-  })),
-)
 watch(
   () => route.params.id,
   () => {
     showEditor.value = false
-    showVersions.value = false
     showCategory.value = false
     showExport.value = false
   },
@@ -94,14 +81,11 @@ function saveCategory() {
       :key="formula.id"
       :title="formula.title"
       :latex="formula.latex"
-      :version="formula.versions.length"
-      :version-count="formula.versions.length"
       :image-src="image"
       :original-latex="formula.originalLatex"
       :sample="formula.source === 'demo'"
       badge="本机演示"
       @edit="edit"
-      @versions="showVersions = true"
     >
       <template #organization>
         <div class="organization-row">
@@ -194,7 +178,6 @@ function saveCategory() {
         <button class="button button-primary" type="submit">保存分类</button>
       </form>
     </AppModal>
-    <FormulaVersions :open="showVersions" :versions="versions" @close="showVersions = false" />
     <AppModal :open="showExport" title="使用账号公式导出 Word" @close="showExport = false">
       <p class="prose">
         本机演示公式不能直接生成账号文档。登录后上传公式图片，即可在账号公式详情中导出；演示数据不会自动导入。

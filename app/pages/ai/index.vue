@@ -37,12 +37,10 @@ if (typeof route.query.formulaId === 'string' && route.query.space !== 'account'
   <div class="ai-page">
     <AppBrand :account-user="session.data.value?.user ?? null" />
     <header class="ai-intro">
-      <p class="eyebrow">理解，从一次提问开始</p>
       <h1>
         AI 助手
         <span>✧</span>
       </h1>
-      <p>留住每一段思考，让公式变得清晰。</p>
     </header>
     <div v-if="session.status.value === 'pending'" class="status-panel" role="status">
       正在确认账号…
@@ -58,7 +56,7 @@ if (typeof route.query.formulaId === 'string' && route.query.space !== 'account'
       </NuxtLink>
       <EmptyState
         title="从一个问题开始"
-        description="本机演示按公式版本保存模拟对话。再次打开可继续普通演示；从演示公式进入可继续对应记录。账号列表与本机记录独立。"
+        description="本机演示按公式保存模拟对话。再次打开可继续普通演示；从演示公式进入可继续对应记录。账号列表与本机记录独立。"
       />
       <NuxtLink to="/login?redirect=/ai" class="text-button">
         登录使用账号 AI
@@ -70,7 +68,7 @@ if (typeof route.query.formulaId === 'string' && route.query.space !== 'account'
 </template>
 <style scoped>
 .ai-intro {
-  padding: 28px 0 24px;
+  padding: 12px 0 16px;
 }
 .eyebrow {
   color: var(--color-primary);
@@ -78,7 +76,7 @@ if (typeof route.query.formulaId === 'string' && route.query.space !== 'account'
   letter-spacing: 0.08em;
 }
 .ai-intro h1 {
-  font-size: 32px;
+  font-size: 26px;
   line-height: 1.4;
   margin: 8px 0;
 }

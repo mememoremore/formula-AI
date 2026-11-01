@@ -65,7 +65,7 @@ export async function createConversation(
                 ownerId,
                 formulaVersionId,
                 requestKey,
-                title: context ? `${context.title} · v${context.number}`.slice(0, 100) : '普通对话',
+                title: context ? context.title.slice(0, 100) : '普通对话',
               },
             })
           },
@@ -145,7 +145,9 @@ async function readConversationSnapshot(
       conversation.purpose === 'EXPLANATION' ? await readBaseExplanation(db, ownerId, id) : null,
     protocolVersion: 2,
     revision: conversation.revision.toString(),
-    title: conversation.title,
+    title: conversation.formulaVersionId
+      ? conversation.title.replace(/ · v[0-9]+(?= 解释$|$)/, '')
+      : conversation.title,
     context: conversation.formulaVersionId
       ? await readVersionContext(db, ownerId, conversation.formulaVersionId)
       : null,
