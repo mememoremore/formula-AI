@@ -1,3 +1,7 @@
+import { observeHttp } from '../diagnostics/metrics'
+import { traced, currentTrace } from '../diagnostics/tracing'
+import { SpanKind, SpanStatusCode } from '@opentelemetry/api'
+import { safeRoute } from '../../shared/trace-context'
 import { WorkspaceError } from '../services/workspace-error'
 import { DatabaseOperationError } from '../database/errors'
 import { ResourceLimitError } from '../resources/policy'
@@ -7,6 +11,8 @@ import { diagnostic, safeDiagnosticCode, withDiagnostics } from '../diagnostics/
 
 /** HTTP上下文与事务规则分开；成功GET/SSE不产生日志，避免轮询放大。 */
 export function workspaceRequest<T>(event: H3Event, operation: () => Promise<T>): Promise<T> {
+  const metricStarted = performance.now()
+  let failedStatus: number | undefined
   const requestId = randomUUID()
   setResponseHeader(event, 'X-Request-Id', requestId)
   const path = event.path.split('?')[0] ?? ''
@@ -21,48 +27,80 @@ export function workspaceRequest<T>(event: H3Event, operation: () => Promise<T>)
           : path.includes('/profile')
             ? 'profile'
             : 'account'
-  return withDiagnostics(
-    { requestId, operation: kind },
-    async () => {
-      const start = performance.now()
-      let observedCode: string | undefined
-      try {
-        const result = await workspaceOperation(operation, (error) => {
-          observedCode = safeDiagnosticCode(error)
-        })
-        if (!['GET', 'HEAD'].includes(event.method) || path.endsWith('/download')) {
-          const row =
-            result && typeof result === 'object' ? (result as Record<string, unknown>) : {}
-          const file =
-            row.file && typeof row.file === 'object' ? (row.file as Record<string, unknown>) : {}
-          diagnostic('http.operation', {
-            stage: 'request',
-            outcome: 'returned',
-            durationMs: Math.round(performance.now() - start),
-            status: getResponseStatus(event),
-            resourceId: typeof row.id === 'string' ? row.id : getRouterParam(event, 'id'),
-            taskId: typeof row.id === 'string' && 'attemptCount' in row ? row.id : undefined,
-            fileId:
-              typeof row.fileId === 'string'
-                ? row.fileId
-                : typeof file.id === 'string'
-                  ? file.id
-                  : undefined,
-          })
-        }
-        return result
-      } catch (error) {
-        diagnostic('http.operation', {
-          stage: 'request',
-          outcome: 'failed',
-          resourceId: getRouterParam(event, 'id'),
-          code: observedCode ?? safeDiagnosticCode(error),
-          durationMs: Math.round(performance.now() - start),
-        })
-        throw error
-      }
+  return traced(
+    event.method + ' ' + safeRoute(path),
+    async (span) => {
+      setResponseHeader(event, 'X-Trace-Id', currentTrace()!.traceId)
+      span.setAttribute('http.request.method', event.method)
+      span.setAttribute('http.route', safeRoute(path))
+      return withDiagnostics(
+        { requestId, operation: kind },
+        async () => {
+          const start = performance.now()
+          let observedCode: string | undefined
+          try {
+            const result = await workspaceOperation(operation, (error) => {
+              observedCode = safeDiagnosticCode(error)
+            })
+            if (!['GET', 'HEAD'].includes(event.method) || path.endsWith('/download')) {
+              const row =
+                result && typeof result === 'object' ? (result as Record<string, unknown>) : {}
+              const file =
+                row.file && typeof row.file === 'object'
+                  ? (row.file as Record<string, unknown>)
+                  : {}
+              const nestedTask =
+                row.task && typeof row.task === 'object'
+                  ? (row.task as Record<string, unknown>)
+                  : {}
+              diagnostic('http.operation', {
+                stage: 'request',
+                outcome: 'returned',
+                durationMs: Math.round(performance.now() - start),
+                status: getResponseStatus(event),
+                resourceId: typeof row.id === 'string' ? row.id : getRouterParam(event, 'id'),
+                taskId:
+                  typeof nestedTask.id === 'string'
+                    ? nestedTask.id
+                    : typeof row.id === 'string' && 'attemptCount' in row
+                      ? row.id
+                      : undefined,
+                fileId:
+                  typeof row.fileId === 'string'
+                    ? row.fileId
+                    : typeof file.id === 'string'
+                      ? file.id
+                      : undefined,
+              })
+            }
+            return result
+          } catch (error) {
+            const code = (error as { statusCode?: number }).statusCode
+            failedStatus = typeof code === 'number' && code >= 400 && code <= 599 ? code : 500
+            diagnostic('http.operation', {
+              status: failedStatus,
+              stage: 'request',
+              outcome: 'failed',
+              resourceId: getRouterParam(event, 'id'),
+              code: observedCode ?? safeDiagnosticCode(error),
+              durationMs: Math.round(performance.now() - start),
+            })
+            throw error
+          }
+        },
+        { inheritContext: false },
+      ).finally(() => {
+        observeHttp(
+          event.method,
+          path,
+          failedStatus ?? getResponseStatus(event),
+          (performance.now() - metricStarted) / 1000,
+        )
+        span.setAttribute('http.response.status_code', failedStatus ?? getResponseStatus(event))
+        if (getResponseStatus(event) >= 500) span.setStatus({ code: SpanStatusCode.ERROR })
+      })
     },
-    { inheritContext: false },
+    { parent: getHeader(event, 'traceparent'), root: true, kind: SpanKind.SERVER },
   )
 }
 

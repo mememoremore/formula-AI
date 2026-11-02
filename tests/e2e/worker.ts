@@ -1,3 +1,4 @@
+import { setTraceService } from '../../server/diagnostics/tracing'
 import { explanationFixture } from '../fixtures/explanation'
 import { testEnvironment as config } from '../support/integration.ts'
 import { createDatabaseClient } from '../../server/database/client'
@@ -15,6 +16,8 @@ import { resolve } from 'node:path'
 import { createHash } from 'node:crypto'
 
 // A real pg-boss consumer; only the external inference boundary is replaced.
+setTraceService('formula-worker')
+process.env.FORMULA_SERVICE_NAME = 'formula-worker'
 const db = createDatabaseClient(config.databaseUrl)
 const boss = createQueueClient(config.databaseUrl, { worker: true })
 const store = createObjectStore({ ...config.storage, region: 'us-east-1' })

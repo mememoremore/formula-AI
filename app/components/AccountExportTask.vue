@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const accountFetch = useAccountFetch()
 import { usageInvalidated } from '~/utils/account-cache'
 import type { ExportTaskState } from '#shared/types/tasks'
 import {
@@ -10,7 +11,7 @@ import {
 } from '~/utils/export-state'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 const props = defineProps<{ id: string; ownerId: string }>()
-const fetcher = useRequestFetch(),
+const fetcher = useAccountFetch(),
   session = useAccountSession()
 let disposed = false,
   accepted: ExportTaskState | undefined
@@ -88,7 +89,7 @@ async function retry() {
     sessionStorage.setItem(EXPORT_RECOVERY_KEY, JSON.stringify(rows))
     uncertain.value = true
     sent = true
-    const next = await $fetch<ExportTaskState>('/api/account/exports', {
+    const next = await accountFetch<ExportTaskState>('/api/account/exports', {
       method: 'POST',
       body: { formulaVersionId: receipt.versionId, requestKey: receipt.requestKey },
       retry: 0,
@@ -122,7 +123,7 @@ async function download() {
   downloading.value = true
   downloadFeedback.value = ''
   try {
-    const blob = await $fetch<Blob>(downloadPath.value, {
+    const blob = await accountFetch<Blob>(downloadPath.value, {
       responseType: 'blob',
       retry: 0,
       timeout: 30000,

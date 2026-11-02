@@ -157,6 +157,8 @@ export async function launchApi(output: 'inherit' | number = 'inherit') {
   await portMustBeFree(3100)
   const env = isolatedChildEnvironment(config, process.env.FORMULA_TEST_MANIFEST!)
   env.CI = '1'
+  env.FORMULA_METRICS_ENABLED = 'true'
+  env.NUXT_PUBLIC_OBSERVABILITY_ENABLED = 'true'
   // Node 24 原生剥离此预加载器的类型；不把 tsx loader 注入 Nuxt 的内部 Worker。
   env.NODE_OPTIONS = `--import=${pathToFileURL(resolve('tests/support/api-safety.ts')).href}`
   const child = spawn(

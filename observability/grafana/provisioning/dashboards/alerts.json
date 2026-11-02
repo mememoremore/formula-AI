@@ -1,0 +1,105 @@
+{
+  "uid": "formula-alerts",
+  "title": "Formula AI 基础告警",
+  "schemaVersion": 39,
+  "version": 1,
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "告警说明",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "服务不可采集持续2分钟；积压>10持续5分钟；API错误率需至少20个样本。低流量不会因一个失败就报警。邮件按告警分组，持续异常默认4小时重复一次；恢复也会通知。阈值是初始基线，需按实际运行调整。\n\n[运行总览](/d/formula-overview) · [本机告警管理](http://127.0.0.1:9093)"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "正在触发",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(ALERTS{alertstate=\"firing\"}) or vector(0)",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "等待持续时间确认",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 12,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(ALERTS{alertstate=\"pending\"}) or vector(0)",
+          "instant": true
+        }
+      ],
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"]
+        }
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "当前告警",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 12
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "ALERTS",
+          "instant": true,
+          "format": "table"
+        }
+      ]
+    }
+  ]
+}

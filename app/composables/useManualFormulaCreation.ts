@@ -7,6 +7,7 @@ import {
 import { formulaViewsInvalidated } from '~/utils/account-cache'
 /** A session-only, owner-bound receipt keeps the exact body/key for uncertain requests. */
 export function useManualFormulaCreation(ownerId: Ref<string>) {
+  const accountFetch = useAccountFetch()
   const receipt = shallowRef<ManualCreationReceipt | null>(null),
     busy = ref(false),
     ready = ref(false),
@@ -52,7 +53,7 @@ export function useManualFormulaCreation(ownerId: Ref<string>) {
       // Persist before the first HTTP write; storage failure must not send an unrepeatable request.
       sessionStorage.setItem(MANUAL_CREATION_RECOVERY_KEY, JSON.stringify(intent))
       receipt.value = intent
-      const result = await $fetch<SavedFormula>('/api/account/formulas', {
+      const result = await accountFetch<SavedFormula>('/api/account/formulas', {
         method: 'POST',
         body: intent.input,
         headers: { 'x-account-id': owner },

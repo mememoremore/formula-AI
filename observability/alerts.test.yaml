@@ -1,0 +1,47 @@
+rule_files:
+  - alerts.yaml
+evaluation_interval: 30s
+tests:
+  - interval: 30s
+    input_series:
+      - series: 'up{job="formula-api",instance="fixture"}'
+        values: '1 0 0 0 0 0 0 1 1'
+    alert_rule_test:
+      - eval_time: 1m
+        alertname: FormulaServiceDown
+        exp_alerts: []
+      - eval_time: 3m
+        alertname: FormulaServiceDown
+        exp_alerts:
+          - exp_labels:
+              job: formula-api
+              instance: fixture
+              severity: critical
+            exp_annotations:
+              summary: 服务 formula-api 连续两分钟无法采集
+              runbook: http://127.0.0.1:3300/d/formula-overview
+      - eval_time: 4m
+        alertname: FormulaServiceDown
+        exp_alerts: []
+  - interval: 30s
+    input_series:
+      - series: 'formula_http_requests_total{status="500"}'
+        values: '0+0x30'
+      - series: 'formula_http_requests_total{status="200"}'
+        values: '0+0x30'
+      - series: 'formula_task_results_total{service="formula-worker",kind="chat",outcome="cancelled"}'
+        values: '0+1x30'
+      - series: 'formula_queue_snapshot_success{service="formula-worker"}'
+        values: '0+0x30'
+      - series: 'formula_tasks_queued{service="formula-worker"}'
+        values: '100+0x30'
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: FormulaApiErrors
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: FormulaTaskFailures
+        exp_alerts: []
+      - eval_time: 10m
+        alertname: FormulaQueueBacklog
+        exp_alerts: []

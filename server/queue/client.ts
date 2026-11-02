@@ -9,6 +9,7 @@ export const queues = {
 export interface JobPayload {
   taskId: string
   ownerId: string
+  traceparent?: string
 }
 
 /** API 只投递；独立 Worker 执行与监督。数据库结构升级由显式 setup 命令负责。 */

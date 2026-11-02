@@ -7,6 +7,7 @@ import {
   activeChatTurn,
 } from '~/utils/chat-state'
 export function useAccountChat(id: string, ownerId: string) {
+  const accountFetch = useAccountFetch()
   let disposed = false,
     accepted: SavedConversation | undefined
   const controllers = new Set<AbortController>()
@@ -38,7 +39,7 @@ export function useAccountChat(id: string, ownerId: string) {
       feedback.value = '身份已失效或对话不可访问，请重新登录。'
     },
   )
-  const read = useRequestFetch()
+  const read = useAccountFetch()
   const request = useTaskPolling<SavedConversation>(
     `account-conversation-${ownerId}-${id}`,
     `/api/account/conversations/${id}`,
@@ -89,7 +90,7 @@ export function useAccountChat(id: string, ownerId: string) {
     stopping.value = true
     feedback.value = ''
     try {
-      const value = await $fetch<SavedConversation>(
+      const value = await accountFetch<SavedConversation>(
         `/api/account/conversations/${id}/turns/${turn!.id}/cancel`,
         {
           method: 'POST',
@@ -141,7 +142,7 @@ export function useAccountChat(id: string, ownerId: string) {
     feedback.value = ''
     try {
       intents.put(intent)
-      await $fetch(`/api/account/conversations/${id}/messages`, {
+      await accountFetch(`/api/account/conversations/${id}/messages`, {
         method: 'POST',
         body: { question: intent.question, requestKey: intent.requestKey },
         retry: 0,

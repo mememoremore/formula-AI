@@ -1,5 +1,6 @@
 """HTTP 协议、鉴权与并发控制；推理实现集中在 engine.py。"""
 
+import os
 import hmac
 import logging
 import re
@@ -10,8 +11,9 @@ from uuid import uuid4
 
 from fastapi import Depends, FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.concurrency import run_in_threadpool
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 
+from .telemetry import TracingMiddleware, process_metrics
 from .body_limit import BodyLimitMiddleware, BodyTooLarge
 from .engine import FormulaEngine, InvalidImage, InvalidPrediction, decode_image, validate_latex
 from .settings import MAX_IMAGE_BYTES, Settings
@@ -34,6 +36,7 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
 
     application = FastAPI(lifespan=lifespan, docs_url=None, redoc_url=None, openapi_url=None)
     application.add_middleware(BodyLimitMiddleware, max_bytes=MAX_IMAGE_BYTES + 64 * 1024)
+    application.add_middleware(TracingMiddleware)
 
     @application.exception_handler(BodyTooLarge)
     async def body_too_large(_request, _error):
@@ -43,6 +46,12 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
         expected = f"Bearer {application.state.configuration.api_key}"
         if not hmac.compare_digest((authorization or "").encode(), expected.encode()):
             raise HTTPException(status_code=401, detail="识别服务凭据无效。")
+
+    @application.get("/metrics")
+    def metrics():
+        if os.getenv("FORMULA_METRICS_ENABLED") != "true":
+            raise HTTPException(status_code=404, detail="Not found")
+        return PlainTextResponse(process_metrics(), media_type="text/plain; version=0.0.4")
 
     @application.get("/ready")
     def ready():

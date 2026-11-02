@@ -9,6 +9,7 @@ const result = spawnSync(
     '--check',
     'app',
     'shared',
+    'observability',
     'server',
     'scripts',
     'tests',

@@ -3,7 +3,12 @@ export default defineNuxtConfig({
   devtools: { enabled: false },
   css: ['katex/dist/katex.min.css', '~/assets/css/main.css'],
   typescript: { strict: true },
-  vite: { optimizeDeps: { include: ['@lucide/vue', 'katex', 'better-auth/vue'] } },
+  vite: {
+    optimizeDeps: { include: ['@lucide/vue', 'katex', 'better-auth/vue'] },
+    server: {
+      allowedHosts: process.env.FORMULA_METRICS_ENABLED === 'true' ? ['host.docker.internal'] : [],
+    },
+  },
   runtimeConfig: {
     // Private fields are only readable by server routes. Never move keys into public.
     databaseUrl: '',
@@ -24,7 +29,7 @@ export default defineNuxtConfig({
     recognitionDailyLimit: 50,
     chatDailyLimit: 30,
     exportDailyLimit: 20,
-    public: { appName: 'Formula AI' },
+    public: { appName: 'Formula AI', observabilityEnabled: false },
   },
   app: {
     head: {

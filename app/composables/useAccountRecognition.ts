@@ -5,6 +5,8 @@ import type { RecognitionReceipt } from '~/utils/recognition-state'
 
 /** 同一上传/提交沿用请求键；只在收到明确任务响应后释放恢复信息。 */
 export function useAccountRecognition(ownerId: Ref<string | undefined>) {
+  const accountFetch = useAccountFetch()
+  const tracing = useNuxtApp().$traceOperation
   const draft = useNuxtApp().$uploadDraft
   const stage = ref<'idle' | 'uploading' | 'submitting'>('idle')
   const receipt = computed(() =>
@@ -27,11 +29,11 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
     signal.throwIfAborted()
     if (disposed || ownerId.value !== owner) throw new Error('账号或页面已变化')
   }
-  async function submit(value: RecognitionReceipt, signal: AbortSignal) {
+  async function submit(value: RecognitionReceipt, signal: AbortSignal, parent?: string) {
     draft.putReceipt(value)
     stage.value = 'submitting'
     try {
-      const response = await $fetch.raw<RecognitionTaskState>('/api/account/recognitions', {
+      const response = await accountFetch.raw<RecognitionTaskState>('/api/account/recognitions', {
         method: 'POST',
         body: {
           fileId: value.fileId,
@@ -39,6 +41,7 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
           requestKey: value.requestKey,
           requestedTitle: value.requestedTitle ?? null,
         },
+        headers: parent ? { traceparent: parent } : {},
         retry: 0,
         timeout: 30_000,
         signal,
@@ -60,8 +63,9 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
     draft.requireRecovery()
     const active = new AbortController()
     controller = active
+    const operation = tracing?.('recognition.submit')
     try {
-      if (receipt.value) return await submit(receipt.value, active.signal)
+      if (receipt.value) return await submit(receipt.value, active.signal, operation?.header)
       if (!file) throw new Error('请重新选择图片')
       if (draft.transfer.value?.file !== file || draft.transfer.value.ownerId !== owner)
         draft.transfer.value = {
@@ -77,13 +81,14 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
         transfer.uncertain = true
         triggerRef(draft.transfer)
         try {
-          const result = await $fetch<{ image: UploadedImage }>('/api/account/files', {
+          const result = await accountFetch<{ image: UploadedImage }>('/api/account/files', {
             method: 'POST',
             body: file,
             signal: active.signal,
             timeout: 60_000,
             retry: 0,
             headers: {
+              ...(operation ? { traceparent: operation.header } : {}),
               'content-type': file.type,
               'x-file-name': encodeURIComponent(file.name),
               'x-upload-key': transfer.key,
@@ -114,8 +119,10 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
           ...(requestedTitle ? { requestedTitle } : {}),
         },
         active.signal,
+        operation?.header,
       )
     } finally {
+      operation?.end()
       if (controller === active) {
         controller = undefined
         stage.value = 'idle'
@@ -134,6 +141,7 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
     draft.requireRecovery()
     const active = new AbortController()
     controller = active
+    const operation = tracing?.('recognition.retry')
     try {
       return await submit(
         retryReceipt(task.id) ?? {
@@ -145,8 +153,10 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
           sourceTaskId: task.id,
         },
         active.signal,
+        operation?.header,
       )
     } finally {
+      operation?.end()
       if (controller === active) {
         controller = undefined
         stage.value = 'idle'

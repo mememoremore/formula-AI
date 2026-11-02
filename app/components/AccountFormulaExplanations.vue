@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const accountFetch = useAccountFetch()
 import type { ExplanationHistoryPage } from '#shared/types/tasks'
 import type { SavedFormula } from '#shared/types/workspace'
 import { chatSubmissionInvalidated } from '~/utils/account-cache'
@@ -16,7 +17,7 @@ const loading = ref(false),
   feedback = ref(''),
   ready = ref(false)
 const pending = ref<ReturnType<typeof parseExplanationIntent>>(null)
-const fetcher = useRequestFetch()
+const fetcher = useAccountFetch()
 let disposed = false,
   sequence = 0,
   controller: AbortController | undefined,
@@ -102,7 +103,7 @@ async function generate() {
   try {
     sessionStorage.setItem(EXPLANATION_RECOVERY_KEY, JSON.stringify(intent))
     pending.value = intent
-    const result = await $fetch<{ conversationId: string }>(
+    const result = await accountFetch<{ conversationId: string }>(
       '/api/account/formulas/' + intent.formulaId + '/explanations',
       {
         method: 'POST',

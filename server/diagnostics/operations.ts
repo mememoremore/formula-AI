@@ -1,3 +1,6 @@
+import { safeRoute } from '../../shared/trace-context'
+import { currentTrace } from './tracing'
+import { writeDiagnosticFile } from './log-sink'
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { createHash } from 'node:crypto'
 
@@ -11,6 +14,13 @@ type Operation =
   | 'lease-recovery'
   | 'task-recovery'
 export interface DiagnosticFields {
+  errorKind?: string
+  errorName?: string
+  route?: string
+  asset?: string
+  line?: number
+  column?: number
+  fingerprint?: string
   stage?: 'request' | 'attempt' | 'prepared' | 'finished' | 'audit' | 'reconcile' | 'storage-check'
   operation?: Operation
   ownerId?: string
@@ -99,6 +109,7 @@ const codes = new Set([
   'CALL_OUTCOME_UNKNOWN',
 ])
 type Event =
+  | 'browser.error'
   | 'http.operation'
   | 'worker.attempt'
   | 'chat.call'
@@ -153,7 +164,24 @@ export function diagnostic(
     ...(options.inheritContext === false ? undefined : context.getStore()),
     ...fields,
   }
-  const entry: Record<string, string | number> = { event }
+  const service =
+    event === 'browser.error'
+      ? 'formula-browser'
+      : process.env.FORMULA_SERVICE_NAME === 'formula-worker'
+        ? 'formula-worker'
+        : 'formula-api'
+  const span = options.inheritContext === false ? undefined : currentTrace()
+  const entry: Record<string, string | number> = {
+    event,
+    timestamp: new Date().toISOString(),
+    service,
+    environment: 'local',
+    level: value.outcome === 'failed' || value.outcome === 'unconfirmed' ? 'error' : 'info',
+  }
+  if (span) {
+    entry.traceId = span.traceId
+    entry.spanId = span.spanId
+  }
   for (const key of [
     'requestId',
     'taskId',
@@ -169,7 +197,7 @@ export function diagnostic(
     if (typeof value[key] === 'string' && uuid.test(value[key])) entry[key] = value[key]
   if (typeof value.ownerId === 'string' && uuid.test(value.ownerId))
     entry.ownerRef = createHash('sha256').update(value.ownerId).digest('hex').slice(0, 16)
-  for (const key of ['attempt', 'status', 'reviewed', 'durationMs'] as const)
+  for (const key of ['attempt', 'status', 'reviewed', 'durationMs', 'line', 'column'] as const)
     if (Number.isSafeInteger(value[key]) && value[key]! >= 0) entry[key] = value[key]!
   if (
     value.stage &&
@@ -190,8 +218,31 @@ export function diagnostic(
     entry.auditAction = value.auditAction
   if (value.auditOutcome && ['STARTED', 'REVIEW_REQUIRED', 'DELETED'].includes(value.auditOutcome))
     entry.auditOutcome = value.auditOutcome
+  if (value.errorKind && ['vue', 'window', 'promise'].includes(value.errorKind))
+    entry.errorKind = value.errorKind
+  if (
+    value.errorName &&
+    [
+      'Error',
+      'TypeError',
+      'ReferenceError',
+      'SyntaxError',
+      'RangeError',
+      'URIError',
+      'EvalError',
+      'AggregateError',
+    ].includes(value.errorName)
+  )
+    entry.errorName = value.errorName
+  if (value.route) entry.route = safeRoute(value.route)
+  if (value.asset && /^[A-Za-z0-9_-]{1,120}\.(?:m?js|vue)$/.test(value.asset))
+    entry.asset = value.asset
+  if (value.fingerprint && /^[a-f0-9]{64}$/.test(value.fingerprint))
+    entry.fingerprint = value.fingerprint
   try {
-    console.info(JSON.stringify(entry))
+    const line = JSON.stringify(entry)
+    console.info(line)
+    writeDiagnosticFile(service, line)
   } catch {
     /* 日志输出失败不能改变已提交的业务结果。 */
   }

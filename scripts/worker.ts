@@ -1,3 +1,5 @@
+import { startWorkerMetrics } from '../server/diagnostics/worker-metrics'
+import { setTraceService, shutdownTraces } from '../server/diagnostics/tracing'
 import { diagnostic } from '../server/diagnostics/operations'
 import { leaseRecoveryPolicy, startLeaseRecovery } from '../server/resources/lease-recovery'
 import 'dotenv/config'
@@ -6,6 +8,8 @@ import { createQueueClient } from '../server/queue/client'
 import { createObjectStore } from '../server/storage/object-store'
 import { registerWorkers } from '../server/worker/start'
 import { recoveryPolicy, startTaskRecovery } from '../server/worker/recovery'
+setTraceService('formula-worker')
+process.env.FORMULA_SERVICE_NAME = 'formula-worker'
 const recoveryOptions = recoveryPolicy()
 const leaseOptions = leaseRecoveryPolicy()
 const db = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
@@ -21,6 +25,7 @@ const shutdownSignal = new AbortController()
 let stopping = false,
   startup: Promise<void> | undefined,
   shutdown: Promise<void> | undefined
+let metricsServer: Awaited<ReturnType<typeof startWorkerMetrics>> | undefined
 let recovery: Awaited<ReturnType<typeof startTaskRecovery>> | undefined
 let leaseRecovery: Awaited<ReturnType<typeof startLeaseRecovery>> | undefined
 function stop() {
@@ -34,7 +39,9 @@ function stop() {
     try {
       await boss.stop({ graceful: true, timeout: 25000 })
     } finally {
+      await metricsServer?.stop()
       await db.$disconnect()
+      await shutdownTraces()
     }
   })()
   return shutdown
@@ -50,6 +57,7 @@ for (const signal of ['SIGINT', 'SIGTERM'])
   })
 async function start() {
   await db.$connect()
+  metricsServer = await startWorkerMetrics(db)
   if (stopping) return
   await store.check()
   if (stopping) return

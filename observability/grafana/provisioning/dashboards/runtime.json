@@ -1,0 +1,58 @@
+{
+  "uid": "formula-runtime",
+  "title": "Formula AI 运行日志",
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "10s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "如何排查一次操作",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 5
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "1. 在下方查看 API、Worker、Python 的业务日志。\n2. 点开日志，展开 TraceID 链接可查看调用链。\n3. 已有 trace ID：打开 Explore，选择 Formula Traces，输入完整 trace ID 查询。\n\n日志搜索：`{service=~\"formula-.+\"} | json | traceId = \"你的编号\"`\n\n仅收集经过白名单过滤的业务诊断；不采集原始请求正文、Cookie、密钥和图片。"
+      }
+    },
+    {
+      "id": 2,
+      "type": "logs",
+      "title": "各服务业务日志",
+      "datasource": {
+        "type": "loki",
+        "uid": "formula-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 18
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=~\"formula-.+\"}",
+          "queryType": "range"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true
+      }
+    }
+  ]
+}

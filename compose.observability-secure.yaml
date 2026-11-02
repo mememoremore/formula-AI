@@ -1,0 +1,16 @@
+services:
+  grafana:
+    environment:
+      GF_AUTH_ANONYMOUS_ENABLED: 'false'
+      GF_AUTH_DISABLE_LOGIN_FORM: 'false'
+      GF_AUTH_BASIC_ENABLED: 'true'
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana-admin-password
+      GF_SECURITY_COOKIE_SAMESITE: strict
+      GF_SECURITY_COOKIE_SECURE: ${FORMULA_GRAFANA_COOKIE_SECURE:-false}
+      GF_SERVER_ROOT_URL: ${FORMULA_GRAFANA_URL:-http://127.0.0.1:3300}
+      GF_SNAPSHOTS_EXTERNAL_ENABLED: 'false'
+    secrets:
+      - grafana-admin-password
+secrets:
+  grafana-admin-password:
+    file: ./tmp/observability-secrets/grafana-admin-password

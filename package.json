@@ -37,8 +37,8 @@
     "recognition:verify": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/verify-recognition-flow.ts",
     "test:recognition-service": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-python.ts",
     "test:private-config": "npm run check:build",
-    "format": "prettier --write app shared server scripts tests docs prisma/*.ts *.json *.ts *.yaml *.md",
-    "format:check": "prettier --check app shared server scripts tests docs prisma/*.ts *.json *.ts *.yaml *.md",
+    "format": "prettier --write app shared observability server scripts tests docs prisma/*.ts *.json *.ts *.yaml *.md",
+    "format:check": "prettier --check app shared observability server scripts tests docs prisma/*.ts *.json *.ts *.yaml *.md",
     "db:env": "node scripts/setup-db-env.mjs",
     "auth:env": "node scripts/setup-auth-env.mjs",
     "storage:env": "node scripts/setup-storage-env.mjs",
@@ -76,7 +76,8 @@
     "test:e2e": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-browser-matrix.ts",
     "test:e2e:faults": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts faults",
     "test:isolated:cleanup": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-cleanup.ts",
-    "test:isolated:cleanup-proof": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts cleanup-proof"
+    "test:isolated:cleanup-proof": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts cleanup-proof",
+    "test:alerts": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-alerts.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1154.0",
@@ -84,8 +85,13 @@
     "@langchain/core": "1.2.20",
     "@langchain/deepseek": "1.1.18",
     "@lucide/vue": "1.60.0",
+    "@opentelemetry/api": "1.10.0",
+    "@opentelemetry/exporter-trace-otlp-http": "0.300.0",
+    "@opentelemetry/resources": "3.0.0",
+    "@opentelemetry/sdk-trace": "3.0.0",
     "@prisma/adapter-pg": "7.10.1",
     "@prisma/client": "7.10.1",
+    "@prometheus-io/client": "0.16.1",
     "better-auth": "1.7.12",
     "cropperjs": "2.3.1",
     "dotenv": "^17.2.3",
@@ -115,6 +121,8 @@
     "#registration-mail": "./server/auth/registration-mail.ts",
     "#shared/formula-title": "./shared/formula-title.ts",
     "#shared/formula-validation": "./shared/formula-validation.ts",
-    "#shared/explanation": "./shared/explanation.ts"
+    "#shared/explanation": "./shared/explanation.ts",
+    "#shared/math-content": "./shared/math-content.ts",
+    "#shared/trace-context": "./shared/trace-context.ts"
   }
 }

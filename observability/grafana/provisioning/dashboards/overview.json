@@ -1,0 +1,947 @@
+{
+  "uid": "formula-overview",
+  "title": "Formula AI 运行总览",
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "15s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "读图口径",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "指标每15秒采集；速率/分位数需至少两次采集。无样本显示“暂无样本”，不表示成功率100%。账号HTTP不含SSE、登录认证与遥测入口。任务结果是进程观察值，重启归零，不能用于计费；取消不计入成功率分母。排队包含延迟重试，队列快照失效时隐藏积压值。AI按real/mock分开。\n\n[查看业务日志](/d/formula-runtime) · [日志与Trace查询](/explore)"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "API 可采集",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"formula-api\"}",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Worker 可采集",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"formula-worker\"}",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 99,
+      "type": "stat",
+      "title": "Python 可采集",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "up{job=\"formula-recognition\"}",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "排队任务（实时快照）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(formula_tasks_queued{service=\"formula-worker\"}) and on() ((max(formula_queue_snapshot_success{service=\"formula-worker\"})==1) and on() ((time()-max(formula_queue_snapshot_timestamp_seconds{service=\"formula-worker\"}))<45) and on() (max(up{job=\"formula-worker\"})==1))",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "执行中任务（实时快照）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(formula_tasks_processing{service=\"formula-worker\"}) and on() ((max(formula_queue_snapshot_success{service=\"formula-worker\"})==1) and on() ((time()-max(formula_queue_snapshot_timestamp_seconds{service=\"formula-worker\"}))<45) and on() (max(up{job=\"formula-worker\"})==1))",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 6,
+      "type": "timeseries",
+      "title": "账号 API 请求/秒",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(rate(formula_http_requests_total[5m]))",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "账号 API 5xx 错误率",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 8,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((sum(rate(formula_http_requests_total{status=~\"5..\"}[5m])) or vector(0)) / sum(rate(formula_http_requests_total[5m]))) and on() (sum(rate(formula_http_requests_total[5m]))>0)",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 8,
+      "type": "timeseries",
+      "title": "账号 API P95 延迟",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 8,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(histogram_quantile(0.95,sum by(le)(rate(formula_http_duration_seconds_bucket[5m])))) and on() (sum(rate(formula_http_duration_seconds_count[5m]))>0)",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "排队任务按类型",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(kind)(formula_tasks_queued{service=\"formula-worker\"}) and on() ((max(formula_queue_snapshot_success{service=\"formula-worker\"})==1) and on() ((time()-max(formula_queue_snapshot_timestamp_seconds{service=\"formula-worker\"}))<45) and on() (max(up{job=\"formula-worker\"})==1))",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "任务排队 P95（不含重试退避）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 15,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(histogram_quantile(0.95,sum by(le,kind)(rate(formula_task_queue_wait_seconds_bucket{service=\"formula-worker\"}[5m])))) and on(kind) (sum by(kind)(rate(formula_task_queue_wait_seconds_count{service=\"formula-worker\"}[5m]))>0)",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "type": "timeseries",
+      "title": "任务执行 P95（每次尝试）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 15,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(histogram_quantile(0.95,sum by(le,kind)(rate(formula_task_duration_seconds_bucket{service=\"formula-worker\"}[5m])))) and on(kind) (sum by(kind)(rate(formula_task_duration_seconds_count{service=\"formula-worker\"}[5m]))>0)",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "type": "timeseries",
+      "title": "任务成功率（完成/完成+失败）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 22,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(sum by(kind)(rate(formula_task_results_total{service=\"formula-worker\",outcome=\"completed\"}[5m])) / sum by(kind)(rate(formula_task_results_total{service=\"formula-worker\",outcome=~\"completed|failed\"}[5m]))) and on(kind) (sum by(kind)(rate(formula_task_results_total{service=\"formula-worker\",outcome=~\"completed|failed\"}[5m]))>0)",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "type": "timeseries",
+      "title": "任务重试/秒",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 22,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(kind)(rate(formula_task_attempts_total{service=\"formula-worker\",outcome=\"retrying\"}[5m]))",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "type": "timeseries",
+      "title": "本 Worker 正在执行",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 22,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "formula_worker_active{service=\"formula-worker\"}",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "type": "timeseries",
+      "title": "AI 首字 P95（real/mock）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 29,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(histogram_quantile(0.95,sum by(le,mode)(rate(formula_ai_first_text_seconds_bucket{service=\"formula-worker\"}[5m])))) and on(mode) (sum by(mode)(rate(formula_ai_first_text_seconds_count{service=\"formula-worker\"}[5m]))>0)",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "type": "timeseries",
+      "title": "AI 流生成 P95（含失败）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 29,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "(histogram_quantile(0.95,sum by(le,mode,outcome)(rate(formula_ai_generation_seconds_bucket{service=\"formula-worker\"}[5m])))) and on(mode,outcome) (sum by(mode,outcome)(rate(formula_ai_generation_seconds_count{service=\"formula-worker\"}[5m]))>0)",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "type": "timeseries",
+      "title": "AI 流中断/失败率（含取消）",
+      "description": "流未完整结束均计入此项；任务主动取消另计，不纳入任务失败率。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 29,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "((sum by(mode)(rate(formula_ai_generation_seconds_count{service=\"formula-worker\",outcome=\"failed\"}[5m])) or on(mode) (0*sum by(mode)(rate(formula_ai_generation_seconds_count{service=\"formula-worker\"}[5m])))) / sum by(mode)(rate(formula_ai_generation_seconds_count{service=\"formula-worker\"}[5m]))) and on(mode) (sum by(mode)(rate(formula_ai_generation_seconds_count{service=\"formula-worker\"}[5m]))>0)",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 18,
+      "type": "timeseries",
+      "title": "进程 CPU 使用（1 = 一核）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 36,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(service)(rate(formula_process_cpu_seconds_total[5m]))",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 19,
+      "type": "timeseries",
+      "title": "进程内存 RSS",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 36,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "formula_process_resident_memory_bytes",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "type": "timeseries",
+      "title": "进程运行时长",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 36,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time()-formula_process_start_time_seconds",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      }
+    },
+    {
+      "id": 21,
+      "type": "stat",
+      "title": "队列快照是否成功",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 43,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "formula_queue_snapshot_success{service=\"formula-worker\"}",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 22,
+      "type": "stat",
+      "title": "队列快照距今",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 43,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "time()-formula_queue_snapshot_timestamp_seconds{service=\"formula-worker\"}",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 23,
+      "type": "stat",
+      "title": "本进程观察到的请求数",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 43,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(formula_http_requests_total)",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value"
+      }
+    },
+    {
+      "id": 24,
+      "type": "stat",
+      "title": "观察到的取消（执行中）",
+      "description": "",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "formula-prometheus"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 43,
+        "w": 6,
+        "h": 5
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(formula_task_results_total{service=\"formula-worker\",outcome=\"cancelled\"})",
+          "legendFormat": "{{service}} {{kind}} {{mode}} {{outcome}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "noValue": "暂无样本"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value"
+      }
+    }
+  ]
+}

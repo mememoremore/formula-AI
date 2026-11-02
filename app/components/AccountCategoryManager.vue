@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const accountFetch = useAccountFetch()
 import type { AccountCategory } from '#shared/types/library'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 defineProps<{ categories: AccountCategory[] }>()
@@ -27,13 +28,16 @@ async function submit() {
   feedback.value = ''
   try {
     const category = editing.value
-    await $fetch(category ? `/api/account/categories/${category.id}` : '/api/account/categories', {
-      method: category ? 'PATCH' : 'POST',
-      body: { name: name.value },
-      retry: 0,
-      timeout: 15_000,
-      signal: controller.signal,
-    })
+    await accountFetch(
+      category ? `/api/account/categories/${category.id}` : '/api/account/categories',
+      {
+        method: category ? 'PATCH' : 'POST',
+        body: { name: name.value },
+        retry: 0,
+        timeout: 15_000,
+        signal: controller.signal,
+      },
+    )
     if (disposed) return
     edit(null)
     emit('changed')
@@ -54,7 +58,7 @@ async function remove() {
   busy.value = true
   feedback.value = ''
   try {
-    await $fetch(`/api/account/categories/${deleting.value.id}`, {
+    await accountFetch(`/api/account/categories/${deleting.value.id}`, {
       method: 'DELETE',
       retry: 0,
       timeout: 15_000,

@@ -1,0 +1,37 @@
+apiVersion: 1
+datasources:
+  - name: Formula Logs
+    uid: formula-loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    isDefault: true
+    jsonData:
+      derivedFields:
+        - name: TraceID
+          matcherRegex: '"traceId":"([a-f0-9]{32})"'
+          datasourceUid: formula-tempo
+          url: '$${__value.raw}'
+          urlDisplayLabel: 查看链路
+  - name: Formula Traces
+    uid: formula-tempo
+    type: tempo
+    access: proxy
+    url: http://tempo:3200
+    jsonData:
+      tracesToLogsV2:
+        datasourceUid: formula-loki
+        spanStartTimeShift: '-5m'
+        spanEndTimeShift: '5m'
+        customQuery: true
+        query: '{service=~"formula-.+"} | json | traceId = "$${__trace.traceId}"'
+      nodeGraph:
+        enabled: true
+  - name: Formula Metrics
+    uid: formula-prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    jsonData:
+      httpMethod: POST
+      timeInterval: 15s

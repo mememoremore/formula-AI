@@ -2,8 +2,9 @@ import type { ConversationPage } from '#shared/types/tasks'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 /** URL 搜索限定列表快照，首屏与追加请求都不能跨关键词写入。 */
 export function useConversationListing(ownerId: string) {
+  const accountFetch = useAccountFetch()
   const route = useRoute(),
-    fetcher = useRequestFetch()
+    fetcher = useAccountFetch()
   const query = computed(() => (typeof route.query.q === 'string' ? route.query.q : ''))
   const request = useAsyncData(
     `account-conversations-${ownerId}`,
@@ -56,7 +57,7 @@ export function useConversationListing(ownerId: string) {
     loading.value = true
     feedback.value = ''
     try {
-      const page = await $fetch<ConversationPage>('/api/account/conversations', {
+      const page = await accountFetch<ConversationPage>('/api/account/conversations', {
         query: { q, cursor: after },
         signal: active.signal,
         retry: 0,

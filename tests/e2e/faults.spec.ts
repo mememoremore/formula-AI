@@ -1,3 +1,4 @@
+import { readTestOtp } from '../support/registration-mail'
 import { test, expect } from '@playwright/test'
 import { randomUUID, randomBytes, createHash } from 'node:crypto'
 import { readFileSync } from 'node:fs'
@@ -22,13 +23,32 @@ test('@fault 真实回执丢失、失败/停止历史、重试与 Worker 进程�
     else await route.abort('blockedbyclient')
   })
   await page.setViewportSize({ width: 390, height: 900 })
-  await visit(page, '/login?redirect=/ai/new')
-  await page.getByRole('button', { name: '还没有账号？创建一个' }).click()
-  await page.getByPlaceholder('希望我们如何称呼你').fill('R16故障测试')
-  await page.getByPlaceholder('请输入邮箱').fill(`fault-${randomUUID()}@formula.test`)
-  await page.locator('input[type="password"]').fill(`E2e-${randomBytes(18).toString('base64url')}`)
-  await page.getByRole('button', { name: '创建账号', exact: true }).click()
-  await expect(page).toHaveURL(/\/ai\/new$/)
+  // Real signup/OTP/session fixture; this test focuses on task recovery.
+  const email = 'fault-' + randomUUID() + '@formula.test',
+    password = 'E2e-' + randomBytes(18).toString('base64url')
+  const headers = { origin: testEnvironment.apiUrl }
+  expect(
+    (
+      await page.request.post('/api/auth/sign-up/email', {
+        headers,
+        data: { name: '故障验收', email, password },
+      })
+    ).status(),
+  ).toBe(200)
+  expect(
+    (
+      await page.request.post('/api/auth/email-otp/verify-email', {
+        headers,
+        data: { email, otp: readTestOtp(email) },
+      })
+    ).status(),
+  ).toBe(200)
+  expect(
+    (
+      await page.request.post('/api/auth/sign-in/email', { headers, data: { email, password } })
+    ).status(),
+  ).toBe(200)
+  await visit(page, '/ai/new')
   let discarded = false
   await page.route('**/api/account/conversations', async (route) => {
     if (route.request().method() === 'POST' && !discarded) {

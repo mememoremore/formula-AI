@@ -9,7 +9,7 @@ export function useTaskPolling<T>(
     getCachedData?: () => T | undefined
   } = {},
 ) {
-  const requestFetch = useRequestFetch()
+  const requestFetch = useAccountFetch()
   const lastSuccess = shallowRef<T>()
   const request = useAsyncData<T | undefined>(
     key,

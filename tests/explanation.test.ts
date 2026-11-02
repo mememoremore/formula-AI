@@ -55,6 +55,7 @@ test('结构化Prompt版本固定且当前问题只出现一次', () => {
   }
   const rows = buildChatMessages(input)
   assert.match(rows[0]!.content, /json/)
+  assert.ok(rows[0]!.content.includes('$$...$$（独立公式）'))
   assert.equal(rows.filter((v) => v.content === '当前问题').length, 1)
   assert.throws(() => buildChatMessages({ ...input, promptVersion: 'future' }))
 })
@@ -144,4 +145,19 @@ test('复制空区块不产生标题，不改变原结构', () => {
   const empty = { ...value, symbols: [], conditions: [], steps: [], examples: [], warnings: [] }
   assert.equal(explanationCopyText(empty), '概述\n' + value.summary)
   assert.deepEqual(empty.symbols, [])
+})
+
+test('新解释规范化裸公式，旧解释解析不改原文，并校验已标记公式', () => {
+  const legacy = { ...value, examples: [String.raw`取 x=0：f(0)=\sin^{2}0+\cos^{2}0=1`] }
+  assert.equal(parseExplanation(legacy).examples[0], legacy.examples[0])
+  const normalized = decodeExplanation(JSON.stringify(legacy))
+  assert.equal(normalized.examples[0], String.raw`取 x=0：$f(0)=\sin^{2}0+\cos^{2}0=1$`)
+  assert.equal(decodeExplanation(JSON.stringify(normalized)).examples[0], normalized.examples[0])
+  assert.equal(legacy.examples[0].includes('$'), false)
+  for (const example of [
+    String.raw`错误 $\notARealCommand{x}$`,
+    String.raw`错误 \frac{1}{`,
+    String.raw`未闭合 $x=1`,
+  ])
+    assert.throws(() => decodeExplanation(JSON.stringify({ ...value, examples: [example] })))
 })

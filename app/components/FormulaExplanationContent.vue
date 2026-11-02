@@ -10,7 +10,7 @@ defineProps<{ value: FormulaExplanation }>()
       <dl>
         <div v-for="(symbol, index) in value.symbols" :key="index">
           <dt><MathFormula :latex="symbol.latex" :display="false" /></dt>
-          <dd>{{ symbol.meaning }}</dd>
+          <dd><ChatMessageContent :content="symbol.meaning" /></dd>
         </div>
       </dl>
     </section>
@@ -26,7 +26,7 @@ defineProps<{ value: FormulaExplanation }>()
       <h3>理解与推导</h3>
       <ol>
         <li v-for="(step, index) in value.steps" :key="index">
-          <h4>{{ step.title }}</h4>
+          <h4><ChatMessageContent :content="step.title" /></h4>
           <ChatMessageContent :content="step.text" />
           <MathFormula v-if="step.latex" :latex="step.latex" />
         </li>

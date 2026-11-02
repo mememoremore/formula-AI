@@ -7,6 +7,7 @@ interface LibrarySnapshot extends FormulaLibraryPage {
 
 /** 单一聚合列表；身份、视图与 URL 筛选共同限定请求归属。 */
 export function useAccountLibrary(kind: 'library' | 'favorites', ownerId: string) {
+  const accountFetch = useAccountFetch()
   const route = useRoute()
   const filters = computed(() => ({
     ...(typeof route.query.q === 'string' && route.query.q ? { q: route.query.q } : {}),
@@ -17,7 +18,7 @@ export function useAccountLibrary(kind: 'library' | 'favorites', ownerId: string
   }))
   const context = computed(() => JSON.stringify(filters.value))
   const cache = useNuxtData<LibrarySnapshot>(`account-library-${kind}-${ownerId}`)
-  const fetcher = useRequestFetch()
+  const fetcher = useAccountFetch()
   const request = useAsyncData<LibrarySnapshot>(
     `account-library-${kind}-${ownerId}`,
     async (_app, { signal }) => {
@@ -74,7 +75,7 @@ export function useAccountLibrary(kind: 'library' | 'favorites', ownerId: string
     loadingMore.value = true
     feedback.value = ''
     try {
-      const page = await $fetch<FormulaLibraryPage>('/api/account/library', {
+      const page = await accountFetch<FormulaLibraryPage>('/api/account/library', {
         query: { ...filters.value, cursor },
         signal: active.signal,
         retry: 0,

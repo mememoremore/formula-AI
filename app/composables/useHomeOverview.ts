@@ -5,7 +5,7 @@ export function useHomeOverview(session: ReturnType<typeof useWorkspace>) {
   const route = useRoute()
   const store = useDemoStore()
   const { preview } = useUploadPreview()
-  const requestFetch = useRequestFetch()
+  const requestFetch = useAccountFetch()
   const ownerId = computed(() =>
     !session.error.value && !session.demo.value ? (session.data.value?.user?.id ?? null) : null,
   )

@@ -94,5 +94,37 @@ class RecognitionAPITest(unittest.TestCase):
             self.assertEqual(first.result(timeout=5).status_code, 200)
 
 
+    def test_trace_context_and_safe_log(self):
+        import contextlib
+        import json
+        from unittest.mock import patch
+        parent = "00-" + "a" * 32 + "-" + "b" * 16 + "-01"
+        output = io.StringIO()
+        with patch("app.telemetry.emit_trace") as export, contextlib.redirect_stdout(output):
+            result = self.client.post("/recognize", headers={"Authorization": f"Bearer {self.settings.api_key}", "traceparent": parent, "X-Request-Id": "fixture-task"}, files={"image": ("f.png", self.image, "image/png")}, data={"mode": "printed"})
+        self.assertEqual(result.status_code, 200)
+        span = export.call_args[0][0]["resourceSpans"][0]["scopeSpans"][0]["spans"][0]
+        self.assertEqual(span["traceId"], "a" * 32)
+        self.assertEqual(span["parentSpanId"], "b" * 16)
+        self.assertNotEqual(span["spanId"], "b" * 16)
+        row = json.loads(output.getvalue().strip())
+        self.assertEqual(row["traceId"], "a" * 32)
+        self.assertNotIn(self.settings.api_key, output.getvalue())
+        self.assertNotIn("latex", row)
+
+
+    def test_process_metrics_opt_in(self):
+        import os
+        from unittest.mock import patch
+        with patch.dict(os.environ, {"FORMULA_METRICS_ENABLED": "false"}):
+            self.assertEqual(self.client.get("/metrics").status_code, 404)
+        with patch.dict(os.environ, {"FORMULA_METRICS_ENABLED": "true"}):
+            response = self.client.get("/metrics")
+            self.assertEqual(response.status_code, 200)
+            self.assertIn('formula_process_cpu_seconds_total{service="formula-recognition"}', response.text)
+            self.assertIn('formula_process_resident_memory_bytes', response.text)
+            self.assertNotIn(self.settings.api_key, response.text)
+
+
 if __name__ == "__main__":
     unittest.main()

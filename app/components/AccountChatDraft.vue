@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const accountFetch = useAccountFetch()
 import { chatSubmissionInvalidated } from '~/utils/account-cache'
 import type { SavedConversation, VersionContext } from '#shared/types/tasks'
 import type { SavedFormula } from '#shared/types/workspace'
@@ -6,7 +7,7 @@ import type { FormulaLibraryItem } from '#shared/types/library'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 const props = defineProps<{ ownerId: string; versionId: string; formulaId?: string }>()
 const route = useRoute(),
-  fetcher = useRequestFetch(),
+  fetcher = useAccountFetch(),
   intents = useNuxtApp().$chatDraft
 const {
   data: context,
@@ -155,7 +156,7 @@ async function send() {
   try {
     intents.put(intent)
     if (!intent.conversationId) {
-      const saved = await $fetch<SavedConversation>('/api/account/conversations', {
+      const saved = await accountFetch<SavedConversation>('/api/account/conversations', {
         method: 'POST',
         body: { formulaVersionId: intent.versionId, requestKey: intent.requestKey },
         retry: 0,
@@ -166,7 +167,7 @@ async function send() {
       intent.conversationId = saved.id
       intents.put({ ...intent })
     }
-    await $fetch('/api/account/conversations/' + intent.conversationId + '/messages', {
+    await accountFetch('/api/account/conversations/' + intent.conversationId + '/messages', {
       method: 'POST',
       body: { question: intent.question, requestKey: intent.requestKey },
       retry: 0,

@@ -1,3 +1,4 @@
+import { normalizeMathText } from '#shared/math-content'
 import { formulaSyntaxFeedback } from '#shared/formula-validation'
 export const EXPLANATION_PROMPT_VERSION = 'formula-explanation-v1'
 export const EXPLANATION_QUESTION = '请结构化解释这个固定版本公式。'
@@ -81,7 +82,20 @@ export function decodeExplanation(raw: string) {
   } catch {
     throw new Error('解释不是完整JSON，请重新生成。')
   }
-  return parseExplanation(value)
+  const parsed = parseExplanation(value)
+  return parseExplanation({
+    ...parsed,
+    summary: normalizeMathText(parsed.summary),
+    symbols: parsed.symbols.map((item) => ({ ...item, meaning: normalizeMathText(item.meaning) })),
+    conditions: parsed.conditions.map(normalizeMathText),
+    steps: parsed.steps.map((item) => ({
+      ...item,
+      title: normalizeMathText(item.title),
+      text: normalizeMathText(item.text),
+    })),
+    examples: parsed.examples.map(normalizeMathText),
+    warnings: parsed.warnings.map(normalizeMathText),
+  })
 }
 /** 唯一兼容文本派生规则，同时用于旧客户端和后续Prompt，不另存第二份可变答案。 */
 export function explanationText(value: FormulaExplanation) {

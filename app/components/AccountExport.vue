@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const accountFetch = useAccountFetch()
 import type { SavedFormula } from '#shared/types/workspace'
 import type { ExportTaskState } from '#shared/types/tasks'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
@@ -27,7 +28,7 @@ async function submit() {
   const versionId = version.value.id
   controller = new AbortController()
   try {
-    const task = await $fetch<ExportTaskState>('/api/account/exports', {
+    const task = await accountFetch<ExportTaskState>('/api/account/exports', {
       method: 'POST',
       body: { formulaVersionId: versionId, requestKey },
       retry: 0,

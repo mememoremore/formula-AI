@@ -1,0 +1,10 @@
+services:
+  recognition:
+    environment:
+      FORMULA_METRICS_ENABLED: 'true'
+      FORMULA_OTLP_ENDPOINT: http://host.docker.internal:4318/v1/traces
+      FORMULA_LOG_DIR: /telemetry
+    volumes:
+      - ./services/recognition/app/telemetry.py:/service/app/telemetry.py:ro
+      - ./services/recognition/app/main.py:/service/app/main.py:ro
+      - ./tmp/observability:/telemetry

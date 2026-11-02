@@ -11,7 +11,7 @@ import { workspaceFeedback } from '~/utils/workspace-feedback'
 const props = defineProps<{ id: string; ownerId: string }>()
 const owner = toRef(props, 'ownerId'),
   flow = useAccountRecognition(owner)
-const fetcher = useRequestFetch()
+const fetcher = useAccountFetch()
 const route = useRoute(),
   origins = useState<Record<string, string>>('page-origins', () => ({}))
 function prepareResultReturn() {

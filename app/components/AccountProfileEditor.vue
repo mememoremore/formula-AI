@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const accountFetch = useAccountFetch()
 import type { AccountUser } from '#shared/types/account'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 const props = defineProps<{ user: AccountUser }>()
@@ -88,7 +89,7 @@ async function save() {
   busy.value = true
   feedback.value = ''
   try {
-    await $fetch('/api/account/profile', {
+    await accountFetch('/api/account/profile', {
       method: 'PATCH',
       body: { name: submitted, ...(avatar.value === undefined ? {} : { avatar: avatar.value }) },
       signal: active.signal,

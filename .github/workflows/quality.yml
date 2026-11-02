@@ -40,6 +40,8 @@ jobs:
           node-version: 24.22.0
           cache: npm
       - run: npm ci --ignore-scripts
+      - name: Validate monitoring alert rules
+        run: npm run test:alerts
       - name: Install verified Pandoc 3.12.1
         run: node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/ci-pandoc.ts
       - name: Probe system Pandoc with public fixture

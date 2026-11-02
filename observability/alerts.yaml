@@ -1,0 +1,47 @@
+groups:
+  - name: formula-baseline
+    interval: 30s
+    rules:
+      - alert: FormulaServiceDown
+        expr: up{job=~"formula-api|formula-worker|formula-recognition"} == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: '服务 {{ $labels.job }} 连续两分钟无法采集'
+          runbook: 'http://127.0.0.1:3300/d/formula-overview'
+      - alert: FormulaQueueSnapshotUnavailable
+        expr: (max(formula_queue_snapshot_success{service="formula-worker"}) == 0) or (time()-max(formula_queue_snapshot_timestamp_seconds{service="formula-worker"}) > 90)
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: '任务队列快照持续失败或过期'
+      - alert: FormulaQueueBacklog
+        expr: sum(formula_tasks_queued{service="formula-worker"}) > 10 and on() (max(formula_queue_snapshot_success{service="formula-worker"}) == 1) and on() (time()-max(formula_queue_snapshot_timestamp_seconds{service="formula-worker"}) < 45)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '队列积压超过10个任务且持续五分钟'
+      - alert: FormulaApiErrors
+        expr: sum(increase(formula_http_requests_total{status=~"5.."}[5m])) / sum(increase(formula_http_requests_total[5m])) > 0.1 and on() sum(increase(formula_http_requests_total[5m])) >= 20
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '账号API错误率超过10%，五分钟样本至少20次'
+      - alert: FormulaTaskFailures
+        expr: sum by(kind)(increase(formula_task_results_total{service="formula-worker",outcome="failed"}[10m])) / sum by(kind)(increase(formula_task_results_total{service="formula-worker",outcome=~"completed|failed"}[10m])) > 0.2 and on(kind) sum by(kind)(increase(formula_task_results_total{service="formula-worker",outcome=~"completed|failed"}[10m])) >= 5
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: '任务失败率超过20%，十分钟终态样本至少5个（不含取消）'
+      - alert: FormulaAiFirstTextSlow
+        expr: histogram_quantile(0.95, sum by(le)(rate(formula_ai_first_text_seconds_bucket{service="formula-worker",mode="real"}[10m]))) > 15 and on() sum(increase(formula_ai_first_text_seconds_count{service="formula-worker",mode="real"}[10m])) >= 5
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: '真实AI首内容P95超过15秒且十分钟样本至少5次'

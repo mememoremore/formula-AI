@@ -1,0 +1,39 @@
+logging {
+  level = "warn"
+}
+local.file_match "application" {
+  path_targets = [{ "__path__" = "/logs/*.jsonl" }]
+  sync_period = "5s"
+}
+loki.source.file "application" {
+  targets = local.file_match.application.targets
+  forward_to = [loki.process.application.receiver]
+}
+loki.process "application" {
+  stage.json {
+    expressions = { service = "service", timestamp = "timestamp" }
+  }
+  stage.labels {
+    values = { service = "" }
+  }
+  stage.timestamp {
+    source = "timestamp"
+    format = "RFC3339Nano"
+  }
+  forward_to = [loki.write.local.receiver]
+}
+loki.write "local" {
+  endpoint { url = "http://loki:3100/loki/api/v1/push" }
+}
+otelcol.receiver.otlp "local" {
+  http { endpoint = "0.0.0.0:4318" }
+  output { traces = [otelcol.processor.batch.local.input] }
+}
+otelcol.processor.batch "local" {
+  timeout = "1s"
+  send_batch_size = 64
+  output { traces = [otelcol.exporter.otlphttp.tempo.input] }
+}
+otelcol.exporter.otlphttp "tempo" {
+  client { endpoint = "http://tempo:4318" }
+}

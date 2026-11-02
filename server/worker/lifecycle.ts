@@ -1,3 +1,6 @@
+import { beginTaskMetrics, withTaskMetrics, type AttemptOutcome } from '../diagnostics/metrics'
+import { traced } from '../diagnostics/tracing'
+import { SpanKind } from '@opentelemetry/api'
 import { diagnostic, safeDiagnosticCode, withDiagnostics } from '../diagnostics/operations'
 import { bumpChatTurn } from '../database/chat-revision'
 import { fromPrisma, type PgBoss } from 'pg-boss'
@@ -67,12 +70,16 @@ async function runTaskAttempt(
     throw error
   })
   if (!begun) return
+  const finishMetrics = beginTaskMetrics(kind, job.startAfter, job.startedOn)
+  let metricOutcome: AttemptOutcome = 'unknown'
   diagnostic('worker.attempt', { outcome: 'started' })
   try {
     await process()
+    metricOutcome = 'completed'
     diagnostic('worker.attempt', { outcome: 'returned' })
   } catch (error) {
     if (error instanceof LostJobClaim || job.signal?.aborted) {
+      metricOutcome = 'lost_claim'
       diagnostic('worker.attempt', { outcome: 'unconfirmed', code: 'LOST_CLAIM' })
       throw new LostJobClaim()
     }
@@ -124,12 +131,15 @@ async function runTaskAttempt(
         })
         throw failure
       })
+    metricOutcome = terminal ? 'failed' : 'retrying'
     diagnostic('worker.attempt', {
       outcome: terminal ? 'failed' : 'retrying',
       code: safeDiagnosticCode(error),
     })
     // 保留调用方的暂时失败语义；pg-boss外层重复fail已被attempt/state围栏挡住。
     if (!fatal) throw new Error('任务暂时处理失败。')
+  } finally {
+    finishMetrics(metricOutcome)
   }
 }
 
@@ -148,7 +158,19 @@ export function runTask(
       jobId: job.id,
       attempt: job.retryCount + 1,
     },
-    () => runTaskAttempt(db, boss, kind, job, process),
+    () =>
+      withTaskMetrics(() =>
+        traced('worker.' + kind, () => runTaskAttempt(db, boss, kind, job, process), {
+          root: true,
+          parent: job.data.traceparent,
+          kind: SpanKind.CONSUMER,
+          attributes: {
+            'task.id': job.data.taskId,
+            'job.id': job.id,
+            'task.attempt': job.retryCount + 1,
+          },
+        }),
+      ),
     { inheritContext: false },
   )
 }

@@ -30,6 +30,9 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
       'tests/task-recovery-policy.test.ts',
       'tests/lease-recovery-policy.test.ts',
       'tests/server-diagnostics.test.ts',
+      'tests/tracing.test.ts',
+      'tests/browser-errors.test.ts',
+      'tests/metrics.test.ts',
       'tests/export-state.test.ts',
     ],
     integration: false,
@@ -42,6 +45,7 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
   integration: {
     files: [
       'tests/isolation.test.ts',
+      'tests/metrics-api.test.ts',
       'tests/resources.test.ts',
       'tests/api.test.mjs',
       'tests/database.test.ts',

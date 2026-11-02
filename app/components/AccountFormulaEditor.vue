@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const accountFetch = useAccountFetch()
 import { displayFormulaTitle } from '#shared/formula-title'
 import type { SavedFormula } from '#shared/types/workspace'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
@@ -56,7 +57,7 @@ async function save() {
   const id = props.formula.id
   controller = new AbortController()
   try {
-    const formula = await $fetch<SavedFormula>(`/api/account/formulas/${id}`, {
+    const formula = await accountFetch<SavedFormula>(`/api/account/formulas/${id}`, {
       method: 'PATCH',
       retry: 0,
       timeout: 20_000,
@@ -97,7 +98,7 @@ async function reloadLatest() {
   const id = props.formula.id
   controller = new AbortController()
   try {
-    const formula = await $fetch<SavedFormula>(`/api/account/formulas/${id}`, {
+    const formula = await accountFetch<SavedFormula>(`/api/account/formulas/${id}`, {
       signal: controller.signal,
       retry: 0,
       timeout: 15_000,

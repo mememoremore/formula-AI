@@ -1,4 +1,5 @@
 <script setup lang="ts">
+const accountFetch = useAccountFetch()
 import type { CategoryCollection } from '#shared/types/library'
 import type { SavedFormula } from '#shared/types/workspace'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
@@ -24,7 +25,7 @@ async function save() {
   saving.value = true
   feedback.value = ''
   try {
-    const formula = await $fetch<SavedFormula>(
+    const formula = await accountFetch<SavedFormula>(
       `/api/account/formulas/${props.formulaId}/category`,
       {
         method: 'PUT',

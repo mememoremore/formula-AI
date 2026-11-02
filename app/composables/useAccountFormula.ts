@@ -3,7 +3,7 @@ import { formulaViewsInvalidated } from '~/utils/account-cache'
 
 /** 请求结果同时绑定身份和资源；身份未确认时不展示旧快照。 */
 export function useAccountFormula(id: Ref<string>, ownerId: Ref<string | undefined>) {
-  const fetcher = useRequestFetch()
+  const fetcher = useAccountFetch()
   const key = computed(() => `saved-formula-${id.value}-${ownerId.value ?? 'unconfirmed'}`)
   const request = useAsyncData(
     key,

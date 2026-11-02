@@ -1,3 +1,4 @@
+import { traced } from '../diagnostics/tracing'
 import { randomUUID } from 'node:crypto'
 import type { PgBoss } from 'pg-boss'
 import type { PrismaClient } from '../generated/prisma/client'
@@ -33,12 +34,14 @@ export async function processExport(
       countsTowardRate: false,
     })
     try {
-      const bytes = await convert({
-        title: task.title,
-        latex: task.formulaVersion.latex,
-        versionNumber: task.formulaVersion.number,
-        isMock: task.formulaVersion.isMock,
-      })
+      const bytes = await traced('export.convert', () =>
+        convert({
+          title: task.title,
+          latex: task.formulaVersion.latex,
+          versionNumber: task.formulaVersion.number,
+          isMock: task.formulaVersion.isMock,
+        }),
+      )
       if (bytes.length > MAX_DOCX_BYTES) throw new WorkspaceError(413, '导出文件超过 5 MiB 上限。')
       const fileId = randomUUID()
       const file = await prepareFile(db, lease, {

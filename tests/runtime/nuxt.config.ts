@@ -8,6 +8,7 @@ loadTestManifest({ FORMULA_TEST_MANIFEST: process.env.FORMULA_TEST_MANIFEST })
 
 // 仅测试启动器通过 --extends 加载，不进入默认生产配置。
 export default defineNuxtConfig({
+  runtimeConfig: { public: { observabilityEnabled: true } },
   buildDir: resolve(dirname(process.env.FORMULA_TEST_MANIFEST!), 'nuxt'),
   vite: {
     server: {

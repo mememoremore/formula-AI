@@ -3,13 +3,14 @@ import { mergeLibraryItems, readHistoryWindow } from '~/utils/library-state'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 
 export function useAccountHistory(ownerId: string, query = '') {
+  const accountFetch = useAccountFetch()
   const key = 'account-history-' + ownerId + (query ? ':' + encodeURIComponent(query) : '')
   const cached = useNuxtData<RecognitionHistoryPage>(key)
   const revalidate = !!cached.data.value && !useNuxtApp().isHydrating
   const boundary = ref(cached.data.value?.items.at(-1)?.id ?? null)
   const loadingMore = ref(false)
   const feedback = ref('')
-  const fetcher = useRequestFetch()
+  const fetcher = useAccountFetch()
   let moreController: AbortController | undefined
   let disposed = false
   const request = useTaskPolling<RecognitionHistoryPage>(
@@ -51,7 +52,7 @@ export function useAccountHistory(ownerId: string, query = '') {
     loadingMore.value = true
     feedback.value = ''
     try {
-      const page = await $fetch<RecognitionHistoryPage>('/api/account/recognitions', {
+      const page = await accountFetch<RecognitionHistoryPage>('/api/account/recognitions', {
         query: { cursor, q: query || undefined },
         signal: controller.signal,
         retry: 0,

@@ -1,3 +1,5 @@
+import { beginAiMetrics, markTaskCancelled } from '../diagnostics/metrics'
+import { traced } from '../diagnostics/tracing'
 import {
   decodeExplanation,
   explanationText,
@@ -149,41 +151,55 @@ export async function processChat(
         throw new InferenceFailure('INVALID_INPUT', '基础解释尚未成功，不能继续追问。', false)
       // 替身不经过HTTP；仅记录意图，绝不虚构供应商transport/用量。
       if (adapter.isMock) await observer.beforeDispatch()
-      await withInferenceDeadline(async (signal) => {
-        for await (const delta of adapter.stream(
-          {
-            responseKind: turn.responseKind,
-            promptVersion: turn.promptVersion,
-            ...(base
-              ? { baseExplanation: { question: EXPLANATION_QUESTION, answer: base.content } }
-              : {}),
-            formula: context ? { versionId: context.id, latex: context.latex } : undefined,
-            messages: [...messages, { role: 'user', content: turn.question }],
-          },
-          signal,
-          observer,
-        )) {
-          signal.throwIfAborted()
-          if (delta.usage && !adapter.isMock) usage = delta.usage
-          content += delta.text
-          if (content.length > 16000)
-            throw new InferenceFailure(
-              'INVALID_INPUT',
-              '回答超过长度上限，已停止。请缩小问题范围。',
-              false,
-            )
-          if (delta.finishReason) finishReason = delta.finishReason
-          if (!structuredTurn && Date.now() - lastSaved >= 250 && delta.text) {
-            await saveChatProgress(db, boss, job, content)
-            lastSaved = Date.now()
-          }
-        }
-        signal.throwIfAborted()
-        if (finishReason !== 'stop' || !content.trim()) {
-          if (!structuredTurn) await saveChatProgress(db, boss, job, content)
-          throw new InferenceFailure('INVALID_INPUT', '回答未完整生成，请调整问题后重试。', false)
-        }
-      }, parent)
+      const aiMetrics = beginAiMetrics(adapter.isMock)
+      try {
+        await traced('ai.generate', () =>
+          withInferenceDeadline(async (signal) => {
+            for await (const delta of adapter.stream(
+              {
+                responseKind: turn.responseKind,
+                promptVersion: turn.promptVersion,
+                ...(base
+                  ? { baseExplanation: { question: EXPLANATION_QUESTION, answer: base.content } }
+                  : {}),
+                formula: context ? { versionId: context.id, latex: context.latex } : undefined,
+                messages: [...messages, { role: 'user', content: turn.question }],
+              },
+              signal,
+              observer,
+            )) {
+              signal.throwIfAborted()
+              if (delta.usage && !adapter.isMock) usage = delta.usage
+              if (delta.text) aiMetrics.text()
+              content += delta.text
+              if (content.length > 16000)
+                throw new InferenceFailure(
+                  'INVALID_INPUT',
+                  '回答超过长度上限，已停止。请缩小问题范围。',
+                  false,
+                )
+              if (delta.finishReason) finishReason = delta.finishReason
+              if (!structuredTurn && Date.now() - lastSaved >= 250 && delta.text) {
+                await saveChatProgress(db, boss, job, content)
+                lastSaved = Date.now()
+              }
+            }
+            signal.throwIfAborted()
+            if (finishReason !== 'stop' || !content.trim()) {
+              if (!structuredTurn) await saveChatProgress(db, boss, job, content)
+              throw new InferenceFailure(
+                'INVALID_INPUT',
+                '回答未完整生成，请调整问题后重试。',
+                false,
+              )
+            }
+          }, parent),
+        )
+        aiMetrics.finish('completed')
+      } catch (error) {
+        aiMetrics.finish('failed')
+        throw error
+      }
       upstreamSucceeded = true
       await recordCallObservation(db, call.id, {
         status: 'SUCCEEDED',
@@ -256,6 +272,8 @@ export async function processChat(
           select: { status: true, errorMessage: true },
         })
         .catch(() => null)
+      if (stopped?.status === 'FAILED' && stopped.errorMessage === '已停止生成。')
+        markTaskCancelled()
       await recordCallObservation(db, call.id, {
         status: upstreamSucceeded
           ? 'SUCCEEDED'
