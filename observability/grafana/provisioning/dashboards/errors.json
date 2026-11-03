@@ -1,0 +1,438 @@
+{
+  "uid": "formula-errors",
+  "title": "Formula AI 自动错误中心",
+  "schemaVersion": 39,
+  "version": 1,
+  "timezone": "browser",
+  "refresh": "15s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "tags": ["Formula AI", "自动错误"],
+  "links": [
+    {
+      "title": "运行总览",
+      "type": "link",
+      "url": "/d/formula-overview",
+      "keepTime": true
+    },
+    {
+      "title": "完整业务日志",
+      "type": "link",
+      "url": "/d/formula-runtime",
+      "keepTime": true
+    }
+  ],
+  "panels": [
+    {
+      "id": 1,
+      "type": "text",
+      "title": "错误已自动收集，用户无需提交",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "下方按当前时间范围展示已收到的错误。先看中文错误摘要，点开记录，在 **TraceID → 查看链路** 定位步骤；需要其他上下文时进入完整业务日志。\n\n仅纳入前端异常、API 5xx、任务最终失败、Python识别服务5xx；普通4xx、主动取消、自动重试不进入本列表。计数是记录条数，同一故障可能产生多条跨服务记录。**0条不等于没有bug**；未登录、离线、已吞掉的异常和纯排版问题不保证采集。"
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "前端异常记录",
+      "description": "当前选定时间范围内自动收到的事件数；不是独立问题数或受影响用户数。",
+      "datasource": {
+        "type": "loki",
+        "uid": "formula-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service=\"formula-browser\"} | json | event=\"browser.error\" | __error__=\"\" | keep service [$__range])) or vector(0)",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "暂无记录",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "API 服务端失败",
+      "description": "当前选定时间范围内自动收到的事件数；不是独立问题数或受影响用户数。",
+      "datasource": {
+        "type": "loki",
+        "uid": "formula-loki"
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service=\"formula-api\"} | json | event=\"http.operation\" | status >= 500 | __error__=\"\" | keep service [$__range])) or vector(0)",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "暂无记录",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "任务最终失败",
+      "description": "当前选定时间范围内自动收到的事件数；不是独立问题数或受影响用户数。",
+      "datasource": {
+        "type": "loki",
+        "uid": "formula-loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service=\"formula-worker\"} | json | event=\"worker.attempt\" | outcome=\"failed\" | __error__=\"\" | keep service [$__range])) or vector(0)",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "暂无记录",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Python 识别服务异常",
+      "description": "当前选定时间范围内自动收到的事件数；不是独立问题数或受影响用户数。",
+      "datasource": {
+        "type": "loki",
+        "uid": "formula-loki"
+      },
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum(count_over_time({service=\"formula-recognition\"} | json | event=\"recognition.request\" | status >= 500 | __error__=\"\" | keep service [$__range])) or vector(0)",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "noValue": "暂无记录",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none"
+      }
+    },
+    {
+      "id": 6,
+      "type": "logs",
+      "title": "最近错误 · 点开记录后查看链路",
+      "description": "来源已写在每条摘要开头。TraceID链接沿用现有Tempo数据源；记录展开后还可查看已解析字段。每类最多100条，完整统计见上方计数。",
+      "datasource": {
+        "type": "loki",
+        "uid": "formula-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{service=\"formula-browser\"} | json | event=\"browser.error\" | __error__=\"\" | line_format `前端异常 · {{.errorName}} · 页面 {{.route}} · 位置 {{default \"未知文件\" .asset}}:{{default \"?\" .line}}:{{default \"?\" .column}} · {\"traceId\":\"{{.traceId}}\"}`",
+          "queryType": "range",
+          "editorMode": "code",
+          "maxLines": 100
+        },
+        {
+          "refId": "B",
+          "expr": "{service=\"formula-api\"} | json | event=\"http.operation\" | status >= 500 | __error__=\"\" | line_format `API 请求失败 · {{.operation}} · HTTP {{.status}} · {{default \"未分类\" .code}} · 请求 {{.requestId}} · {\"traceId\":\"{{.traceId}}\"}`",
+          "queryType": "range",
+          "editorMode": "code",
+          "maxLines": 100
+        },
+        {
+          "refId": "C",
+          "expr": "{service=\"formula-worker\"} | json | event=\"worker.attempt\" | outcome=\"failed\" | __error__=\"\" | line_format `任务最终失败 · {{.operation}} · {{default \"未分类\" .code}} · 第{{.attempt}}次尝试 · 任务 {{.taskId}} · {\"traceId\":\"{{.traceId}}\"}`",
+          "queryType": "range",
+          "editorMode": "code",
+          "maxLines": 100
+        },
+        {
+          "refId": "D",
+          "expr": "{service=\"formula-recognition\"} | json | event=\"recognition.request\" | status >= 500 | __error__=\"\" | line_format `Python 识别服务异常 · HTTP {{.status}} · {{.durationMs}}ms · {\"traceId\":\"{{.traceId}}\"}`",
+          "queryType": "range",
+          "editorMode": "code",
+          "maxLines": 100
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": false,
+        "wrapLogMessage": true,
+        "sortOrder": "Descending",
+        "enableLogDetails": true,
+        "dedupStrategy": "none"
+      }
+    },
+    {
+      "id": 7,
+      "type": "table",
+      "title": "前端同类异常汇总",
+      "datasource": {
+        "type": "loki",
+        "uid": "formula-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(fingerprint,errorName,route,asset,line)(count_over_time({service=\"formula-browser\"} | json | event=\"browser.error\" | __error__=\"\" | keep fingerprint,errorName,route,asset,line [$__range]))",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "fingerprint": true
+            },
+            "renameByName": {
+              "Value": "记录次数",
+              "errorName": "错误类型",
+              "route": "发生页面",
+              "asset": "脚本文件",
+              "line": "行号",
+              "operation": "任务类型",
+              "code": "错误代码"
+            },
+            "indexByName": {
+              "errorName": 0,
+              "route": 1,
+              "asset": 2,
+              "line": 3,
+              "Value": 4
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "暂无错误记录"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    },
+    {
+      "id": 8,
+      "type": "table",
+      "title": "任务最终失败汇总",
+      "datasource": {
+        "type": "loki",
+        "uid": "formula-loki"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "sum by(operation,code)(count_over_time({service=\"formula-worker\"} | json | event=\"worker.attempt\" | outcome=\"failed\" | __error__=\"\" | keep operation,code [$__range]))",
+          "queryType": "instant",
+          "editorMode": "code"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "labelsToFields",
+          "options": {
+            "mode": "columns"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "fingerprint": true
+            },
+            "renameByName": {
+              "Value": "记录次数",
+              "errorName": "错误类型",
+              "route": "发生页面",
+              "asset": "脚本文件",
+              "line": "行号",
+              "operation": "任务类型",
+              "code": "错误代码"
+            },
+            "indexByName": {
+              "operation": 0,
+              "code": 1,
+              "Value": 2
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "暂无错误记录"
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true
+      }
+    }
+  ]
+}

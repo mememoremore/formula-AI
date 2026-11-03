@@ -165,6 +165,18 @@ await chat.request
       <p v-if="turn?.status === 'FAILED'" class="error-text section" role="alert">
         {{ turn.errorMessage }} 已生成的内容会保留；重新发送会使用一次额度。
       </p>
+      <button
+        v-if="chat.retryQuestion.value && !pendingIntent"
+        class="text-button regenerate-answer"
+        :disabled="busy || !!error || !recoveryReady"
+        @click="
+          chat.regenerate().then((sent) => {
+            if (sent) bottom()
+          })
+        "
+      >
+        重新生成（使用1次额度）
+      </button>
     </template>
     <div v-if="error" class="status-panel" role="alert">
       <p>
@@ -211,6 +223,10 @@ await chat.request
   </div>
 </template>
 <style scoped>
+.regenerate-answer {
+  min-height: 44px;
+  margin-top: 4px;
+}
 .explanation-navigation {
   display: flex;
   flex-wrap: wrap;

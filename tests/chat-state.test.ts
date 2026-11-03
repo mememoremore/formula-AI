@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { acceptConversationSnapshot, parseConversationSnapshot } from '../app/utils/chat-state'
+import {
+  acceptConversationSnapshot,
+  parseConversationSnapshot,
+  failedChatQuestion,
+} from '../app/utils/chat-state'
 import type { SavedConversation } from '../shared/types/tasks'
 function snapshot(
   status: 'QUEUED' | 'PROCESSING' | 'COMPLETED' | 'FAILED' = 'PROCESSING',
@@ -97,4 +101,32 @@ test('不可变消息冲突拒绝，终态首次新增的持久化回答可进�
     content: '完整回答',
   })
   assert.equal(acceptConversationSnapshot(current, done), done)
+})
+
+test('重新生成仅取最新失败轮次原问题，保留片段并拒绝完整/活动/解释首轮', () => {
+  const value = snapshot('FAILED')
+  value.messages.push({
+    ...value.messages[0]!,
+    id: 'a1',
+    position: 2,
+    role: 'ASSISTANT',
+    status: 'FAILED',
+    content: '保留的半段回答',
+  })
+  const before = JSON.stringify(value)
+  assert.equal(failedChatQuestion(value), '问题')
+  assert.equal(JSON.stringify(value), before)
+  for (const status of ['QUEUED', 'PROCESSING', 'COMPLETED'] as const) {
+    value.currentTurn!.status = status
+    assert.equal(failedChatQuestion(value), null)
+  }
+  value.currentTurn!.status = 'FAILED'
+  value.currentTurn!.responseKind = 'FORMULA_EXPLANATION'
+  assert.equal(failedChatQuestion(value), null)
+  delete value.currentTurn!.responseKind
+  value.purpose = 'EXPLANATION'
+  assert.equal(failedChatQuestion(value), null)
+  value.purpose = 'CHAT'
+  value.messages.pop()
+  assert.equal(failedChatQuestion(value), null)
 })

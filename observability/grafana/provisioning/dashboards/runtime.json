@@ -22,7 +22,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "1. 在下方查看 API、Worker、Python 的业务日志。\n2. 点开日志，展开 TraceID 链接可查看调用链。\n3. 已有 trace ID：打开 Explore，选择 Formula Traces，输入完整 trace ID 查询。\n\n日志搜索：`{service=~\"formula-.+\"} | json | traceId = \"你的编号\"`\n\n仅收集经过白名单过滤的业务诊断；不采集原始请求正文、Cookie、密钥和图片。"
+        "content": "[自动错误中心](/d/formula-errors) · 1. 在下方查看 API、Worker、Python 的业务日志。\n2. 点开日志，展开 TraceID 链接可查看调用链。\n3. 已有 trace ID：打开 Explore，选择 Formula Traces，输入完整 trace ID 查询。\n\n日志搜索：`{service=~\"formula-.+\"} | json | traceId = \"你的编号\"`\n\n仅收集经过白名单过滤的业务诊断；不采集原始请求正文、Cookie、密钥和图片。"
       }
     },
     {

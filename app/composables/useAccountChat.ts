@@ -5,6 +5,7 @@ import {
   acceptConversationSnapshot,
   parseConversationSnapshot,
   activeChatTurn,
+  failedChatQuestion,
 } from '~/utils/chat-state'
 export function useAccountChat(id: string, ownerId: string) {
   const accountFetch = useAccountFetch()
@@ -46,6 +47,9 @@ export function useAccountChat(id: string, ownerId: string) {
     (v) => activeChatTurn(v.currentTurn),
     {
       paused: events.connected,
+      onResume() {
+        if (activeChatTurn(accepted?.currentTurn)) events.reconnect(accepted!.currentTurn!.id)
+      },
       async read(signal) {
         const value = await read<SavedConversation>(
           `/api/account/conversations/${encodeURIComponent(id)}`,
@@ -170,7 +174,15 @@ export function useAccountChat(id: string, ownerId: string) {
     controllers.clear()
     if (import.meta.client) request.clear()
   })
+  const retryQuestion = computed(() => failedChatQuestion(request.data.value))
+  async function regenerate() {
+    if (!retryQuestion.value || pendingIntent.value || busy.value || request.error.value)
+      return false
+    return send(retryQuestion.value)
+  }
   return {
+    retryQuestion,
+    regenerate,
     request,
     refresh,
     busy,

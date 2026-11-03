@@ -1,3 +1,4 @@
+import { startOrphanCleanup, orphanPolicy } from '../server/resources/orphan-cleanup'
 import { startWorkerMetrics } from '../server/diagnostics/worker-metrics'
 import { setTraceService, shutdownTraces } from '../server/diagnostics/tracing'
 import { diagnostic } from '../server/diagnostics/operations'
@@ -12,6 +13,7 @@ setTraceService('formula-worker')
 process.env.FORMULA_SERVICE_NAME = 'formula-worker'
 const recoveryOptions = recoveryPolicy()
 const leaseOptions = leaseRecoveryPolicy()
+const orphanOptions = orphanPolicy()
 const db = createDatabaseClient(process.env.NUXT_DATABASE_URL ?? '')
 const boss = createQueueClient(process.env.NUXT_DATABASE_URL ?? '', { worker: true })
 const store = createObjectStore({
@@ -27,6 +29,7 @@ let stopping = false,
   shutdown: Promise<void> | undefined
 let metricsServer: Awaited<ReturnType<typeof startWorkerMetrics>> | undefined
 let recovery: Awaited<ReturnType<typeof startTaskRecovery>> | undefined
+let orphanCleanup: Awaited<ReturnType<typeof startOrphanCleanup>> | undefined
 let leaseRecovery: Awaited<ReturnType<typeof startLeaseRecovery>> | undefined
 function stop() {
   if (shutdown) return shutdown
@@ -35,7 +38,7 @@ function stop() {
   shutdown = (async () => {
     // 启动中的核对观察signal后退出；不在异步初始化尚未结束时断开数据库。
     await startup?.catch(() => {})
-    await Promise.all([recovery?.stop(), leaseRecovery?.stop()])
+    await Promise.all([recovery?.stop(), leaseRecovery?.stop(), orphanCleanup?.stop()])
     try {
       await boss.stop({ graceful: true, timeout: 25000 })
     } finally {
@@ -73,10 +76,15 @@ async function start() {
     signal: shutdownSignal.signal,
   })
   if (stopping) return
+  orphanCleanup = await startOrphanCleanup(db, store, {
+    ...orphanOptions,
+    signal: shutdownSignal.signal,
+  })
+  if (stopping) return
   await registerWorkers(db, boss, store)
   if (!stopping)
     console.log(
-      `Worker 已启动：识别（${process.env.NUXT_RECOGNITION_PROVIDER === 'python' ? 'Python' : '模拟'}）、对话（${process.env.NUXT_AI_PROVIDER === 'deepseek' ? 'DeepSeek' : '模拟'}）与 Word 导出；后台任务核对${recoveryOptions.enabled ? '开启' : '关闭'}；独立租约核对${leaseOptions.enabled ? '开启' : '关闭'}。`,
+      `Worker 已启动：识别（${process.env.NUXT_RECOGNITION_PROVIDER === 'python' ? 'Python' : '模拟'}）、对话（${process.env.NUXT_AI_PROVIDER === 'deepseek' ? 'DeepSeek' : '模拟'}）与 Word 导出；后台任务核对${recoveryOptions.enabled ? '开启' : '关闭'}；独立租约核对${leaseOptions.enabled ? '开启' : '关闭'}；遗留图片核对模式${orphanOptions.mode}。`,
     )
 }
 startup = start()

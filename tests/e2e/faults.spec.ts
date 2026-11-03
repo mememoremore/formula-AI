@@ -158,3 +158,108 @@ test('@fault 真实回执丢失、失败/停止历史、重试与 Worker 进程�
   await page.reload()
   await expect(page.getByText('[e2e:crash] 进程退出后恢复', { exact: true })).toBeVisible()
 })
+
+test('@fault 重新生成保留旧片段且回执重放不重复扣额；断网及前台事件只读恢复', async ({
+  page,
+  context,
+}) => {
+  test.setTimeout(180000)
+  const headers = { origin: testEnvironment.apiUrl },
+    email = 'recovery-' + randomUUID() + '@formula.test',
+    password = 'Recovery-' + randomUUID()
+  expect(
+    (
+      await page.request.post('/api/auth/sign-up/email', {
+        headers,
+        data: { name: '恢复验收', email, password },
+      })
+    ).status(),
+  ).toBe(200)
+  expect(
+    (
+      await page.request.post('/api/auth/email-otp/verify-email', {
+        headers,
+        data: { email, otp: readTestOtp(email) },
+      })
+    ).status(),
+  ).toBe(200)
+  expect(
+    (
+      await page.request.post('/api/auth/sign-in/email', { headers, data: { email, password } })
+    ).status(),
+  ).toBe(200)
+  await page.setViewportSize({ width: 390, height: 900 })
+  await visit(page, '/ai/new')
+  const question = '[e2e:once-fail] [e2e:slow] 自动恢复测试'
+  await page.getByRole('textbox', { name: '输入提问，Shift 加回车换行' }).fill(question)
+  await page.getByRole('button', { name: '发送提问', exact: true }).click()
+  await expect(page).toHaveURL(/\/ai\/[0-9a-f-]+$/)
+  const id = page.url().split('/').at(-1)!
+  await expect(
+    page.getByRole('button', { name: '重新生成（使用1次额度）', exact: true }),
+  ).toBeVisible()
+  const old = await db.chatTurn.findFirstOrThrow({
+    where: { conversationId: id, status: 'FAILED' },
+  })
+  expect(old.partialContent).toContain('受控模型')
+  const originalMessage = await db.chatMessage.findFirstOrThrow({
+    where: { turnId: old.id, role: 'ASSISTANT' },
+  })
+  let lost = false,
+    posts = 0,
+    reads = 0
+  page.on('request', (r) => {
+    if (r.url().includes('/conversations/' + id)) {
+      if (r.method() === 'POST' && r.url().endsWith('/messages')) posts++
+      if (r.method() === 'GET' && !r.url().includes('/events')) reads++
+    }
+  })
+  await page.route('**/api/account/conversations/' + id + '/messages', async (route) => {
+    if (!lost) {
+      lost = true
+      await route.fetch()
+      await route.abort('failed')
+    } else await route.continue()
+  })
+  await page.getByRole('button', { name: '重新生成（使用1次额度）', exact: true }).click()
+  await expect(page.getByRole('button', { name: '确认原提问', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: '确认原提问', exact: true }).click()
+  await context.setOffline(true)
+  await page.waitForTimeout(4000)
+  await context.setOffline(false)
+  await expect
+    .poll(
+      async () =>
+        (
+          await db.chatTurn.findMany({
+            where: { conversationId: id },
+            orderBy: { createdAt: 'asc' },
+          })
+        ).at(-1)?.status,
+      { timeout: 60000 },
+    )
+    .toBe('COMPLETED')
+  await expect(page.getByRole('button', { name: '停止生成', exact: true })).toHaveCount(0)
+  expect(await db.chatTurn.count({ where: { conversationId: id } })).toBe(2)
+  expect(
+    (await db.dailyUsage.findFirstOrThrow({ where: { ownerId: old.ownerId, kind: 'CHAT' } })).used,
+  ).toBe(2)
+  expect(
+    (await db.chatMessage.findUniqueOrThrow({ where: { id: originalMessage.id } })).content,
+  ).toBe(originalMessage.content)
+  const before = reads,
+    beforePosts = posts
+  await page.waitForTimeout(1100)
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+    document.dispatchEvent(new Event('visibilitychange'))
+    Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'visible' })
+    document.dispatchEvent(new Event('visibilitychange'))
+  })
+  await expect.poll(() => reads).toBeGreaterThan(before)
+  expect(posts).toBe(beforePosts)
+  await page.evaluate(() => {
+    delete (document as unknown as Record<string, unknown>).visibilityState
+  })
+  expect(await db.chatTurn.count({ where: { conversationId: id } })).toBe(2)
+})

@@ -11,6 +11,7 @@ type Operation =
   | 'recognition'
   | 'chat'
   | 'export'
+  | 'orphan-cleanup'
   | 'lease-recovery'
   | 'task-recovery'
 export interface DiagnosticFields {
@@ -36,6 +37,9 @@ export interface DiagnosticFields {
   requestKey?: string
   attempt?: number
   status?: number
+  candidates?: number
+  deleted?: number
+  kept?: number
   reviewed?: number
   durationMs?: number
   code?: string
@@ -61,6 +65,7 @@ const operations = new Set([
   'recognition',
   'chat',
   'export',
+  'orphan-cleanup',
   'lease-recovery',
   'task-recovery',
 ])
@@ -197,7 +202,17 @@ export function diagnostic(
     if (typeof value[key] === 'string' && uuid.test(value[key])) entry[key] = value[key]
   if (typeof value.ownerId === 'string' && uuid.test(value.ownerId))
     entry.ownerRef = createHash('sha256').update(value.ownerId).digest('hex').slice(0, 16)
-  for (const key of ['attempt', 'status', 'reviewed', 'durationMs', 'line', 'column'] as const)
+  for (const key of [
+    'attempt',
+    'status',
+    'reviewed',
+    'durationMs',
+    'line',
+    'column',
+    'candidates',
+    'deleted',
+    'kept',
+  ] as const)
     if (Number.isSafeInteger(value[key]) && value[key]! >= 0) entry[key] = value[key]!
   if (
     value.stage &&

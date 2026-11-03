@@ -227,26 +227,28 @@ async function send() {
     >
       确认原提问
     </button>
-    <div class="chip-list chat-suggestions" aria-label="建议提问">
-      <button
-        v-for="suggestion in suggestions"
-        :key="suggestion.label"
-        class="chip"
-        :disabled="!!pending || busy"
-        @click="draft = suggestion.question"
-      >
-        {{ suggestion.label }}
-      </button>
+    <div class="new-chat-controls">
+      <div class="chip-list chat-suggestions" aria-label="建议提问">
+        <button
+          v-for="suggestion in suggestions"
+          :key="suggestion.label"
+          class="chip"
+          :disabled="!!pending || busy"
+          @click="draft = suggestion.question"
+        >
+          {{ suggestion.label }}
+        </button>
+      </div>
+      <ChatComposer
+        v-model="draft"
+        :readonly="!!pending"
+        :disabled="
+          busy || !intents.ready.value || !!contextError || !!settingsError || !settings?.ready
+        "
+        :placeholder="busy ? '正在创建并发送…' : '输入你的问题…'"
+        @send="send"
+      />
     </div>
-    <ChatComposer
-      v-model="draft"
-      :readonly="!!pending"
-      :disabled="
-        busy || !intents.ready.value || !!contextError || !!settingsError || !settings?.ready
-      "
-      :placeholder="busy ? '正在创建并发送…' : '输入你的问题…'"
-      @send="send"
-    />
     <FormulaContextPicker
       v-if="showPicker"
       :owner-id="ownerId"
@@ -261,7 +263,10 @@ async function send() {
   display: flex;
   flex-direction: column;
   min-height: calc(100dvh - 56px);
-  padding-bottom: calc(var(--chat-composer-height, 80px) + 32px);
+  padding-bottom: calc(
+    var(--chat-composer-height, 80px) + var(--bottom-nav-offset) + var(--safe-area-bottom) +
+      var(--chat-keyboard-offset, 0px) + 100px
+  );
 }
 .draft-context {
   padding: 16px;
@@ -291,9 +296,26 @@ async function send() {
 .info-note {
   line-height: 1.8;
 }
+.new-chat-controls {
+  position: fixed;
+  z-index: 21;
+  bottom: calc(
+    var(--bottom-nav-offset) + var(--safe-area-bottom) + var(--chat-keyboard-offset, 0px) + 12px
+  );
+  left: 50%;
+  transform: translateX(-50%);
+  display: grid;
+  gap: 12px;
+  width: min(calc(100% - 32px), calc(var(--app-width) - 48px));
+}
+.new-chat-controls :deep(.chat-composer) {
+  position: static;
+  transform: none;
+  width: 100%;
+}
 .chat-suggestions {
-  margin-top: auto;
-  padding-top: 20px;
+  margin: 0;
+  padding: 0;
 }
 .chat-suggestions .chip {
   flex: 1;

@@ -226,3 +226,25 @@ export function acceptConversationSnapshot(
   } else if (old?.id !== turn?.id && newMax <= oldMax) return previous
   return next
 }
+
+/** 仅重新生成最新失败文本轮次；旧消息和片段保持不可变。 */
+export function failedChatQuestion(value?: SavedConversation): string | null {
+  if (
+    !value ||
+    value.currentTurn?.status !== 'FAILED' ||
+    value.currentTurn.responseKind === 'FORMULA_EXPLANATION' ||
+    (value.purpose === 'EXPLANATION' && !value.baseExplanation)
+  )
+    return null
+  const answer = value.messages.at(-1),
+    question = value.messages.at(-2)
+  if (
+    answer?.role !== 'ASSISTANT' ||
+    answer.status !== 'FAILED' ||
+    question?.role !== 'USER' ||
+    !question.content.trim() ||
+    question.content.length > 2000
+  )
+    return null
+  return question.content
+}

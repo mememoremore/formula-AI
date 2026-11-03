@@ -1,3 +1,4 @@
+import { orphanPolicy } from '../server/resources/orphan-cleanup'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { resourcePolicy } from '../server/resources/policy'
@@ -56,4 +57,11 @@ test('有界正文读取真实终止超时流，并拒绝分块超额/空内容'
     (await readBoundedStream(Readable.from([Buffer.from('abc')]), 3, 1000)).toString(),
     'abc',
   )
+})
+
+test('遗留图片默认只读核对，显式apply/off，非法模式拒绝启动', () => {
+  assert.equal(orphanPolicy({}).mode, 'report')
+  assert.equal(orphanPolicy({ FORMULA_RESOURCE_ORPHAN_MODE: 'apply' }).mode, 'apply')
+  assert.equal(orphanPolicy({ FORMULA_RESOURCE_ORPHAN_MODE: 'off' }).mode, 'off')
+  assert.throws(() => orphanPolicy({ FORMULA_RESOURCE_ORPHAN_MODE: 'true' }))
 })

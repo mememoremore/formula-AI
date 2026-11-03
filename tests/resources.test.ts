@@ -1,3 +1,4 @@
+import { sweepOrphanImages, startOrphanCleanup } from '../server/resources/orphan-cleanup'
 import { testEnvironment } from './support/integration.ts'
 import test, { before, after } from 'node:test'
 import assert from 'node:assert/strict'
@@ -777,4 +778,102 @@ test('真实子进程在预留后和PUT后退出，跨进程读取仍保留占�
       })
     }
   }
+})
+
+test('已完成遗留图片：先只读报告，再审计删除；重复执行不释放未知资源', async () => {
+  const state = await ready(await owner())
+  const options = { managedImageBucket: store.bucket }
+  assert.equal((await cleanupFile(db, store, state.file.id, options)).outcome, 'DRY_RUN_CANDIDATE')
+  assert.ok(await store.head!(state.file.objectKey))
+  assert.equal(
+    (await cleanupFile(db, store, state.file.id, { ...options, apply: true })).outcome,
+    'DELETED',
+  )
+  assert.equal(
+    (await db.storedFile.findUniqueOrThrow({ where: { id: state.file.id } })).status,
+    'DELETED',
+  )
+  assert.equal(
+    (await cleanupFile(db, store, state.file.id, { ...options, apply: true })).outcome,
+    'ALREADY_DELETED',
+  )
+  assert.ok(
+    await db.storageCleanupAudit.count({
+      where: { fileId: state.file.id, action: 'DELETE', outcome: 'DELETED' },
+    }),
+  )
+})
+
+test('后台图片清理保护新图片、任务引用、PENDING、DOCX与无删除审计对象', async () => {
+  const id = await owner(),
+    image = await ready(id),
+    document = await ready(id, png, 'DOCX')
+  const options = { apply: true, managedImageBucket: store.bucket }
+  await db.storedFile.update({ where: { id: image.file.id }, data: { updatedAt: new Date() } })
+  assert.equal((await cleanupFile(db, store, image.file.id, options)).outcome, 'GRACE_KEEP')
+  await db.storedFile.update({ where: { id: image.file.id }, data: { updatedAt: new Date(0) } })
+  await db.recognitionTask.create({
+    data: {
+      ownerId: id,
+      inputFileId: image.file.id,
+      requestKey: randomUUID(),
+      mode: 'HANDWRITTEN',
+    },
+  })
+  assert.equal((await cleanupFile(db, store, image.file.id, options)).outcome, 'REFERENCED_KEEP')
+  assert.equal(
+    (await cleanupFile(db, store, document.file.id, options)).outcome,
+    'PROTECTED_FILE_KEEP',
+  )
+  const writing = await pending(await owner())
+  assert.equal(
+    (await cleanupFile(db, store, writing.file.id, options)).outcome,
+    'PROTECTED_FILE_KEEP',
+  )
+  const unknown = await ready(await owner())
+  await db.storedFile.update({ where: { id: unknown.file.id }, data: { status: 'DELETING' } })
+  assert.equal(
+    (await cleanupFile(db, store, unknown.file.id, options)).outcome,
+    'LEASE_REVIEW_KEEP',
+  )
+  assert.ok(await store.head!(image.file.objectKey))
+  assert.ok(await store.head!(document.file.objectKey))
+})
+
+test('图片删除回执丢失后保留DELETING和计量，下次核对恢复；真实核对分页有界', async () => {
+  const state = await ready(await owner()),
+    options = { apply: true, managedImageBucket: store.bucket }
+  const uncertain = {
+    ...store,
+    async remove(key: string) {
+      await store.remove(key)
+      throw new Error('controlled lost receipt')
+    },
+  }
+  assert.equal(
+    (await cleanupFile(db, uncertain, state.file.id, options)).outcome,
+    'REVIEW_REQUIRED',
+  )
+  assert.equal(
+    (await db.storedFile.findUniqueOrThrow({ where: { id: state.file.id } })).status,
+    'DELETING',
+  )
+  assert.equal((await cleanupFile(db, store, state.file.id, options)).outcome, 'DELETED')
+  const uncertainHead = {
+    ...store,
+    async head(): Promise<null> {
+      throw new Error('controlled HEAD failure')
+    },
+  }
+  const skipped = await sweepOrphanImages(db, uncertainHead, { batchSize: 1 })
+  assert.equal(skipped.reviewed, 1)
+  assert.equal(skipped.kept, 1)
+  assert.ok(skipped.after, '单对象失败仍须推进游标')
+  const batch = await sweepOrphanImages(db, store, { batchSize: 1 })
+  assert.ok(batch.reviewed <= 1)
+  const stopped = new AbortController()
+  stopped.abort()
+  assert.equal((await sweepOrphanImages(db, store, { signal: stopped.signal })).reviewed, 0)
+  const loop = await startOrphanCleanup(db, store, { mode: 'report', batchSize: 1, intervalMs: 20 })
+  await loop.stop()
 })

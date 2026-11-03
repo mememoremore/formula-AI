@@ -150,22 +150,30 @@ export async function reconcileExpiredLeases(
   }
   return { reviewed, releasedBytes: 0 }
 }
-/** apply 只能由已完成 R1 身份核验的入口调用；文件删除没有后台调度器或 GET 隐式清理。 */
+/** apply 只允许经校验的隔离测试或显式授权的当前桶图片清理；GET不清理。 */
 export async function cleanupFile(
   db: PrismaClient,
   store: PrivateObjectStore,
   fileId: string,
-  options: { apply?: boolean; verifiedTestBucket?: string } = {},
+  options: { apply?: boolean; verifiedTestBucket?: string; managedImageBucket?: string } = {},
 ) {
   if (
     options.apply &&
     (options.verifiedTestBucket !== store.bucket ||
-      !/^formula-test-[a-f0-9]{12}$/.test(store.bucket))
+      !/^formula-test-[a-f0-9]{12}$/.test(store.bucket)) &&
+    options.managedImageBucket !== store.bucket
   )
     throw new Error('Cleanup apply requires verified isolated test storage')
   if (!store.head) throw new Error('Object HEAD required before cleanup')
   const file = await db.storedFile.findUnique({ where: { id: fileId } })
   if (!file || file.bucket !== store.bucket) return { outcome: 'NOT_FOUND_KEEP' }
+  if (
+    options.managedImageBucket &&
+    (options.managedImageBucket !== store.bucket ||
+      file.kind !== 'IMAGE' ||
+      file.status === 'PENDING')
+  )
+    return { outcome: 'PROTECTED_FILE_KEEP' }
   const object = await store.head(file.objectKey)
   const operationId = randomUUID()
   const candidate = await resourceTransaction(db, file.ownerId, async (tx) => {
@@ -184,7 +192,24 @@ export async function cleanupFile(
       (leases.length && current.status !== 'DELETING')
     )
       return 'LEASE_REVIEW_KEEP'
-    if (!cleanupAgeEligible(current)) return 'GRACE_KEEP'
+    if (options.managedImageBucket) {
+      if (current.kind !== 'IMAGE' || current.status === 'PENDING') return 'PROTECTED_FILE_KEEP'
+      if (current.status === 'DELETING') {
+        const claimed = await tx.storageCleanupAudit.count({
+          where: {
+            fileId: current.id,
+            objectFingerprint: objectFingerprint(current.bucket, current.objectKey),
+            action: 'DELETE',
+            outcome: 'STARTED',
+          },
+        })
+        if (!claimed) return 'LEASE_REVIEW_KEEP'
+      } else if (
+        Date.now() - current.updatedAt.getTime() <
+        Math.max(86400, resourcePolicy().fileGraceSeconds) * 1000
+      )
+        return 'GRACE_KEEP'
+    } else if (!cleanupAgeEligible(current)) return 'GRACE_KEEP'
     if (!options.apply) return 'DRY_RUN_CANDIDATE'
     await tx.storedFile.update({ where: { id: file.id }, data: { status: 'DELETING' } })
     await audit(tx, current, 'DELETE', 'STARTED', operationId)

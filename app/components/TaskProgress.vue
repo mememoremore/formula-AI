@@ -109,4 +109,7 @@ p {
   border-top-color: var(--color-warning);
   color: var(--color-warning);
 }
+.task-ring.waiting {
+  border-color: #eee9fb;
+}
 </style>

@@ -75,6 +75,16 @@ await boss.work<JobPayload, void, typeof options>(queues.chat, options, async (j
         }
         yield { text: '受控模型：正在分析公式。\n\n' }
         await delay(1200, undefined, { signal })
+        if (question.includes('[e2e:once-fail]')) {
+          const turn = await db.chatTurn.findUniqueOrThrow({ where: { id: job.data.taskId } })
+          if (
+            !(await db.chatTurn.count({
+              where: { conversationId: turn.conversationId, question, status: 'FAILED' },
+            }))
+          )
+            throw new InferenceFailure('INVALID_INPUT', '受控首次失败', false)
+        }
+        if (question.includes('[e2e:slow]')) await delay(8000, undefined, { signal })
         if (question.includes('[e2e:fail]'))
           throw new InferenceFailure('INVALID_INPUT', '受控失败', false)
         if (question.includes('[e2e:retry]') && job.retryCount === 0)

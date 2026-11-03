@@ -77,7 +77,9 @@
     "test:e2e:faults": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts faults",
     "test:isolated:cleanup": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-cleanup.ts",
     "test:isolated:cleanup-proof": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts cleanup-proof",
-    "test:alerts": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-alerts.ts"
+    "test:alerts": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-alerts.ts",
+    "test:errors": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-error-dashboard.ts",
+    "storage:audit": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/orphan-images.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1154.0",
