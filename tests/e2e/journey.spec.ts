@@ -1,6 +1,6 @@
 import { test, expect, type Page } from '@playwright/test'
 import { randomUUID, randomBytes } from 'node:crypto'
-import { visit, captureFailure } from './browser'
+import { visit, captureFailure, verifyRegistration } from './browser'
 import { readFileSync } from 'node:fs'
 import { unzipSync, strFromU8 } from 'fflate'
 import { testEnvironment } from '../support/integration.ts'
@@ -39,7 +39,8 @@ async function signup(page: Page, email: string, password: string) {
   )
   await page.getByRole('button', { name: '创建账号', exact: true }).click()
   expect((await registration).status()).toBe(200)
-  await expect(page).toHaveURL(/\/upload$/)
+  await verifyRegistration(page, email)
+  await expect(page).toHaveURL((url) => url.pathname === '/upload')
   const session = await page.request.get('/api/account/session')
   expect(session.status()).toBe(200)
   expect(((await session.json()) as { user: { email: string } | null }).user?.email).toBe(email)
@@ -155,7 +156,7 @@ for (const width of [320, 390, 430, 1440])
     await visit(page, '/settings')
     page.on('dialog', (dialog) => dialog.accept())
     await page.getByRole('button', { name: '退出登录', exact: true }).click()
-    await expect(page).toHaveURL(/\/profile$/)
+    await expect(page).toHaveURL(/\/login/)
     await signup(page, `e2e-b-${randomUUID()}@formula.test`, password)
     for (const resource of [
       `/api/account/formulas/${formulaId}`,
@@ -169,7 +170,7 @@ for (const width of [320, 390, 430, 1440])
     }
     await visit(page, '/settings')
     await page.getByRole('button', { name: '退出登录', exact: true }).click()
-    await expect(page).toHaveURL(/\/profile$/)
+    await expect(page).toHaveURL(/\/login/)
     await visit(page, '/login?redirect=/library?space=account')
     await page.getByPlaceholder('请输入邮箱').fill(email)
     await page.getByPlaceholder('请输入密码').fill(password)

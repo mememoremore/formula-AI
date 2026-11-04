@@ -8,7 +8,10 @@ const width = computed(() => contentWidth(route.meta.contentWidth))
 <template>
   <div class="app-shell" :class="[{ 'has-bottom-nav': showNav }, 'layout-' + width]">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
-    <main id="main-content" class="page-content" tabindex="-1"><slot /></main>
+    <main id="main-content" class="page-content" tabindex="-1">
+      <slot />
+      <DiagnosticCopy />
+    </main>
     <AppBottomNav v-if="showNav" :content-width="width" />
     <AppToast />
   </div>

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test'
 import { randomUUID, randomBytes } from 'node:crypto'
 import { mkdirSync } from 'node:fs'
-import { visit, captureFailure } from './browser'
+import { visit, captureFailure, verifyRegistration } from './browser'
 import { testEnvironment } from '../support/integration.ts'
 import { createDatabaseClient } from '../../server/database/client'
 import type { SavedFormula } from '../../shared/types/workspace'
@@ -18,20 +18,22 @@ for (const width of [320, 390, 430, 1440])
       else await route.abort('blockedbyclient')
     })
     mkdirSync('tmp/ux-final/screens', { recursive: true })
-    await visit(page, '/')
-    await page.screenshot({ path: 'tmp/ux-final/screens/home-' + width + '.png', fullPage: true })
-    await page.getByRole('link', { name: /输入 LaTeX/ }).click()
+    await visit(page, '/formulas/new')
     await expect(page).toHaveURL(
       (url) => url.pathname === '/login' && url.searchParams.get('redirect') === '/formulas/new',
     )
     await page.getByRole('button', { name: '还没有账号？创建一个' }).click()
     await page.getByPlaceholder('希望我们如何称呼你').fill('R19测试')
-    await page.getByPlaceholder('请输入邮箱').fill(`r19-${randomUUID()}@formula.test`)
+    const email = `r19-${randomUUID()}@formula.test`
+    await page.getByPlaceholder('请输入邮箱').fill(email)
     await page
       .locator('input[type="password"]')
       .fill('R19-' + randomBytes(18).toString('base64url'))
     await page.getByRole('button', { name: '创建账号', exact: true }).click()
+    await verifyRegistration(page, email)
     await expect(page).toHaveURL((url) => url.pathname === '/formulas/new')
+    await visit(page, '/')
+    await page.screenshot({ path: 'tmp/ux-final/screens/home-' + width + '.png', fullPage: true })
     const created = await page.request.post('/api/account/formulas', {
       headers: { origin: testEnvironment.apiUrl },
       data: { requestKey: randomUUID(), title: 'R19二次方程', latex: 'x^2-5x+6=0' },
@@ -97,7 +99,8 @@ for (const width of [320, 390, 430, 1440])
       .boundingBox()
     expect(generateBounds).not.toBeNull()
     expect(historyBounds).not.toBeNull()
-    expect(historyBounds!.x - generateBounds!.x - generateBounds!.width).toBeGreaterThanOrEqual(23)
+    expect(historyBounds!.x - generateBounds!.x - generateBounds!.width).toBeGreaterThanOrEqual(20)
+    await expect(actions).toHaveCSS('column-gap', '20px')
     await page.getByRole('button', { name: '复制完整解释', exact: true }).click()
     const copied = await page.evaluate(
       () => (window as unknown as { copiedExplanation: string }).copiedExplanation,

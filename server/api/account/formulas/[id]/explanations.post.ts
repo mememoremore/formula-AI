@@ -12,9 +12,6 @@ export default defineEventHandler((event) =>
   workspaceRequest(event, async () => {
     const user = await requireAccountWriter(event),
       id = getRouterParam(event, 'id') ?? ''
-    const expected = getHeader(event, 'x-account-id')
-    if (expected && expected !== user.id)
-      throw createError({ statusCode: 403, message: '账号已变化，请重新确认。' })
     const body = await readWorkspaceJson(event)
     if (
       !isRecord(body) ||

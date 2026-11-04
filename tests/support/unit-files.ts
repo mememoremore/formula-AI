@@ -33,4 +33,5 @@ export const vitestLogicFiles = [
   'tests/metrics.test.ts',
   'tests/export-state.test.ts',
   'tests/vitest-safety.test.ts',
+  'tests/formula-queries.test.ts',
 ]

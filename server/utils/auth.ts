@@ -52,5 +52,8 @@ export async function requireAccountWriter(event: H3Event) {
   }
   if (!origins.has(getHeader(event, 'origin') ?? ''))
     throw createError({ statusCode: 403, message: '请求来源无效，请从本站页面重试。' })
+  const expected = getHeader(event, 'x-account-id')
+  if (expected && expected !== user.id)
+    throw createError({ statusCode: 403, message: '账号已变化，请刷新页面后再操作。' })
   return user
 }

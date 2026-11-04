@@ -86,6 +86,18 @@ test('解释提问在回答前、追问在回答后，历史不暴露模型标�
     await expect(page.getByText('请结构化解释这个固定版本公式。', { exact: true })).toHaveCount(0)
     await expect(page.getByText(/DeepSeek|deepseek-flash/)).toHaveCount(0)
     await expect(page.getByText('模拟解释', { exact: true })).toBeVisible()
+    // Viewport captures verify sticky UI; full-page captures can place a scrolled sticky header mid-image.
+    await page.evaluate(() => window.scrollTo(0, 0))
+    await expect.poll(() => page.evaluate(() => scrollY)).toBe(0)
+    const header = page.locator('.chat-header')
+    const initial = (await header.boundingBox())!
+    expect(initial.y).toBeGreaterThanOrEqual(-1)
+    expect(initial.y).toBeLessThanOrEqual(1)
+    await page.screenshot({ path: test.info().outputPath('chat-top-' + width + '.png') })
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+    await expect.poll(async () => Math.abs((await header.boundingBox())!.y)).toBeLessThanOrEqual(1)
+    expect((await header.boundingBox())!.height).toBe(initial.height)
+    await page.screenshot({ path: test.info().outputPath('chat-bottom-' + width + '.png') })
     await visit(page, '/formulas/' + formula.id + '#explanation-history')
     const history = await (
       await page.request.get('/api/account/formulas/' + formula.id + '/explanations')

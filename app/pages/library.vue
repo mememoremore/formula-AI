@@ -10,23 +10,6 @@ const route = useRoute()
 const { query, search } = useLibraryFilters()
 const { data: account, error, refresh, demo, status } = useWorkspace()
 await useAccountSession()
-let confirmedOwner = account.value?.user?.id
-watch(
-  [status, () => account.value?.user?.id],
-  ([phase, id]) => {
-    // 只在已确认的身份变化时清除。离页时 Nuxt 释放会话数据不是退出登录。
-    if (phase !== 'success') return
-    if (confirmedOwner && confirmedOwner !== id)
-      clearNuxtData(
-        (key) =>
-          key === 'account-categories' ||
-          key.startsWith('account-library-') ||
-          key.startsWith('account-history-'),
-      )
-    confirmedOwner = id
-  },
-  { flush: 'sync' },
-)
 </script>
 <template>
   <div class="library-brand"><AppBrand :account-user="account?.user ?? null" /></div>

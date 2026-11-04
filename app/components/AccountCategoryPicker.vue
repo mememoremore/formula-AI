@@ -1,48 +1,26 @@
 <script setup lang="ts">
-const accountFetch = useAccountFetch()
-import type { CategoryCollection } from '#shared/types/library'
 import type { SavedFormula } from '#shared/types/workspace'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 const props = defineProps<{ formulaId: string; currentCategoryId: string | null }>()
 const emit = defineEmits<{ close: []; saved: [formula: SavedFormula] }>()
-const {
-  data: categories,
-  error,
-  status,
-  refresh,
-} = useFetch<CategoryCollection>('/api/account/categories', { key: 'account-categories' })
+const { data: categories, error, status, refresh } = useAccountCategories()
 const selected = ref(props.currentCategoryId ?? '')
-const saving = ref(false)
+const mutation = useFormulaCategoryMutation()
+const saving = mutation.busy
 const feedback = ref('')
-const controller = new AbortController()
-let disposed = false
-onScopeDispose(() => {
-  disposed = true
-  controller.abort()
-})
 async function save() {
   if (saving.value || status.value === 'pending' || error.value) return
-  saving.value = true
   feedback.value = ''
   try {
-    const formula = await accountFetch<SavedFormula>(
-      `/api/account/formulas/${props.formulaId}/category`,
-      {
-        method: 'PUT',
-        body: { categoryId: selected.value || null },
-        retry: 0,
-        timeout: 15_000,
-        signal: controller.signal,
-      },
-    )
-    if (disposed) return
+    const formula = await mutation.execute({
+      id: props.formulaId,
+      categoryId: selected.value || null,
+    })
     emit('saved', formula)
     emit('close')
   } catch (error) {
-    if (disposed) return
+    if (isAccountWriteCancelled(error)) return
     feedback.value = workspaceFeedback(error)
-  } finally {
-    saving.value = false
   }
 }
 </script>

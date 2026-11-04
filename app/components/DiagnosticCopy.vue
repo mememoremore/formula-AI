@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { ref, watch } from 'vue'
+const route = useRoute()
 const diagnostic = useState<{
   traceId: string
   requestId?: string
@@ -6,6 +8,13 @@ const diagnostic = useState<{
   path: string
   time: string
 } | null>('last-diagnostic', () => null)
+// A previous page's failure must not follow the user into an unrelated workflow.
+watch(
+  () => route.path,
+  () => {
+    diagnostic.value = null
+  },
+)
 const copied = ref(false)
 watch(diagnostic, () => {
   copied.value = false
@@ -21,7 +30,7 @@ async function copy() {
 }
 </script>
 <template>
-  <div v-if="diagnostic" class="diagnostic-copy">
+  <div v-if="diagnostic" class="diagnostic-copy" role="status" aria-label="请求诊断">
     <button class="text-button" @click="copy">
       {{ copied ? '诊断信息已复制' : '复制诊断信息' }}
     </button>
@@ -30,19 +39,18 @@ async function copy() {
 </template>
 <style scoped>
 .diagnostic-copy {
-  position: fixed;
-  bottom: calc(env(safe-area-inset-bottom) + 104px);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 30;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px #0001;
-  white-space: nowrap;
-  display: flex;
-  gap: 16px;
-  justify-content: center;
+  margin-top: 16px;
   padding: 8px 12px;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: center;
   font-size: 12px;
+}
+.diagnostic-copy button {
+  min-height: var(--control-hit-area);
 }
 </style>

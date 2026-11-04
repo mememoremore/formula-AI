@@ -1,5 +1,4 @@
 import type { SavedFormula } from '#shared/types/workspace'
-import { formulaViewsInvalidated } from '~/utils/account-cache'
 
 /** 请求结果同时绑定身份和资源；身份未确认时不展示旧快照。 */
 export function useAccountFormula(id: Ref<string>, ownerId: Ref<string | undefined>) {
@@ -34,7 +33,6 @@ export function useAccountFormula(id: Ref<string>, ownerId: Ref<string | undefin
     if (value.id !== id.value || request.data.value?.owner !== ownerId.value || !ownerId.value)
       return
     request.data.value = { owner: ownerId.value, resource: id.value, formula: value }
-    clearNuxtData(formulaViewsInvalidated)
   }
   return { request, formula, update }
 }

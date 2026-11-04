@@ -1,13 +1,11 @@
 <script setup lang="ts">
-import type { CategoryCollection, FormulaLibraryItem } from '#shared/types/library'
+import type { FormulaLibraryItem } from '#shared/types/library'
 const props = defineProps<{ kind: 'library' | 'favorites'; ownerId: string }>()
 const route = useRoute()
 const favoritesOnly = props.kind === 'favorites'
 const listing = useAccountLibrary(props.kind, props.ownerId)
-const { items, error, status, nextCursor, loadingMore, feedback } = listing
-const categoryRequest = useFetch<CategoryCollection>('/api/account/categories', {
-  key: 'account-categories',
-})
+const { items, error, status, nextCursor, loadingMore, refreshing, feedback } = listing
+const categoryRequest = useAccountCategories(toRef(props, 'ownerId'))
 const { data: categories, error: categoryError } = categoryRequest
 const { activeCategory, selectCategory } = useLibraryFilters()
 const showManager = ref(false)
@@ -28,8 +26,13 @@ const heading = computed(() =>
       ? '已收藏的公式'
       : '最近保存',
 )
-async function categoriesChanged() {
-  await categoryRequest.refresh()
+watch(
+  () => categories.value?.items,
+  () => {
+    ensureActiveCategory()
+  },
+)
+function ensureActiveCategory() {
   if (
     !categoryRequest.error.value &&
     categories.value &&
@@ -37,14 +40,9 @@ async function categoriesChanged() {
     activeCategory.value !== 'uncategorized' &&
     !categories.value?.items.some((item) => item.id === activeCategory.value)
   )
-    await selectCategory('')
-  await listing.reload()
+    void selectCategory('')
 }
-async function assigned() {
-  selectedFormula.value = null
-  await categoriesChanged()
-}
-await Promise.all([listing.ready, categoryRequest])
+await Promise.all([listing.ready, categoryRequest.ready])
 </script>
 
 <template>
@@ -79,7 +77,7 @@ await Promise.all([listing.ready, categoryRequest])
       </button>
     </div>
   </section>
-  <section class="section" :aria-busy="status === 'pending'">
+  <section class="section" :aria-busy="status === 'pending' || refreshing">
     <div class="section-heading">
       <h2>{{ heading }}</h2>
       <div class="row">
@@ -107,7 +105,6 @@ await Promise.all([listing.ready, categoryRequest])
           v-for="formula in items"
           :key="formula.id"
           :formula="formula"
-          @favorite="listing.favoriteChanged"
           @categorize="selectedFormula = $event"
         />
       </LibraryGrid>
@@ -149,14 +146,12 @@ await Promise.all([listing.ready, categoryRequest])
     v-if="showManager"
     :categories="categories?.items ?? []"
     @close="showManager = false"
-    @changed="categoriesChanged"
   />
   <AccountCategoryPicker
     v-if="selectedFormula"
     :formula-id="selectedFormula.id"
     :current-category-id="selectedFormula.category?.id ?? null"
     @close="selectedFormula = null"
-    @saved="assigned"
   />
 </template>
 

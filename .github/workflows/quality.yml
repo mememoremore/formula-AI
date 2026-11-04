@@ -80,6 +80,7 @@ jobs:
         run: node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/ci-pandoc.ts
       - run: npx --no-install playwright install --with-deps chromium --only-shell
       - run: npm run test:e2e
+      - run: npm run test:e2e:queries
       - run: npm run test:e2e:faults
       - run: npm run test:isolated:cleanup
         if: always()

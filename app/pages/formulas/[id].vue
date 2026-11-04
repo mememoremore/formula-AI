@@ -11,6 +11,7 @@ useHead({ title: '公式详情 · Formula AI' })
 const route = useRoute()
 const id = computed(() => String(route.params.id))
 const session = useAccountSession()
+const deletion = useFormulaDeleteMutation()
 await session
 const ownerId = computed(() =>
   session.status.value === 'success' ? session.data.value?.user?.id : undefined,
@@ -21,7 +22,7 @@ const manual = computed(() => formula.value?.versions[0]?.origin === 'MANUAL')
 const current = computed(() => formula.value?.versions.at(-1))
 const showEditor = ref(false),
   showDelete = ref(false),
-  deleting = ref(false),
+  deleting = deletion.busy,
   deleteError = ref('')
 const identity = computed(() => id.value + ':' + (ownerId.value ?? 'unconfirmed'))
 watch(identity, () => {
@@ -34,22 +35,15 @@ function saved(value: SavedFormula) {
   showToast('公式已保存。')
 }
 async function removeFormula() {
-  if (deleting.value) return
-  deleting.value = true
+  if (deleting.value || !ownerId.value) return
   deleteError.value = ''
   try {
-    await $fetch(`/api/account/formulas/${encodeURIComponent(id.value)}`, {
-      method: 'DELETE',
-      retry: 0,
-      timeout: 15_000,
-    })
-    clearNuxtData((key) => formulaViewsInvalidated(key))
+    await deletion.execute(id.value)
     showToast('公式已删除。')
     await navigateTo('/library?space=account')
   } catch (error) {
+    if (isAccountWriteCancelled(error)) return
     deleteError.value = workspaceFeedback(error, '删除失败，请稍后重试。')
-  } finally {
-    deleting.value = false
   }
 }
 const errorCode = computed(

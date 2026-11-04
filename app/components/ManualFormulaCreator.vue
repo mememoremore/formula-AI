@@ -87,6 +87,7 @@ async function save() {
     completed.value = true
     await navigateTo('/formulas/' + encodeURIComponent(formula.id))
   } catch (error) {
+    if (isAccountWriteCancelled(error)) return
     feedback.value = workspaceFeedback(error, '保存结果尚未确认，请用原请求重试；草稿已保留。')
   }
 }

@@ -100,9 +100,29 @@ Vitest5.1使用两个显式测试项目：logic运行既有纯逻辑断言；com
 
 4个Node专用基础设施测试文件继续使用node:test，数据库、Worker协议及隔离集成测试沿用原运行器；完整用户旅程继续使用Playwright。Vitest测试文件采用白名单，不会通过宽泛glob误运行数据库/E2E。启动器清洗服务凭据，配置不读取根.env；每个worker安装现有网络守卫，禁止公网模型与开发数据库/存储连接。直接运行Vitest也应用worker守卫；日常仍建议使用上面的npm命令。
 
-HTML覆盖率在 `artifacts/coverage/index.html`，JSON摘要在同目录`coverage-summary.json`。统计范围为`app/utils`、`shared`业务工具（排除纯类型）及上述两个组件，未覆盖的模块会如实显示0%；不代表整个应用、数据库或模型准确率的覆盖率。初期不设置任意全局百分比门槛，按失败/恢复与交互边界持续补用例。报告不会提交Git，CI目前只输出数值摘要。
+HTML覆盖率在 `artifacts/coverage/index.html`，JSON摘要在同目录`coverage-summary.json`。统计范围为`app/utils`、`shared`业务工具（排除纯类型）、Query options与已迁移的读取/写入组合函数及上述两个组件与诊断提示组件，未覆盖的模块会如实显示0%；不代表整个应用、数据库或模型准确率的覆盖率。初期不设置任意全局百分比门槛，按失败/恢复与交互边界持续补用例。报告不会提交Git，CI目前只输出数值摘要。
 
 Vue组件测试通过`tsconfig.vitest.json`用vue-tsc检查；后端tsc不重复解析.vue。尚未覆盖所有Nuxt页面/组合函数；后续确需Nuxt运行时挂载时再引入Nuxt专用测试工具。纯DOM组件测试不能证明真实键盘、相机、浏览器布局或滚动行为。
+
+## TanStack Query（三轮迁移）
+
+公式库/收藏列表与分类读取使用 @tanstack/vue-query 5.105.3。每个 Nuxt 实例独立创建 QueryClient，SSR 数据水合到浏览器，不写入 localStorage。账号、列表类型、搜索词和分类共同组成 query key；缓存30秒内视为新鲜，未使用缓存5分钟后回收。查询不自动重试，切回窗口不自动刷新。原有写接口保留，通过统一通知刷新相关读取缓存。
+
+查询透传 AbortSignal；会话身份与组件账号不匹配时停止展示，退出或确认换号时取消查询并清空缓存。读取携带预期账号头，服务器仍以真实会话授权；两者不一致返回403，防止其他标签页换号后错存缓存。401/403隐藏已缓存内容，普通分页失败保留已有公式并允许重试。
+
+运行 `npm run test:e2e:queries`，使用独立 Docker 数据库和存储，以320/390/430/1440px视口验证SSR水合无重复请求、筛选缓存、分页、收藏、编辑、分类共享、换号隔离与写入恢复。真实模型与真实邮件服务不在此测试范围内。查询逻辑和实际组合函数测试包含在 `npm run test:vitest` 与 `npm run quality:quick` 中。
+
+第一轮文件职责与验收记录见 [Query第一轮交付记录](docs/query-round1-delivery.md)。
+
+第二轮将创建、编辑、删除、收藏和分类写入接入useMutation。通用生命周期只负责同步防重复、账号边界、AbortSignal与请求状态；业务组合函数保留明确端点和请求体。写请求不自动重试、不离线排队；成功后按账号更新已有列表并统一失效，组件不重复通知。创建仍通过原有sessionStorage回执重放同requestKey与请求体；编辑保留预期内容/名称的冲突校验。后端writer入口核对可选预期账号头，真实Cookie会话仍是授权依据。
+
+第二轮验证与限制见 [Query第二轮交付记录](docs/query-round2-delivery.md)。
+
+第三轮将诊断复制操作放入页面正常文档流，换页清除旧提示，并去掉分类修改的重复事件链。浏览器矩阵按“测试文件＋视口”分别创建、核验并清理独立DB/S3/队列，保留真实注册与OTP限流；完整矩阵还会运行不带尺寸名称的解释渲染和可观测性场景。
+
+`npm run test:e2e:queries`运行4个Query视口旅程；`npm run test:e2e`运行完整浏览器矩阵；`npm run test:e2e:faults`验证故障恢复。需要本机Docker与Chromium；邮件、模型使用隔离替身，不连接开发数据库。定向排查可运行`node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts e2e 390 journey.spec.ts`，文件名必须是tests/e2e中的合法spec，资源边界仍需通过身份校验。
+
+三轮收尾结果见 [Query第三轮交付记录](docs/query-round3-delivery.md)。
 
 ## 工程结构
 

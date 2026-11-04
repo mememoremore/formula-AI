@@ -1,40 +1,20 @@
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+import { useFormulaFavoriteMutation } from './useFormulaMutations'
+import { isAccountWriteCancelled } from './useAccountMutation'
 
 export function useAccountFavorite() {
-  const accountFetch = useAccountFetch()
-  const busy = ref(false)
+  const mutation = useFormulaFavoriteMutation()
   const { showToast } = useToast()
-  const controller = new AbortController()
-  let disposed = false
-  onScopeDispose(() => {
-    disposed = true
-    controller.abort()
-  })
   async function setFavorite(id: string, favorite: boolean) {
-    if (busy.value) return null
-    busy.value = true
+    if (mutation.busy.value) return null
     try {
-      const result = await accountFetch<{ favorite: boolean }>(
-        `/api/account/formulas/${id}/favorite`,
-        {
-          method: 'PUT',
-          body: { favorite },
-          retry: 0,
-          timeout: 15_000,
-          signal: controller.signal,
-        },
-      )
-      if (disposed) return null
-      // 列表与详情各自通过返回值更新当前窗口，不写入已弃用的未分账号详情键。
+      const result = await mutation.execute({ id, favorite })
       showToast(result.favorite ? '已收藏。' : '已取消收藏。')
       return result.favorite
     } catch (error) {
-      if (disposed) return null
-      showToast(workspaceFeedback(error))
+      if (!isAccountWriteCancelled(error)) showToast(workspaceFeedback(error))
       return null
-    } finally {
-      busy.value = false
     }
   }
-  return { busy, setFavorite }
+  return { busy: mutation.busy, setFavorite }
 }

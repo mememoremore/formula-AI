@@ -1,4 +1,12 @@
-import { closeSync, mkdirSync, openSync, writeFileSync, readFileSync, readdirSync } from 'node:fs'
+import {
+  closeSync,
+  mkdirSync,
+  openSync,
+  writeFileSync,
+  readFileSync,
+  readdirSync,
+  existsSync,
+} from 'node:fs'
 import { resolve, dirname, basename } from 'node:path'
 import { spawn, execFileSync, type ChildProcess } from 'node:child_process'
 import { setTimeout as delay } from 'node:timers/promises'
@@ -14,9 +22,22 @@ import {
 
 const mode = process.argv[2]
 const viewport = process.argv[3]
-if (viewport && (mode !== 'e2e' || !['320', '390', '430', '1440'].includes(viewport)))
+const browserFile = process.argv[4]
+if (
+  browserFile &&
+  (!['e2e', 'queries'].includes(mode ?? '') ||
+    !/^[a-z0-9-]+\.spec\.ts$/.test(browserFile) ||
+    !existsSync(resolve('tests/e2e', browserFile)))
+)
+  throw new Error('无效的浏览器测试文件')
+if (
+  viewport &&
+  (!['e2e', 'queries'].includes(mode ?? '') ||
+    (!(mode === 'e2e' && viewport === 'shared') &&
+      !['320', '390', '430', '1440'].includes(viewport)))
+)
   throw new Error('无效的定向视口')
-if (!['integration', 'e2e', 'faults', 'cleanup-proof'].includes(mode ?? ''))
+if (!['integration', 'e2e', 'faults', 'queries', 'cleanup-proof'].includes(mode ?? ''))
   throw new Error('必须指定隔离测试组')
 class ExpectedSetupFailure extends Error {}
 const started = Date.now()
@@ -188,8 +209,14 @@ try {
           'node_modules/playwright/cli.js',
           'test',
           '--config=tests/e2e/playwright.config.ts',
-          ...(mode === 'faults' ? ['--grep=@fault'] : ['--grep-invert=@fault']),
-          ...(viewport ? [`--grep=${viewport}px`] : []),
+          ...(browserFile ? ['tests/e2e/' + browserFile] : []),
+          ...(mode === 'faults'
+            ? ['--grep=@fault']
+            : mode === 'queries'
+              ? [`--grep=@queries${viewport ? '.*' + viewport + 'px' : ''}`]
+              : viewport === 'shared'
+                ? ['--grep-invert=@fault|@queries|\\d+px']
+                : ['--grep-invert=@fault|@queries', ...(viewport ? [`--grep=${viewport}px`] : [])]),
         ]
   const child = spawn(process.execPath, args, { env, stdio: ['ignore', fd, fd], windowsHide: true })
   closeSync(fd)
@@ -249,7 +276,7 @@ try {
       resolve(artifacts, 'summary.json'),
       JSON.stringify({
         group: mode,
-        viewport: viewport ? Number(viewport) : null,
+        viewport: viewport && viewport !== 'shared' ? Number(viewport) : null,
         exitCode: Number(process.exitCode ?? 1),
         cleanup,
         workerRestarts,

@@ -1,21 +1,15 @@
 <script setup lang="ts">
-const accountFetch = useAccountFetch()
 import type { AccountCategory } from '#shared/types/library'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 defineProps<{ categories: AccountCategory[] }>()
-const emit = defineEmits<{ close: []; changed: [] }>()
+const emit = defineEmits<{ close: [] }>()
 const name = ref('')
 const editing = ref<AccountCategory | null>(null)
 const deleting = ref<AccountCategory | null>(null)
-const busy = ref(false)
+const mutation = useCategoryMutation()
+const busy = mutation.busy
 const feedback = ref('')
 const { showToast } = useToast()
-const controller = new AbortController()
-let disposed = false
-onScopeDispose(() => {
-  disposed = true
-  controller.abort()
-})
 function edit(category: AccountCategory | null) {
   editing.value = category
   deleting.value = null
@@ -24,29 +18,19 @@ function edit(category: AccountCategory | null) {
 }
 async function submit() {
   if (busy.value) return
-  busy.value = true
   feedback.value = ''
   try {
     const category = editing.value
-    await accountFetch(
-      category ? `/api/account/categories/${category.id}` : '/api/account/categories',
-      {
-        method: category ? 'PATCH' : 'POST',
-        body: { name: name.value },
-        retry: 0,
-        timeout: 15_000,
-        signal: controller.signal,
-      },
+    await mutation.execute(
+      category
+        ? { action: 'rename', id: category.id, name: name.value }
+        : { action: 'create', name: name.value },
     )
-    if (disposed) return
     edit(null)
-    emit('changed')
     showToast(category ? '分类名称已更新。' : '分类已创建。')
   } catch (error) {
-    if (disposed) return
+    if (isAccountWriteCancelled(error)) return
     feedback.value = workspaceFeedback(error)
-  } finally {
-    busy.value = false
   }
 }
 function confirmRemoval(category: AccountCategory) {
@@ -55,24 +39,14 @@ function confirmRemoval(category: AccountCategory) {
 }
 async function remove() {
   if (!deleting.value || busy.value) return
-  busy.value = true
   feedback.value = ''
   try {
-    await accountFetch(`/api/account/categories/${deleting.value.id}`, {
-      method: 'DELETE',
-      retry: 0,
-      timeout: 15_000,
-      signal: controller.signal,
-    })
-    if (disposed) return
+    await mutation.execute({ action: 'delete', id: deleting.value.id })
     edit(null)
-    emit('changed')
     showToast('分类已删除，公式已保留在未分类中。')
   } catch (error) {
-    if (disposed) return
+    if (isAccountWriteCancelled(error)) return
     feedback.value = workspaceFeedback(error)
-  } finally {
-    busy.value = false
   }
 }
 </script>

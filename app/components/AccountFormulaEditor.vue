@@ -1,5 +1,7 @@
 <script setup lang="ts">
 const accountFetch = useAccountFetch()
+const mutation = useFormulaEditMutation()
+const saving = mutation.busy
 import { displayFormulaTitle } from '#shared/formula-title'
 import type { SavedFormula } from '#shared/types/workspace'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
@@ -15,8 +17,8 @@ const title = ref(''),
   expectedVersionId = ref(''),
   expectedTitle = ref('')
 const original = ref({ title: '', latex: '' })
-const operation = ref<'save' | 'reload' | null>(null)
-const busy = computed(() => operation.value !== null)
+const operation = ref<'reload' | null>(null)
+const busy = computed(() => saving.value || operation.value === 'reload')
 const feedback = ref('')
 const conflicted = ref(false)
 const open = toRef(props, 'open')
@@ -52,36 +54,27 @@ function close() {
 }
 async function save() {
   if (busy.value || conflicted.value || validation.value || !dirty.value) return
-  operation.value = 'save'
   feedback.value = ''
   const id = props.formula.id
-  controller = new AbortController()
   try {
-    const formula = await accountFetch<SavedFormula>(`/api/account/formulas/${id}`, {
-      method: 'PATCH',
-      retry: 0,
-      timeout: 20_000,
-      signal: controller.signal,
-      body: {
-        title: title.value === original.value.title ? expectedTitle.value : title.value,
-        latex: latex.value,
-        expectedVersionId: expectedVersionId.value,
-        expectedTitle: expectedTitle.value,
-      },
+    const formula = await mutation.execute({
+      id,
+      title: title.value === original.value.title ? expectedTitle.value : title.value,
+      latex: latex.value,
+      expectedVersionId: expectedVersionId.value,
+      expectedTitle: expectedTitle.value,
     })
     if (disposed || props.formula.id !== id) return
     original.value = { title: formula.title, latex: formula.versions.at(-1)?.latex ?? '' }
     emit('saved', formula)
     emit('close')
   } catch (error) {
-    if (disposed) return
+    if (disposed || isAccountWriteCancelled(error)) return
     const conflict = (error as { statusCode?: number }).statusCode === 409
     conflicted.value = conflict
     feedback.value = conflict
       ? '公式名称或内容已被其他窗口修改。草稿仍保留，可先复制草稿，再重新读取最新内容。'
       : workspaceFeedback(error, '保存失败，草稿已保留，请检查网络后重试。')
-  } finally {
-    if (!disposed) operation.value = null
   }
 }
 async function copyDraft() {
@@ -162,7 +155,7 @@ onScopeDispose(() => {
           type="submit"
           :disabled="busy || conflicted || !!validation || !dirty"
         >
-          {{ operation === 'save' ? '正在保存…' : '确认并保存' }}
+          {{ saving ? '正在保存…' : '确认并保存' }}
         </button>
       </div>
     </form>

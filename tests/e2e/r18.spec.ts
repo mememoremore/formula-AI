@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 import { randomUUID, randomBytes } from 'node:crypto'
 import { mkdirSync, readFileSync } from 'node:fs'
 import { unzipSync, strFromU8 } from 'fflate'
-import { visit, captureFailure } from './browser'
+import { visit, captureFailure, verifyRegistration } from './browser'
 import { testEnvironment } from '../support/integration.ts'
 import { createDatabaseClient } from '../../server/database/client'
 import type { SavedFormula } from '../../shared/types/workspace'
@@ -33,7 +33,8 @@ for (const width of [320, 390, 430, 1440])
     await page.getByPlaceholder('请输入邮箱').fill(email)
     await page.locator('input[type="password"]').fill(password)
     await page.getByRole('button', { name: '创建账号', exact: true }).click()
-    await expect(page).toHaveURL(/\/upload$/)
+    await verifyRegistration(page, email)
+    await expect(page).toHaveURL((url) => url.pathname === '/upload')
     await page.evaluate(() => {
       const tracker = { urls: new Set<string>(), bitmaps: 0, closed: 0 }
       Object.assign(window, { r18Resources: tracker })
@@ -332,7 +333,7 @@ for (const width of [320, 390, 430, 1440])
     await expect(page.getByRole('alert').filter({ hasText: /不能超过 10MB/ })).toBeVisible()
     await noOverflow(page)
     await visit(page, '/formulas/new')
-    await expect(page).toHaveURL(/\/formulas\/new$/)
+    await expect(page).toHaveURL((url) => url.pathname === '/formulas/new')
     await page.getByLabel('公式名称', { exact: true }).fill('R18手动公式')
     await page.getByLabel('LaTeX', { exact: true }).fill('\\frac{')
     await expect(page.getByRole('button', { name: '保存到账号公式库' })).toBeDisabled()
@@ -347,7 +348,7 @@ for (const width of [320, 390, 430, 1440])
     await expect(leaveDialog).toBeVisible()
     await leaveDialog.getByRole('button', { name: '继续编辑' }).click()
     await expect(leaveDialog).toBeHidden()
-    await expect(page).toHaveURL(/\/formulas\/new$/)
+    await expect(page).toHaveURL((url) => url.pathname === '/formulas/new')
     await page.getByLabel('LaTeX', { exact: true }).fill('\\frac{1}{2}')
     await expect(page.locator('.manual-preview .katex')).toBeVisible()
     await noOverflow(page)
@@ -388,9 +389,8 @@ for (const width of [320, 390, 430, 1440])
     expect(formula.image).toBeNull()
     expect(formula.versions[0]!.origin).toBe('MANUAL')
     expect(formula.versions[0]!.isMock).toBe(false)
-    await page.getByRole('button', { name: '原始输入', exact: true }).click()
-    await expect(page.getByText('手动输入，未上传原图；这里保留首个已保存版本。')).toBeVisible()
-    await page.getByRole('button', { name: '数学公式', exact: true }).click()
+    await expect(page.getByRole('button', { name: '原始输入', exact: true })).toHaveCount(0)
+    await expect(page.locator('.detail-paper .katex')).toBeVisible()
     await page.getByRole('button', { name: '复制 LaTeX', exact: true }).click()
     // Clipboard capability is browser-dependent; the explicit fallback must remain usable.
     await page.evaluate(() =>
@@ -405,7 +405,7 @@ for (const width of [320, 390, 430, 1440])
     expect(
       await db.dailyUsage.count({ where: { ownerId: owner.ownerId, kind: 'RECOGNITION' } }),
     ).toBe(0)
-    await visit(page, '/ai/new?versionId=' + formula.versions[0]!.id)
+    await visit(page, '/ai/new?formulaId=' + formula.id)
     await page.getByRole('textbox', { name: '输入提问，Shift 加回车换行' }).fill('请解释手动公式')
     await page.getByRole('button', { name: '发送提问', exact: true }).click()
     await expect(page).toHaveURL(/\/ai\/[0-9a-f-]+$/)
@@ -438,7 +438,7 @@ for (const width of [320, 390, 430, 1440])
     await visit(page, '/settings')
     page.once('dialog', (dialog) => dialog.accept())
     await page.getByRole('button', { name: '退出登录', exact: true }).click()
-    await expect(page).toHaveURL(/\/profile$/)
+    await expect(page).toHaveURL(/\/login/)
     expect(
       await page.evaluate(() => sessionStorage.getItem('formula-manual-creation-recovery-v1')),
     ).toBeNull()

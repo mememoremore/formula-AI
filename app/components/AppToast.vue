@@ -16,6 +16,7 @@ onBeforeUnmount(() => clearTimeout(timer))
 
 <style scoped>
 .toast {
+  pointer-events: none;
   position: fixed;
   z-index: 100;
   bottom: calc(

@@ -12,6 +12,7 @@ const props = defineProps<{ id: string; ownerId: string }>()
 const owner = toRef(props, 'ownerId'),
   flow = useAccountRecognition(owner)
 const fetcher = useAccountFetch()
+const invalidateFormulaViews = useFormulaViewsInvalidation()
 const route = useRoute(),
   origins = useState<Record<string, string>>('page-origins', () => ({}))
 function prepareResultReturn() {
@@ -55,6 +56,7 @@ watch(
     if (!value || !import.meta.client) return
     const state = [value.status, value.attemptCount, value.formulaId].join(':')
     if (state !== lastState) {
+      if (value.status === 'COMPLETED') invalidateFormulaViews(props.ownerId)
       clearNuxtData((key) =>
         recognitionInvalidates(key, value.status === 'COMPLETED' ? 'completed' : 'changed'),
       )
