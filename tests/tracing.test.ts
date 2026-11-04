@@ -1,4 +1,4 @@
-import { test } from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { parseTraceparent, traceparent } from '../shared/trace-context'
 import { traced, currentTraceparent, currentTrace } from '../server/diagnostics/tracing'

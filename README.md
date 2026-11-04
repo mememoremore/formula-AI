@@ -21,6 +21,10 @@
 - 手机视口检查不代替真实手机的键盘、相机与触控验证；Word / WPS 的实际编辑兼容性仍需按目标环境验收。
 - 仓库源码不等于已完成线上部署；反馈页面目前提供复制反馈内容。
 
+## 单机部署
+
+Ubuntu x86_64、4核4GB 的试运行配置与离线部署步骤见 [部署说明](deploy/README.md)。复用已有宿主 Nginx/HTTPS，生产数据卷独立于本机。服务器实测和真实邮件/AI 验收仍需完成。
+
 ## 本地运行
 
 需要 Docker Desktop / Docker Engine、npm，以及 Node 22.22.3+（22.x）、24.15.0+（24.x）或 26+。CI 使用 Node 24.22.0。识别权重与 Pandoc 需要单独配置，不能依赖维护者本机的工具目录。
@@ -76,10 +80,29 @@ npm run test:documents
 - test:isolated：创建专用 Docker 测试数据库和对象存储，执行迁移、启动测试 API、运行集成测试并清理专用资源。不得连接开发数据库代替测试环境。
 - 测试发信使用仅隔离 Nuxt 层加载的本地收件箱替身；账号仍通过真实验证码校验与登录流程。CI 不使用 QQ 授权码、不向真实邮箱发送邮件。
 - test:documents：文档转换测试，需要可用的 Pandoc；本机可通过 PANDOC_PATH 指定路径。
-- test:ui / test:unit 是逻辑单元测试，不等于浏览器或真实手机验收。
+- test:ui / test:unit / npm test 顺序执行Node基础设施测试与Vitest逻辑/组件测试；不等于浏览器或真实手机验收。
+- test:watch：Vitest监听模式；test:components：只运行Vue组件测试；test:coverage：生成Vitest覆盖率。
+- quality:quick的unit阶段包含Vitest覆盖率，并只向CI输出数值摘要；既有集成摘要产物白名单保持不变。
 - GitHub push main / pull request 执行 quick 和 integration；browser 仅在手动触发且勾选 full_e2e 时执行，正常跳过不代表失败。
 
 隔离规则见 [测试隔离说明](docs/R1测试隔离与验收说明.md)。运行结果以对应提交的 Actions 和本地输出为准，历史验收记录不代表当前提交全部通过。
+
+## Vitest 单测与组件测试
+
+```powershell
+npm test
+npm run test:watch
+npm run test:components
+npm run test:coverage
+```
+
+Vitest5.1使用两个显式测试项目：logic运行既有纯逻辑断言；components使用Vue Test Utils和happy-dom挂载聊天输入框、任务状态组件。覆盖空白校验、模型输入更新、中文输入法、Enter/Shift+Enter、发送/停止防重复与状态文案。组件测试使用真实Vue API，图标/装饰子组件采用stub，不启动Nuxt服务。
+
+4个Node专用基础设施测试文件继续使用node:test，数据库、Worker协议及隔离集成测试沿用原运行器；完整用户旅程继续使用Playwright。Vitest测试文件采用白名单，不会通过宽泛glob误运行数据库/E2E。启动器清洗服务凭据，配置不读取根.env；每个worker安装现有网络守卫，禁止公网模型与开发数据库/存储连接。直接运行Vitest也应用worker守卫；日常仍建议使用上面的npm命令。
+
+HTML覆盖率在 `artifacts/coverage/index.html`，JSON摘要在同目录`coverage-summary.json`。统计范围为`app/utils`、`shared`业务工具（排除纯类型）及上述两个组件，未覆盖的模块会如实显示0%；不代表整个应用、数据库或模型准确率的覆盖率。初期不设置任意全局百分比门槛，按失败/恢复与交互边界持续补用例。报告不会提交Git，CI目前只输出数值摘要。
+
+Vue组件测试通过`tsconfig.vitest.json`用vue-tsc检查；后端tsc不重复解析.vue。尚未覆盖所有Nuxt页面/组合函数；后续确需Nuxt运行时挂载时再引入Nuxt专用测试工具。纯DOM组件测试不能证明真实键盘、相机、浏览器布局或滚动行为。
 
 ## 工程结构
 

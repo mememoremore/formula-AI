@@ -1,0 +1,13 @@
+{
+  "extends": "./.nuxt/tsconfig.app.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    ".nuxt/nuxt.d.ts",
+    "tests/components/**/*.test.ts",
+    "app/components/ChatComposer.vue",
+    "app/components/TaskProgress.vue"
+  ],
+  "exclude": []
+}

@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { authProfileViolation } from '../server/auth/profile-policy'
 import { privateAccountKey } from '../app/utils/account-state'
 test('默认资料入口保留昵称，头像和账号保护字段明确拒绝', () => {

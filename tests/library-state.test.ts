@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { mergeLibraryItems, readHistoryWindow } from '../app/utils/library-state'
 import type { RecognitionHistoryItem, RecognitionHistoryPage } from '../shared/types/tasks'

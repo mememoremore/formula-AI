@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { loadHomeRecent, homeDemoConversation } from '../app/utils/home-overview'
 import { demoFormulas, demoCategories } from '../shared/demo/formulas'

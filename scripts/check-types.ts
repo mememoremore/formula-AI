@@ -16,6 +16,11 @@ try {
     ['node_modules/typescript/bin/tsc', '--project', 'tsconfig.database.json'],
     { env, stdio: 'inherit', windowsHide: true },
   )
+  execFileSync(
+    process.execPath,
+    ['node_modules/vue-tsc/bin/vue-tsc.js', '--project', 'tsconfig.vitest.json'],
+    { env, stdio: 'inherit', windowsHide: true },
+  )
 } catch {
   process.exitCode = 1
 }

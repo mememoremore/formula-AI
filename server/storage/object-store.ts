@@ -34,7 +34,11 @@ export function createObjectStore(config: StorageConfiguration): PrivateObjectSt
   const endpoint = new URL(config.endpoint)
   if (
     endpoint.protocol !== 'https:' &&
-    !['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname)
+    !['localhost', '127.0.0.1', '[::1]'].includes(endpoint.hostname) &&
+    !(
+      process.env.FORMULA_STORAGE_INTERNAL_HTTP === 'true' &&
+      endpoint.origin === 'http://storage:8333'
+    )
   )
     throw new Error('非本机对象存储必须使用 HTTPS。')
   const client = new S3Client({

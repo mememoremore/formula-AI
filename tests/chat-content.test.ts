@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { chatSegments } from '../app/utils/chat-content'
 test('代码里的美元符号不解释为公式，代码与HTML保持文本', () => {
   const parts = chatSegments(

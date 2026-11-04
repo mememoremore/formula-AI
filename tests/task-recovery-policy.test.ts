@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { recoveryPolicy, startTaskRecovery } from '../server/worker/recovery'
 import type { PrismaClient } from '../server/generated/prisma/client'

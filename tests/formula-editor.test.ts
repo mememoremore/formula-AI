@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { displayFormulaTitle } from '../shared/formula-title'
 import { formulaDraftFeedback, formulaDraftChanged } from '../app/utils/formula-editor'
 test('公式编辑允许分式、矩阵、多行和长式，安全限制拒绝非法命令', () => {

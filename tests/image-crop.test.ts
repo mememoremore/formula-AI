@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { containsCrop, cropOutputSize, transformedImageBounds } from '../shared/image-crop'
 const image = { left: 10, top: 20, width: 300, height: 200 }
 test('自由矩形保留非方形的原始像素分辨率', () => {

@@ -1,0 +1,36 @@
+// Explicit lists keep Vitest away from isolated DB/API suites and Node-only harnesses.
+export const nodeInfrastructureFiles = [
+  'tests/test-environment.test.ts',
+  'tests/ci-policy.test.ts',
+  'tests/node-forge.test.mjs',
+  'tests/public-assets.test.ts',
+]
+
+export const vitestLogicFiles = [
+  'tests/navigation.test.ts',
+  'tests/home.test.ts',
+  'tests/library-state.test.ts',
+  'tests/formula-editor.test.ts',
+  'tests/manual-formula.test.ts',
+  'tests/explanation.test.ts',
+  'tests/explanation-layout.test.ts',
+  'tests/image-crop.test.ts',
+  'tests/recognition-state.test.ts',
+  'tests/recognition-result.test.ts',
+  'tests/chat-state.test.ts',
+  'tests/chat-protocol.test.ts',
+  'tests/chat-content.test.ts',
+  'tests/account-state.test.ts',
+  'tests/account-cache.test.ts',
+  'tests/profile.test.ts',
+  'tests/resource-policy.test.ts',
+  'tests/task-recovery-policy.test.ts',
+  'tests/lease-recovery-policy.test.ts',
+  'tests/server-diagnostics.test.ts',
+  'tests/deployment-boundaries.test.ts',
+  'tests/tracing.test.ts',
+  'tests/browser-errors.test.ts',
+  'tests/metrics.test.ts',
+  'tests/export-state.test.ts',
+  'tests/vitest-safety.test.ts',
+]

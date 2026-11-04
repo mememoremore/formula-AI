@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { browserErrorSummary, browserErrorGate } from '../app/utils/browser-errors'
 import { parseBrowserErrors } from '../server/diagnostics/browser-errors'

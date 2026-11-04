@@ -1,5 +1,5 @@
 import { orphanPolicy } from '../server/resources/orphan-cleanup'
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { resourcePolicy } from '../server/resources/policy'
 import { cleanupAgeEligible } from '../server/resources/cleanup'

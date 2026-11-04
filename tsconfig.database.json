@@ -32,5 +32,6 @@
     "server/services/workspace-error.ts",
     "server/services/library-input.ts",
     "tests/**/*.ts"
-  ]
+  ],
+  "exclude": ["tests/components/**"]
 }

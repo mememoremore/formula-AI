@@ -79,7 +79,11 @@
     "test:isolated:cleanup-proof": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts cleanup-proof",
     "test:alerts": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-alerts.ts",
     "test:errors": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-error-dashboard.ts",
-    "storage:audit": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/orphan-images.ts"
+    "storage:audit": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/orphan-images.ts",
+    "test:vitest": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-vitest.ts run",
+    "test:watch": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-vitest.ts watch",
+    "test:components": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-vitest.ts components",
+    "test:coverage": "node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-vitest.ts coverage"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1154.0",
@@ -103,7 +107,9 @@
     "nuxt": "4.6.2",
     "pg": "^8.16.3",
     "pg-boss": "12.38.0",
+    "prisma": "7.10.1",
     "sharp": "0.35.5",
+    "tsx": "^4.20.6",
     "vue": "^3.5.22",
     "vue-router": "^5.0.3"
   },
@@ -113,10 +119,13 @@
     "@types/node": "^24.0.0",
     "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.15.5",
+    "@vitejs/plugin-vue": "6.0.10",
+    "@vitest/coverage-v8": "5.1.0",
+    "@vue/test-utils": "2.5.1",
+    "happy-dom": "21.0.4",
     "prettier": "^3.6.2",
-    "prisma": "7.10.1",
-    "tsx": "^4.20.6",
     "typescript": "^5.9.3",
+    "vitest": "5.1.0",
     "vue-tsc": "^3.1.0"
   },
   "imports": {

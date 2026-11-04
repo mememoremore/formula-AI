@@ -1,4 +1,4 @@
-import test from 'node:test'
+import { test } from 'vitest'
 import assert from 'node:assert/strict'
 import { acceptConversationSnapshot, parseConversationSnapshot } from '../app/utils/chat-state'
 import { buildChatMessages } from '../server/chat/prompt'

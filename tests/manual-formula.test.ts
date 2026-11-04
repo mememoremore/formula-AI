@@ -1,6 +1,6 @@
 import { isTransientPage, safeReturnPath } from '../shared/navigation'
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { manualFormulaFeedback, formulaSyntaxFeedback } from '../shared/formula-validation'
 import { parseManualFormula, manualFormulaHash } from '../server/services/manual-formula-input'

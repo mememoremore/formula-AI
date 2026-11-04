@@ -1,0 +1,170 @@
+name: formula-ai-prod
+x-log: &log
+  driver: json-file
+  options: { max-size: '10m', max-file: '3' }
+x-app: &app
+  image: ${FORMULA_APP_IMAGE:-formula-ai:production}
+  init: true
+  restart: unless-stopped
+  read_only: true
+  tmpfs: ['/tmp:rw,nosuid,size=192m,mode=1777']
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  logging: *log
+  env_file: [./deploy/.env.production]
+  environment: &env
+    NODE_ENV: production
+    NODE_OPTIONS: --max-old-space-size=256
+    NUXT_DATABASE_URL: postgresql://${POSTGRES_USER:-formula}:${POSTGRES_PASSWORD:?Generate production secrets}@postgres:5432/${POSTGRES_DB:-formula_ai}
+    FORMULA_SMTP_USER: ${FORMULA_SMTP_USER:?Set QQ SMTP account}
+    FORMULA_SMTP_PASSWORD: ${FORMULA_SMTP_PASSWORD:?Set QQ SMTP authorization code}
+    NUXT_AUTH_BASE_URL: https://www.ideal-formula.top
+    NUXT_AUTH_SECRET: ${NUXT_AUTH_SECRET:?Generate production secrets}
+    NUXT_STORAGE_ENDPOINT: http://storage:8333
+    NUXT_STORAGE_REGION: us-east-1
+    NUXT_STORAGE_ACCESS_KEY_ID: ${NUXT_STORAGE_ACCESS_KEY_ID:?Generate production secrets}
+    NUXT_STORAGE_SECRET_ACCESS_KEY: ${NUXT_STORAGE_SECRET_ACCESS_KEY:?Generate production secrets}
+    FORMULA_STORAGE_INTERNAL_HTTP: 'true'
+    NUXT_RECOGNITION_PROVIDER: python
+    NUXT_RECOGNITION_SERVICE_URL: http://recognition:8000
+    NUXT_RECOGNITION_API_KEY: ${NUXT_RECOGNITION_API_KEY:?Generate production secrets}
+    NUXT_AI_PROVIDER: deepseek
+    NUXT_AI_API_KEY: ${NUXT_AI_API_KEY:?Set DeepSeek key in private environment file}
+    FORMULA_METRICS_ENABLED: 'false'
+    FORMULA_ENVIRONMENT: production
+    FORMULA_RESOURCE_OWNER_BYTES: '67108864'
+    FORMULA_RESOURCE_GLOBAL_BYTES: '1073741824'
+    FORMULA_RESOURCE_GLOBAL_UPLOADS: '1'
+    FORMULA_RESOURCE_GLOBAL_RECOGNITIONS: '4'
+    FORMULA_RESOURCE_ORPHAN_MODE: ${FORMULA_RESOURCE_ORPHAN_MODE:-report}
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-formula}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Generate production secrets}
+      POSTGRES_DB: ${POSTGRES_DB:-formula_ai}
+    volumes: [postgres_data:/var/lib/postgresql/data]
+    command: [postgres, -c, shared_buffers=32MB, -c, max_connections=40]
+    mem_limit: 192m
+    logging: *log
+    healthcheck:
+      test: [CMD-SHELL, 'pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB']
+      interval: 5s
+      timeout: 3s
+      retries: 20
+  storage:
+    image: chrislusf/seaweedfs:4.48
+    restart: unless-stopped
+    entrypoint: [/bin/sh, -ec]
+    command: ['exec weed mini -dir=/data']
+    environment:
+      AWS_ACCESS_KEY_ID: ${NUXT_STORAGE_ACCESS_KEY_ID:?Generate production secrets}
+      AWS_SECRET_ACCESS_KEY: ${NUXT_STORAGE_SECRET_ACCESS_KEY:?Generate production secrets}
+      S3_BUCKET: ${NUXT_STORAGE_BUCKET:-formula-private}
+      GOMEMLIMIT: 192MiB
+    volumes: [storage_data:/data]
+    mem_limit: 256m
+    logging: *log
+    healthcheck:
+      test: [CMD-SHELL, 'wget -q -O /dev/null http://127.0.0.1:9333/cluster/status']
+      interval: 5s
+      timeout: 3s
+      retries: 24
+  initialize:
+    <<: *app
+    profiles: [setup]
+    restart: 'no'
+    mem_limit: 384m
+    command:
+      [
+        /bin/sh,
+        -ec,
+        'node node_modules/prisma/build/index.js migrate deploy && node --import=tsx scripts/queue-setup.ts && node --import=tsx scripts/check-storage.ts',
+      ]
+    depends_on:
+      postgres: { condition: service_healthy }
+      storage: { condition: service_healthy }
+  recognition:
+    image: formula-ai-recognition:cpu-v1
+    restart: unless-stopped
+    init: true
+    environment:
+      RECOGNITION_API_KEY: ${NUXT_RECOGNITION_API_KEY:?Generate production secrets}
+      RECOGNITION_MODEL_DIR: /models/formula
+      RECOGNITION_CPU_THREADS: ${RECOGNITION_CPU_THREADS:-2}
+    volumes:
+      - type: bind
+        source: ${RECOGNITION_MODEL_PATH:?Set model directory}
+        target: /models/formula
+        read_only: true
+        bind: { create_host_path: false }
+    read_only: true
+    tmpfs: ['/tmp:rw,noexec,nosuid,size=256m,mode=1777']
+    shm_size: 128m
+    mem_limit: ${RECOGNITION_MEMORY:-1792m}
+    cpus: 2
+    security_opt: [no-new-privileges:true]
+    cap_drop: [ALL]
+    logging: *log
+    healthcheck:
+      test:
+        [
+          CMD,
+          python,
+          -c,
+          "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3)",
+        ]
+      interval: 10s
+      timeout: 5s
+      start_period: 120s
+      retries: 12
+  web:
+    <<: *app
+    mem_limit: 384m
+    ports: ['127.0.0.1:13000:3000']
+    environment:
+      <<: *env
+      FORMULA_TRUST_PROXY: 'true'
+    depends_on:
+      postgres: { condition: service_healthy }
+      storage: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:3000/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+  worker:
+    <<: *app
+    mem_limit: 384m
+    command: [node, --import=tsx, scripts/worker.ts]
+    stop_grace_period: 45s
+    environment:
+      <<: *env
+      FORMULA_METRICS_ENABLED: 'true'
+    depends_on:
+      postgres: { condition: service_healthy }
+      storage: { condition: service_healthy }
+      recognition: { condition: service_healthy }
+    healthcheck:
+      test:
+        [
+          CMD,
+          node,
+          -e,
+          "fetch('http://127.0.0.1:9464/metrics').then(async r=>process.exit(r.ok && (await r.text()).split(String.fromCharCode(10)).some(l=>l.startsWith('formula_queue_snapshot_success') && l.endsWith(' 1'))?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+
+volumes:
+  postgres_data:
+  storage_data:

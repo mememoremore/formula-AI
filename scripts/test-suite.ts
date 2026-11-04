@@ -1,42 +1,11 @@
 import { spawn } from 'node:child_process'
 import { resolve } from 'node:path'
 import { pathToFileURL } from 'node:url'
+import { nodeInfrastructureFiles } from '../tests/support/unit-files'
 import { cleanTestProcessEnvironment } from '../tests/support/test-runtime.ts'
 
 const suites: Record<string, { files: string[]; integration: boolean }> = {
-  unit: {
-    files: [
-      'tests/test-environment.test.ts',
-      'tests/ci-policy.test.ts',
-      'tests/node-forge.test.mjs',
-      'tests/public-assets.test.ts',
-      'tests/navigation.test.ts',
-      'tests/home.test.ts',
-      'tests/library-state.test.ts',
-      'tests/formula-editor.test.ts',
-      'tests/manual-formula.test.ts',
-      'tests/explanation.test.ts',
-      'tests/explanation-layout.test.ts',
-      'tests/image-crop.test.ts',
-      'tests/recognition-state.test.ts',
-      'tests/recognition-result.test.ts',
-      'tests/chat-state.test.ts',
-      'tests/chat-protocol.test.ts',
-      'tests/chat-content.test.ts',
-      'tests/account-state.test.ts',
-      'tests/account-cache.test.ts',
-      'tests/profile.test.ts',
-      'tests/resource-policy.test.ts',
-      'tests/task-recovery-policy.test.ts',
-      'tests/lease-recovery-policy.test.ts',
-      'tests/server-diagnostics.test.ts',
-      'tests/tracing.test.ts',
-      'tests/browser-errors.test.ts',
-      'tests/metrics.test.ts',
-      'tests/export-state.test.ts',
-    ],
-    integration: false,
-  },
+  unit: { files: nodeInfrastructureFiles, integration: false },
   protocols: {
     files: ['tests/inference.test.ts', 'tests/recognition.test.ts'],
     integration: false,
@@ -95,10 +64,27 @@ try {
   const child = spawn(process.execPath, args, { env, stdio: 'inherit', windowsHide: true })
   for (const signal of ['SIGINT', 'SIGTERM'] as const)
     process.once(signal, () => child.kill(signal))
-  process.exitCode = await new Promise<number>((resolve, reject) => {
+  const code = await new Promise<number>((resolve, reject) => {
     child.once('error', reject)
     child.once('exit', (code) => resolve(code ?? 1))
   })
+  if (code === 0 && process.argv[2] === 'unit') {
+    const vitest = spawn(
+      process.execPath,
+      [
+        '--import=tsx',
+        'scripts/test-vitest.ts',
+        process.argv[3] === 'coverage' ? 'coverage' : 'run',
+      ],
+      { env, stdio: 'inherit', windowsHide: true },
+    )
+    for (const signal of ['SIGINT', 'SIGTERM'] as const)
+      process.once(signal, () => vitest.kill(signal))
+    process.exitCode = await new Promise<number>((resolve, reject) => {
+      vitest.once('error', reject)
+      vitest.once('exit', (code) => resolve(code ?? 1))
+    })
+  } else process.exitCode = code
 } catch (error) {
   console.error(error instanceof Error ? error.message : '测试启动失败')
   process.exitCode = 1

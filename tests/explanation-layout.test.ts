@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { test } from 'node:test'
+import { test } from 'vitest'
 import { explanationLayout } from '../app/utils/explanation-layout'
 const user = (id: string, content: string) => ({ id, role: 'USER' as const, content })
 const answer = (id: string) => ({ id, role: 'ASSISTANT' as const, content: '回答' })
