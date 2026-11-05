@@ -1,6 +1,6 @@
 import type { PrismaClient } from '../generated/prisma/client'
 
-const resourceIdPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+import { resourceIdPattern } from '../../shared/resource-id'
 
 /** 必填身份和资源标识先校验，避免 Prisma 忽略 undefined 后放宽查询。 */
 export function hasValidResourceIdentity(ownerId: unknown, id: unknown): ownerId is string {

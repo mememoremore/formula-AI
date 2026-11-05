@@ -118,11 +118,21 @@ Vue组件测试通过`tsconfig.vitest.json`用vue-tsc检查；后端tsc不重复
 
 第二轮验证与限制见 [Query第二轮交付记录](docs/query-round2-delivery.md)。
 
-第三轮将诊断复制操作放入页面正常文档流，换页清除旧提示，并去掉分类修改的重复事件链。浏览器矩阵按“测试文件＋视口”分别创建、核验并清理独立DB/S3/队列，保留真实注册与OTP限流；完整矩阵还会运行不带尺寸名称的解释渲染和可观测性场景。
+第三轮将诊断复制操作放入页面正常文档流，换页清除旧提示，并去掉分类修改的重复事件链。浏览器矩阵按“测试文件＋视口”分别创建、核验并清理独立DB/S3/队列，保留真实注册与OTP限流；完整矩阵还会运行不带尺寸名称的解释渲染、可观测性及资料表单场景；资料专项在一个独立环境内检查320/390/430/1440px。
 
 `npm run test:e2e:queries`运行4个Query视口旅程；`npm run test:e2e`运行完整浏览器矩阵；`npm run test:e2e:faults`验证故障恢复。需要本机Docker与Chromium；邮件、模型使用隔离替身，不连接开发数据库。定向排查可运行`node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/test-isolated.ts e2e 390 journey.spec.ts`，文件名必须是tests/e2e中的合法spec，资源边界仍需通过身份校验。
 
 三轮收尾结果见 [Query第三轮交付记录](docs/query-round3-delivery.md)。
+
+## Zod运行时校验
+
+固定直接依赖Zod4.6.7，输入规则放在shared/schemas，服务端通过server/services/parse-input.ts将safeParse失败转换为已有WorkspaceError(400)。只向用户返回已定义业务提示，不返回原始输入或Zod issues。
+
+第一轮覆盖公式创建、编辑、收藏、分类创建/改名/分配和公式库查询参数。共享payload类型从schema推导，前端mutation只导入类型；请求体大小/JSON读取、认证/CSRF/归属、事务和幂等仍由原业务负责。创建的KaTeX专用校验单独引用既有manualFormulaFeedback，不改变编辑接口的旧结构契约。
+
+为保持兼容，继续使用旧资源ID格式、UTF-16长度及原trim/NFC顺序；不会自动coerce字符串布尔值或数字。单测覆盖多错误优先级、Unicode长度、原始预期标题、未知字段与安全错误；隔离HTTP测试检查真实状态码/提示及认证/归属优先，定向Query浏览器检查正常保存/分类/收藏与回执重放。
+
+第一轮文件职责与验证见[Zod第一轮交付记录](docs/zod-round1-delivery.md)。第二轮将任务提交、资料与历史查询输入，以及结构化AI解释和Python识别响应迁入领域schema；保留原有错误提示、归一化、鉴权顺序与重试分类。共享解释类型从schema推导，模型、历史和SSE使用同一规则。详见[第二轮交付记录](docs/zod-round2-delivery.md)。第三轮完成旧演示接口、创建回执与资料表单复用，并明确保留遥测脱敏、图片内容、SSE状态机及认证库的专用校验。恢复回执使用原样schema，服务端新建才归一化，避免重放body被改写。最终文件、边界与验证见[第三轮交付记录](docs/zod-round3-delivery.md)。
 
 ## 工程结构
 

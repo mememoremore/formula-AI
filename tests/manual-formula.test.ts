@@ -66,3 +66,29 @@ test('手动创建入口支持登录返回，保存后的详情返回不再落�
   assert.equal(safeReturnPath('/formulas/new'), '/formulas/new')
   assert.equal(isTransientPage('/formulas/new'), true)
 })
+
+test('恢复回执保留原始文本与请求键大小写，校验后不归一化重放内容', () => {
+  const owner = randomUUID()
+  const input = { requestKey: randomUUID().toUpperCase(), title: '  公式  ', latex: ' x^2 \n' }
+  assert.deepEqual(parseManualCreationReceipt(JSON.stringify({ ownerId: owner, input }), owner), {
+    ownerId: owner,
+    input,
+  })
+})
+
+test('其他账号回执不解析损坏内容，同账号缺少内容与非法内容保持不同提示', () => {
+  const owner = randomUUID()
+  assert.equal(
+    parseManualCreationReceipt(JSON.stringify({ ownerId: randomUUID(), input: null }), owner),
+    null,
+  )
+  assert.throws(
+    () => parseManualCreationReceipt(JSON.stringify({ ownerId: owner }), owner),
+    /保存回执缺少内容/,
+  )
+  assert.throws(
+    () => parseManualCreationReceipt(JSON.stringify({ ownerId: owner, input: {} }), owner),
+    /保存回执内容无效/,
+  )
+  assert.throws(() => parseManualCreationReceipt('null', owner), /保存回执无法读取/)
+})

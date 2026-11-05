@@ -4,7 +4,7 @@ import { getQueue, getUsageLimits } from '../../../../utils/queue'
 import { getChatSettings } from '../../../../utils/chat-settings'
 import { readWorkspaceJson } from '../../../../utils/request-body'
 import { workspaceRequest } from '../../../../utils/workspace-operation'
-import { isRecord } from '../../../../utils/validate-body'
+import { parseExplanationInput } from '../../../../services/task-input'
 import { hasValidResourceIdentity } from '../../../../database/private-resources'
 import { submitExplanation } from '../../../../database/explanations'
 import { taskState } from '../../../../database/task-queries'
@@ -12,22 +12,18 @@ export default defineEventHandler((event) =>
   workspaceRequest(event, async () => {
     const user = await requireAccountWriter(event),
       id = getRouterParam(event, 'id') ?? ''
-    const body = await readWorkspaceJson(event)
-    if (
-      !isRecord(body) ||
-      !hasValidResourceIdentity(user.id, id) ||
-      !hasValidResourceIdentity(user.id, body.versionId) ||
-      !hasValidResourceIdentity(user.id, body.requestKey)
-    )
+    const raw = await readWorkspaceJson(event)
+    if (!hasValidResourceIdentity(user.id, id))
       throw createError({ statusCode: 400, message: '公式版本或请求编号无效。' })
+    const body = parseExplanationInput(raw)
     const settings = getChatSettings()
     if (settings.provider === 'deepseek' && !settings.apiKey)
       throw createError({ statusCode: 503, message: 'AI服务尚未配置。' })
     const turn = await submitExplanation(getDatabase(), await getQueue(), getUsageLimits(), {
       ownerId: user.id,
       formulaId: id,
-      versionId: body.versionId as string,
-      requestKey: body.requestKey as string,
+      versionId: body.versionId,
+      requestKey: body.requestKey,
     })
     setResponseStatus(event, 202)
     return { conversationId: turn.conversationId, task: taskState(turn) }

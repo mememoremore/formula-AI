@@ -173,3 +173,56 @@ test('外部取消保持原因，预先取消不发送请求', async () => {
   await assert.rejects(adapter().recognize(input, controller.signal), (error) => error === reason)
   assert.equal(calls, count)
 })
+
+test('Python响应额外字段忽略、LaTeX归一化与本次请求绑定，不采信上游模拟标记', async () => {
+  override = {
+    latex: ' x+1 \n',
+    isMock: true,
+    confidence: 'ignored',
+    extra: 'private-fixture-value',
+  }
+  try {
+    assert.deepEqual(await adapter().recognize(input), {
+      requestId: input.requestId,
+      latex: 'x+1',
+      modelVersion: 'fixture@sha256',
+      isMock: false,
+    })
+  } finally {
+    override = {}
+  }
+})
+test('Python无效JSON根与无效结果字段保持不同的非重试错误，且不泄漏输入', async () => {
+  try {
+    for (const raw of ['null', '[]', '123', '\"text\"']) {
+      malformed = raw
+      await assert.rejects(
+        adapter().recognize(input),
+        (error) =>
+          error instanceof InferenceFailure &&
+          error.code === 'UPSTREAM' &&
+          !error.retryable &&
+          error.message === '识别服务响应无法解析。',
+      )
+    }
+    malformed = ''
+    for (const fields of [
+      { requestId: 'another-task' },
+      { latex: 'private-fixture\0' },
+      { modelVersion: 'private model name' },
+    ]) {
+      override = fields
+      await assert.rejects(
+        adapter().recognize(input),
+        (error) =>
+          error instanceof InferenceFailure &&
+          error.code === 'UPSTREAM' &&
+          !error.retryable &&
+          error.message === '识别服务未返回有效的公式或模型版本。',
+      )
+    }
+  } finally {
+    malformed = ''
+    override = {}
+  }
+})

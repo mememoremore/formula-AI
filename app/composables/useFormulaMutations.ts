@@ -1,16 +1,12 @@
+import type { FormulaEditPayload, FormulaFavoritePayload } from '#shared/schemas/formula-input'
+import type { FormulaCategoryPayload, CategoryPayload } from '#shared/schemas/library-input'
 import type { SavedFormula } from '#shared/types/workspace'
 import { useAccountFetch } from './useAccountFetch'
 import { useAccountMutation } from './useAccountMutation'
 import { useFormulaViewsInvalidation } from './useFormulaViewsInvalidation'
 import { updateLibraryRecords } from '../queries/formula-cache'
 
-export interface FormulaEditInput {
-  id: string
-  title: string
-  latex: string
-  expectedVersionId: string
-  expectedTitle: string
-}
+export type FormulaEditInput = { id: string } & FormulaEditPayload
 export function useFormulaEditMutation() {
   const fetcher = useAccountFetch(),
     invalidate = useFormulaViewsInvalidation()
@@ -58,7 +54,7 @@ export function useFormulaFavoriteMutation() {
     client = useNuxtApp().$queryClient
   return useAccountMutation(
     'favorite',
-    (input: { id: string; favorite: boolean }, { owner, signal }) =>
+    (input: { id: string } & FormulaFavoritePayload, { owner, signal }) =>
       fetcher<{ favorite: boolean }>(
         '/api/account/formulas/' + encodeURIComponent(input.id) + '/favorite',
         {
@@ -81,7 +77,7 @@ export function useFormulaCategoryMutation() {
     invalidate = useFormulaViewsInvalidation()
   return useAccountMutation(
     'assign-category',
-    (input: { id: string; categoryId: string | null }, { owner, signal }) =>
+    (input: { id: string } & FormulaCategoryPayload, { owner, signal }) =>
       fetcher<SavedFormula>('/api/account/formulas/' + encodeURIComponent(input.id) + '/category', {
         method: 'PUT',
         body: { categoryId: input.categoryId },
@@ -96,8 +92,8 @@ export function useFormulaCategoryMutation() {
   )
 }
 export type CategoryWrite =
-  | { action: 'create'; name: string }
-  | { action: 'rename'; id: string; name: string }
+  | ({ action: 'create' } & CategoryPayload)
+  | ({ action: 'rename'; id: string } & CategoryPayload)
   | { action: 'delete'; id: string }
 export function useCategoryMutation() {
   const fetcher = useAccountFetch(),

@@ -302,6 +302,67 @@ test('分类删除与归类并发，不产生悬空关系或500错误', async ()
   assert.equal(saved.categoryId, null)
 })
 
+test('Zod迁移保持错误消息、认证和资源归属的优先顺序', async () => {
+  const expectedTitleMessage = '保存需要编辑时的原标题（expectedTitle），请刷新页面后重新编辑。'
+  const cases: [string, string, unknown, string][] = [
+    ['/categories', 'POST', null, '请填写分类名称。'],
+    ['/categories', 'POST', { name: 123 }, '请填写分类名称。'],
+    [
+      '/categories',
+      'POST',
+      { name: 'a\nb' },
+      '分类名称需要包含1～50个字符，不能包含换行或控制字符。',
+    ],
+    [
+      `/formulas/${firstId}/favorite`,
+      'PUT',
+      { favorite: 'false', secret: 'private-schema-fixture' },
+      '收藏状态必须为布尔值。',
+    ],
+    [`/formulas/${firstId}/category`, 'PUT', {}, '请选择有效的分类或未分类。'],
+    [`/formulas/${firstId}`, 'PATCH', { title: null, latex: 1 }, expectedTitleMessage],
+    [
+      `/formulas/${firstId}`,
+      'PATCH',
+      { expectedTitle: '原名' },
+      '请填写有效的名称、LaTeX 和编辑版本。',
+    ],
+    ['/formulas', 'POST', null, '请求内容无效。'],
+    ['/formulas', 'POST', { title: '', latex: '' }, '请提供名称、LaTeX 和有效请求编号。'],
+    [
+      '/formulas',
+      'POST',
+      { requestKey: randomUUID(), title: '', latex: '' },
+      '公式名称需要包含 1～100 个字符，不能含控制字符。',
+    ],
+  ]
+  for (const [path, method, body, message] of cases) {
+    const response = await api(path, method, body)
+    assert.equal(response.status, 400)
+    const result = (await response.json()) as { message: string }
+    assert.equal(result.message, message)
+    assert.doesNotMatch(
+      JSON.stringify(result),
+      /private-schema-fixture|ZodError|invalid_type|issues/,
+    )
+  }
+  for (const [suffix, method] of [
+    ['', 'PATCH'],
+    ['/category', 'PUT'],
+  ] as const)
+    assert.equal((await api(`/formulas/${foreignId}${suffix}`, method, {})).status, 404)
+  assert.equal(
+    (await api(`/formulas/${firstId}/favorite`, 'PUT', {}, 0, 'https://invalid.test')).status,
+    403,
+  )
+  const anonymous = await fetch(baseURL + '/api/account/formulas/' + firstId, {
+    method: 'PATCH',
+    headers: { origin, 'content-type': 'application/json' },
+    body: '{}',
+  })
+  assert.equal(anonymous.status, 401)
+})
+
 test('删除公式使用软删除，重复请求幂等且其他账号无权删除', async () => {
   assert.equal((await api(`/formulas/${firstId}`, 'DELETE', undefined, 1)).status, 404)
   assert.equal((await api(`/formulas/${firstId}`, 'DELETE')).status, 204)

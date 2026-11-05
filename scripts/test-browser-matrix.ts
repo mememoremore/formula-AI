@@ -17,6 +17,7 @@ if (mode === 'e2e')
       'explanation-math.spec.ts',
       'explanation-presentation.spec.ts',
       'observability.spec.ts',
+      'profile-input.spec.ts',
     ].map((file) => ({ viewport: 'shared' as const, file })),
   )
 let child: ReturnType<typeof spawn> | undefined

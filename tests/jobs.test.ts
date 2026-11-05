@@ -857,3 +857,49 @@ test('R8 SSE 断开重连与重复停止不新增轮次或额度，旧 GET 不�
   const terminal = await api(`/conversations/${fixture.saved.id}/events`)
   assert.match(await terminal.text(), /已停止生成/)
 })
+
+test('Zod任务边界保留HTTP错误、鉴权优先级且不创建无效任务', async () => {
+  const beforeTasks = await db.recognitionTask.count({ where: { ownerId: owners[0] } })
+  const cases: [string, unknown, string][] = [
+    [
+      '/recognitions',
+      { fileId: imageId, requestKey: randomUUID(), mode: 'unknown' },
+      '图片、识别模式、公式名称或请求编号无效。',
+    ],
+    [
+      '/recognitions',
+      { fileId: imageId, requestKey: randomUUID(), mode: 'printed', requestedTitle: 123 },
+      '图片、识别模式、公式名称或请求编号无效。',
+    ],
+    ['/conversations', { requestKey: randomUUID() }, '对话版本或请求编号无效。'],
+    [
+      '/exports',
+      { formulaVersionId: versionId, requestKey: 123 },
+      '请提供有效的公式版本和请求编号。',
+    ],
+    [
+      '/formulas/' + formulaId + '/explanations',
+      { versionId, requestKey: [] },
+      '公式版本或请求编号无效。',
+    ],
+    [
+      '/conversations/' + conversation.id + '/messages',
+      { question: ' ', requestKey: randomUUID() },
+      '请填写有效的提问和请求编号。',
+    ],
+  ]
+  for (const [path, body, message] of cases) {
+    const response = await api(path, 'POST', body)
+    assert.equal(response.status, 400, path)
+    const result = await response.json()
+    assert.equal(result.message, message, path)
+    assert.ok(!JSON.stringify(result).includes('ZodError'))
+    assert.equal((await api(path, 'POST', body, -1)).status, 401, path)
+  }
+  assert.equal((await api('/conversations/' + randomUUID() + '/messages', 'POST', {})).status, 404)
+  assert.equal(await db.recognitionTask.count({ where: { ownerId: owners[0] } }), beforeTasks)
+  assert.equal((await api('/recognitions?q=' + 'x'.repeat(201))).status, 400)
+  assert.equal((await api('/conversations?q=' + 'x'.repeat(101))).status, 400)
+  assert.equal((await api('/recognitions?cursor=invalid')).status, 404)
+  assert.equal((await api('/conversations?cursor=invalid')).status, 404)
+})

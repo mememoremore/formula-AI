@@ -1,5 +1,5 @@
 import type { ManualFormulaInput } from '../../shared/types/manual-formula'
-import { manualFormulaFeedback } from '#shared/formula-validation'
+import { manualFormulaRawInputSchema } from '#shared/schemas/manual-formula-input'
 export const MANUAL_CREATION_RECOVERY_KEY = 'formula-manual-creation-recovery-v1'
 export interface ManualCreationReceipt {
   ownerId: string
@@ -17,17 +17,7 @@ export function parseManualCreationReceipt(
   if (row.ownerId !== ownerId) return null
   if (!row.input || typeof row.input !== 'object')
     throw new Error('保存回执缺少内容，请先核对公式库。')
-  const input = row.input as Record<string, unknown>
-  if (
-    typeof input.title !== 'string' ||
-    typeof input.latex !== 'string' ||
-    typeof input.requestKey !== 'string' ||
-    !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.requestKey) ||
-    manualFormulaFeedback(input.title, input.latex)
-  )
-    throw new Error('保存回执内容无效，请先到公式库核对。')
-  return {
-    ownerId,
-    input: { requestKey: input.requestKey, title: input.title, latex: input.latex },
-  }
+  const input = manualFormulaRawInputSchema.safeParse(row.input)
+  if (!input.success) throw new Error('保存回执内容无效，请先到公式库核对。')
+  return { ownerId, input: input.data }
 }

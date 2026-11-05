@@ -2,15 +2,13 @@ import { requireAccountWriter } from '../../../../utils/auth'
 import { getDatabase } from '../../../../utils/database'
 import { workspaceRequest } from '../../../../utils/workspace-operation'
 import { readWorkspaceJson } from '../../../../utils/request-body'
-import { isRecord } from '../../../../utils/validate-body'
+import { parseFormulaFavorite } from '../../../../services/formula-input'
 import { setFormulaFavorite } from '../../../../database/library-mutations'
 
 export default defineEventHandler((event) =>
   workspaceRequest(event, async () => {
     const user = await requireAccountWriter(event)
-    const body = await readWorkspaceJson(event)
-    if (!isRecord(body) || typeof body.favorite !== 'boolean')
-      throw createError({ statusCode: 400, message: '收藏状态必须为布尔值。' })
+    const body = parseFormulaFavorite(await readWorkspaceJson(event))
     return setFormulaFavorite(
       getDatabase(),
       user.id,

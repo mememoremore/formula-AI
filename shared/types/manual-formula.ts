@@ -1,5 +1,3 @@
-export interface ManualFormulaInput {
-  requestKey: string
-  title: string
-  latex: string
-}
+import type { z } from 'zod'
+import type { manualFormulaInputSchema } from '../schemas/manual-formula-input'
+export type ManualFormulaInput = z.output<typeof manualFormulaInputSchema>

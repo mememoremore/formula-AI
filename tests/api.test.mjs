@@ -102,3 +102,42 @@ test('default formulas preserve original recognition and matching first version'
     assert.equal(formula.versions[0].latex, formula.latex)
   }
 })
+
+test('demo Zod migration keeps public error envelope and combined-invalid error priority', async () => {
+  const cases = [
+    ['/api/recognitions', { image: [], mode: 'bad' }, '请提供图片信息。'],
+    ['/api/recognitions', { image: {}, mode: 'bad' }, '识别模式无效。'],
+    ['/api/recognitions', { image: {}, mode: 'printed' }, '图片名称无效。'],
+    ['/api/recognitions', { image: { name: 'x' }, mode: 'printed' }, '仅支持 JPEG 和 PNG。'],
+    [
+      '/api/recognitions',
+      { image: { ...image, size: '1' }, mode: 'printed' },
+      '图片大小必须在 0～10MB 之间。',
+    ],
+    ['/api/chat', { messages: [], formula: null }, '对话需要包含 1～20 条消息。'],
+    [
+      '/api/chat',
+      { messages: [{ role: 'system', content: 'x' }], formula: null },
+      '消息格式无效或超过 2000 字。',
+    ],
+    [
+      '/api/chat',
+      { messages: [{ role: 'assistant', content: 'x' }], formula: null },
+      '最后一条消息必须是你的提问。',
+    ],
+    [
+      '/api/chat',
+      { messages: [{ role: 'user', content: 'x' }], formula: null },
+      '公式版本信息无效。',
+    ],
+  ]
+  for (const [path, input, message] of cases) {
+    const response = await post(path, input)
+    assert.equal(response.status, 400, path)
+    const body = await response.json()
+    assert.equal(body.message, message)
+    assert.equal(body.statusMessage, 'Invalid request')
+    assert.equal(JSON.stringify(body).includes('ZodError'), false)
+    assert.equal(JSON.stringify(body).includes('issues'), false)
+  }
+})

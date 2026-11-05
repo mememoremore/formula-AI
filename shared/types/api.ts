@@ -1,18 +1,19 @@
+import type { z } from 'zod'
+import type {
+  demoImageMetadataSchema,
+  demoRecognitionInputSchema,
+  demoChatMessageSchema,
+  demoFormulaContextSchema,
+} from '../schemas/demo-input'
+
 /** Shared business contracts. Python-specific response fields belong in a server adapter. */
 export type RecognitionMode = 'handwritten' | 'printed'
 export type TaskStatus = 'queued' | 'processing' | 'completed' | 'failed'
 
-export interface ImageMetadata {
-  name: string
-  mimeType: 'image/jpeg' | 'image/png'
-  size: number
-}
+export type ImageMetadata = z.output<typeof demoImageMetadataSchema>
 
 /** Day 1 sends metadata only. A real upload will supply an owned fileId. */
-export interface RecognitionRequest {
-  image: ImageMetadata
-  mode: RecognitionMode
-}
+export type RecognitionRequest = z.output<typeof demoRecognitionInputSchema>
 
 export interface RecognitionResult {
   requestId: string
@@ -48,15 +49,9 @@ export interface Category {
   name: string
 }
 
-export interface ChatMessage {
-  role: 'user' | 'assistant'
-  content: string
-}
+export type ChatMessage = z.output<typeof demoChatMessageSchema>
 
-export interface FormulaContext {
-  versionId: string
-  latex: string
-}
+export type FormulaContext = z.output<typeof demoFormulaContextSchema>
 
 export interface ChatRequest {
   responseKind?: 'TEXT' | 'FORMULA_EXPLANATION'

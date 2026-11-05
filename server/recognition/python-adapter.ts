@@ -1,3 +1,4 @@
+import { pythonRecognitionEnvelopeSchema, parsePythonRecognitionResult } from './response'
 import { currentTraceparent, traced } from '../diagnostics/tracing'
 import { SpanKind } from '@opentelemetry/api'
 import { randomUUID } from 'node:crypto'
@@ -23,9 +24,9 @@ async function readResult(response: Response): Promise<Record<string, unknown>> 
       chunks.push(value)
     }
     const parsed: unknown = JSON.parse(Buffer.concat(chunks).toString('utf8'))
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed))
-      throw new Error('Invalid response')
-    return parsed as Record<string, unknown>
+    const envelope = pythonRecognitionEnvelopeSchema.safeParse(parsed)
+    if (!envelope.success) throw new Error('Invalid response')
+    return envelope.data
   } catch (error) {
     if (error instanceof InferenceFailure) throw error
     throw new InferenceFailure('UPSTREAM', '识别服务响应无法解析。', false)
@@ -69,19 +70,7 @@ export function createPythonRecognitionAdapter(settings: RecognitionSettings): R
               throw inferenceFailure({ status: response.status })
             }
             const result = await readResult(response)
-            const latex = typeof result.latex === 'string' ? result.latex.trim() : ''
-            if (
-              result.requestId !== requestId ||
-              !latex ||
-              latex.length > 5000 ||
-              latex.includes('```') ||
-              latex.includes('\\documentclass') ||
-              latex.includes('\0') ||
-              typeof result.modelVersion !== 'string' ||
-              !/^[a-zA-Z0-9._/:@+-]{1,160}$/.test(result.modelVersion)
-            )
-              throw new InferenceFailure('UPSTREAM', '识别服务未返回有效的公式或模型版本。', false)
-            return { requestId, latex, modelVersion: result.modelVersion, isMock: false }
+            return parsePythonRecognitionResult(result, requestId)
           } catch (error) {
             if (signal?.aborted) throw signal.reason
             throw inferenceFailure(error)

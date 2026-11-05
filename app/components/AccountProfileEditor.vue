@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const accountFetch = useAccountFetch()
 import type { AccountUser } from '#shared/types/account'
+import { profileInputSchema } from '#shared/schemas/profile-input'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 const props = defineProps<{ user: AccountUser }>()
 const emit = defineEmits<{ saved: []; expired: []; reload: [] }>()
@@ -74,24 +75,22 @@ function reload() {
   if (!dirty.value || window.confirm('重新读取将放弃当前草稿，确定继续吗？')) emit('reload')
 }
 async function save() {
-  if (
-    busy.value ||
-    file.value ||
-    !dirty.value ||
-    !name.value.trim() ||
-    name.value.trim().length > 100
-  )
+  if (busy.value || file.value || !dirty.value) return
+  const input = profileInputSchema.safeParse({ name: name.value, avatar: avatar.value })
+  if (!input.success) {
+    feedback.value = input.error.issues[0]?.message ?? '资料格式无效。'
     return
+  }
   const current = ++sequence,
     active = new AbortController(),
-    submitted = name.value.trim()
+    submitted = input.data.name
   controller = active
   busy.value = true
   feedback.value = ''
   try {
     await accountFetch('/api/account/profile', {
       method: 'PATCH',
-      body: { name: submitted, ...(avatar.value === undefined ? {} : { avatar: avatar.value }) },
+      body: input.data,
       signal: active.signal,
       retry: 0,
       timeout: 25000,
