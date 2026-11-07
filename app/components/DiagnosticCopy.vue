@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+
 const route = useRoute()
 const diagnostic = useState<{
   traceId: string
@@ -8,6 +9,7 @@ const diagnostic = useState<{
   path: string
   time: string
 } | null>('last-diagnostic', () => null)
+
 // A previous page's failure must not follow the user into an unrelated workflow.
 watch(
   () => route.path,
@@ -15,10 +17,13 @@ watch(
     diagnostic.value = null
   },
 )
+
 const copied = ref(false)
+
 watch(diagnostic, () => {
   copied.value = false
 })
+
 async function copy() {
   if (!diagnostic.value) return
   try {

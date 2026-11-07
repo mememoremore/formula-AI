@@ -34,7 +34,7 @@ function save() {
         </NuxtLink>
       </nav>
     </header>
-    <main class="sample-frame" id="sample-main">
+    <main id="sample-main" class="sample-frame">
       <header class="sample-hero">
         <p class="sample-eyebrow">留一点空白，给思考。</p>
         <PageIntro

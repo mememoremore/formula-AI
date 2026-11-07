@@ -2,16 +2,20 @@
 export function useImageSelection() {
   const { replacePreview, preview } = useUploadPreview()
   const { file, originalFile } = useNuxtApp().$uploadDraft
+
   if (import.meta.client && !file.value && preview.value?.formulaId) replacePreview(null)
+
   const checking = ref(false)
   const selectionError = ref('')
   let selection = 0
   let disposed = false
   const decoding = new Set<string>()
+
   function releaseDecoding() {
     for (const url of decoding) URL.revokeObjectURL(url)
     decoding.clear()
   }
+
   function removeImage() {
     selection++
     releaseDecoding()
@@ -20,6 +24,7 @@ export function useImageSelection() {
     file.value = null
     replacePreview(null)
   }
+
   onScopeDispose(() => {
     disposed = true
     selection++
@@ -29,9 +34,12 @@ export function useImageSelection() {
   async function selectImage(event: Event) {
     const input = event.target as HTMLInputElement
     const selected = input.files?.[0]
+
     input.value = ''
     if (!selected) return
+
     const token = ++selection
+
     releaseDecoding()
     checking.value = false
     file.value = null
@@ -46,10 +54,13 @@ export function useImageSelection() {
       return
     }
     checking.value = true
+
     const url = URL.createObjectURL(selected)
+
     decoding.add(url)
     try {
       const image = new Image()
+
       image.src = url
       await image.decode()
       if (image.naturalWidth * image.naturalHeight > 20_000_000) throw new Error('pixels')
@@ -78,6 +89,7 @@ export function useImageSelection() {
       if (!disposed && selection === token) checking.value = false
     }
   }
+
   function applyCrop(value: File) {
     if (!originalFile.value) return
     selection++
@@ -89,5 +101,6 @@ export function useImageSelection() {
       mimeType: value.type as 'image/jpeg' | 'image/png',
     })
   }
+
   return { file, originalFile, checking, selectionError, selectImage, removeImage, applyCrop }
 }

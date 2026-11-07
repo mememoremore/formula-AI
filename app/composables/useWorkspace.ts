@@ -5,5 +5,6 @@ export function useWorkspace() {
   const demo = computed(
     () => route.query.space === 'demo' || (!session.data.value?.user && !session.error.value),
   )
+
   return { ...session, demo }
 }

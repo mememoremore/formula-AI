@@ -80,6 +80,7 @@ const icons = {
   dice: Dices,
   atom: Atom,
 }
+
 withDefaults(defineProps<{ name: keyof typeof icons; size?: number }>(), { size: 20 })
 </script>
 

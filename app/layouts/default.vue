@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { contentWidth } from '~/utils/layout'
+
 const route = useRoute()
 const showNav = computed(() => route.meta.bottomNav !== false)
 const width = computed(() => contentWidth(route.meta.contentWidth))

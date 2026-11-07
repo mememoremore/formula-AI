@@ -6,6 +6,7 @@ import { cleanTestProcessEnvironment } from '../tests/support/test-runtime.ts'
 mkdirSync('tmp/r16-quality', { recursive: true, mode: 0o700 })
 const stages = [
   ['generate', 'scripts/test-generate.ts'],
+  ['lint', 'scripts/check-lint.ts'],
   ['format', 'scripts/check-source-format.ts'],
   ['assets', 'scripts/check-assets.ts'],
   ['types', 'scripts/check-types.ts'],

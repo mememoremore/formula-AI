@@ -24,13 +24,17 @@ export function useAccountMutation<Input, Result>(
       gcTime: 0,
       mutationFn: async (request: { input: Input; owner: string; controller: AbortController }) => {
         const { input, owner: expected, controller } = request
+
         function current() {
           controller.signal.throwIfAborted()
           if (disposed || owner.value !== expected)
             throw new DOMException('账号或页面已变化', 'AbortError')
         }
+
         current()
+
         const result = await write(input, { owner: expected, signal: controller.signal })
+
         current()
         return result
       },
@@ -42,6 +46,7 @@ export function useAccountMutation<Input, Result>(
     },
     useNuxtApp().$queryClient,
   )
+
   watch(
     owner,
     () => {
@@ -55,13 +60,17 @@ export function useAccountMutation<Input, Result>(
     active?.abort()
     mutation.reset()
   })
+
   async function execute(input: Input): Promise<Result> {
     if (disposed || !owner.value || active)
       throw new DOMException('当前不能重复提交，请确认账号', 'AbortError')
+
     const controller = new AbortController()
+
     active = controller
     try {
       const result = await mutation.mutateAsync({ input, owner: owner.value, controller })
+
       controller.signal.throwIfAborted()
       return result
     } catch (error) {
@@ -71,6 +80,7 @@ export function useAccountMutation<Input, Result>(
       if (active === controller) active = undefined
     }
   }
+
   return { execute, busy: mutation.isPending, error: mutation.error }
 }
 

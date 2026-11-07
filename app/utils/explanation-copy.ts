@@ -1,10 +1,12 @@
 import type { FormulaExplanation } from '#shared/explanation'
+
 /** Copy only user-facing, validated content. This format is independent of the model Prompt. */
 export function explanationCopyText(value: FormulaExplanation): string {
   const sections: string[] = []
   const section = (title: string, rows: string[]) => {
     if (rows.length) sections.push(title + '\n' + rows.join('\n'))
   }
+
   section('概述', value.summary.trim() ? [value.summary] : [])
   section(
     '符号含义',

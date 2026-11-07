@@ -1,11 +1,12 @@
 <script setup lang="ts">
-const accountFetch = useAccountFetch()
-const mutation = useFormulaEditMutation()
-const saving = mutation.busy
 import { displayFormulaTitle } from '#shared/formula-title'
 import type { SavedFormula } from '#shared/types/workspace'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { formulaDraftFeedback, formulaDraftChanged } from '~/utils/formula-editor'
+
+const accountFetch = useAccountFetch()
+const mutation = useFormulaEditMutation()
+const saving = mutation.busy
 const props = defineProps<{ open: boolean; formula: SavedFormula }>()
 const emit = defineEmits<{
   close: []
@@ -29,6 +30,7 @@ const validation = computed(() => formulaDraftFeedback(title.value, latex.value)
 const { canLeave } = useFormulaDraftGuard(open, dirty, busy)
 let controller: AbortController | undefined
 let disposed = false
+
 function fill(formula: SavedFormula) {
   expectedTitle.value = formula.title
   original.value = {
@@ -41,6 +43,7 @@ function fill(formula: SavedFormula) {
   feedback.value = ''
   conflicted.value = false
 }
+
 watch(
   open,
   (value) => {
@@ -49,13 +52,17 @@ watch(
   },
   { immediate: true },
 )
+
 function close() {
   if (canLeave()) emit('close')
 }
+
 async function save() {
   if (busy.value || conflicted.value || validation.value || !dirty.value) return
   feedback.value = ''
+
   const id = props.formula.id
+
   try {
     const formula = await mutation.execute({
       id,
@@ -64,19 +71,23 @@ async function save() {
       expectedVersionId: expectedVersionId.value,
       expectedTitle: expectedTitle.value,
     })
+
     if (disposed || props.formula.id !== id) return
     original.value = { title: formula.title, latex: formula.versions.at(-1)?.latex ?? '' }
     emit('saved', formula)
     emit('close')
   } catch (error) {
     if (disposed || isAccountWriteCancelled(error)) return
+
     const conflict = (error as { statusCode?: number }).statusCode === 409
+
     conflicted.value = conflict
     feedback.value = conflict
       ? '公式名称或内容已被其他窗口修改。草稿仍保留，可先复制草稿，再重新读取最新内容。'
       : workspaceFeedback(error, '保存失败，草稿已保留，请检查网络后重试。')
   }
 }
+
 async function copyDraft() {
   try {
     await navigator.clipboard.writeText(title.value + '\n\n' + latex.value)
@@ -85,10 +96,13 @@ async function copyDraft() {
     feedback.value = '复制不可用，请手动保留名称和 LaTeX；当前草稿未变。'
   }
 }
+
 async function reloadLatest() {
   if (busy.value || !canLeave()) return
   operation.value = 'reload'
+
   const id = props.formula.id
+
   controller = new AbortController()
   try {
     const formula = await accountFetch<SavedFormula>(`/api/account/formulas/${id}`, {
@@ -96,6 +110,7 @@ async function reloadLatest() {
       retry: 0,
       timeout: 15_000,
     })
+
     if (disposed || props.formula.id !== id) return
     fill(formula)
     emit('reloaded', formula)
@@ -105,6 +120,7 @@ async function reloadLatest() {
     if (!disposed) operation.value = null
   }
 }
+
 onScopeDispose(() => {
   disposed = true
   controller?.abort()

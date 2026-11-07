@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { AccountCategory } from '#shared/types/library'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+
 defineProps<{ categories: AccountCategory[] }>()
+
 const emit = defineEmits<{ close: [] }>()
 const name = ref('')
 const editing = ref<AccountCategory | null>(null)
@@ -10,17 +12,20 @@ const mutation = useCategoryMutation()
 const busy = mutation.busy
 const feedback = ref('')
 const { showToast } = useToast()
+
 function edit(category: AccountCategory | null) {
   editing.value = category
   deleting.value = null
   name.value = category?.name ?? ''
   feedback.value = ''
 }
+
 async function submit() {
   if (busy.value) return
   feedback.value = ''
   try {
     const category = editing.value
+
     await mutation.execute(
       category
         ? { action: 'rename', id: category.id, name: name.value }
@@ -33,10 +38,12 @@ async function submit() {
     feedback.value = workspaceFeedback(error)
   }
 }
+
 function confirmRemoval(category: AccountCategory) {
   deleting.value = category
   feedback.value = ''
 }
+
 async function remove() {
   if (!deleting.value || busy.value) return
   feedback.value = ''

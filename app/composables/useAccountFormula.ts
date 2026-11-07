@@ -9,7 +9,9 @@ export function useAccountFormula(id: Ref<string>, ownerId: Ref<string | undefin
     async (_app, { signal }) => {
       const owner = ownerId.value
       const resource = id.value
+
       if (!owner) return { owner: undefined, resource, formula: undefined }
+
       const formula = await fetcher<SavedFormula>(
         '/api/account/formulas/' + encodeURIComponent(resource),
         {
@@ -18,6 +20,7 @@ export function useAccountFormula(id: Ref<string>, ownerId: Ref<string | undefin
           timeout: 15_000,
         },
       )
+
       signal.throwIfAborted()
       return { owner, resource, formula }
     },
@@ -25,14 +28,17 @@ export function useAccountFormula(id: Ref<string>, ownerId: Ref<string | undefin
   )
   const formula = computed(() => {
     const value = request.data.value
+
     return ownerId.value && value?.owner === ownerId.value && value.resource === id.value
       ? value.formula
       : undefined
   })
+
   function update(value: SavedFormula) {
     if (value.id !== id.value || request.data.value?.owner !== ownerId.value || !ownerId.value)
       return
     request.data.value = { owner: ownerId.value, resource: id.value, formula: value }
   }
+
   return { request, formula, update }
 }

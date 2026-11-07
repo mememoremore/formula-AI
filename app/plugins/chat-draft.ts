@@ -14,6 +14,7 @@ export default defineNuxtPlugin(() => {
     warning = ref('')
   const storageKey = 'formula-ai:chat-pending:v1'
   let owner: string | null | undefined
+
   function persist() {
     try {
       sessionStorage.setItem(storageKey, JSON.stringify(items.value))
@@ -24,6 +25,7 @@ export default defineNuxtPlugin(() => {
       return false
     }
   }
+
   function confirmOwner(id: string | null) {
     if (owner !== undefined && owner !== id) question.value = ''
     owner = id
@@ -32,13 +34,16 @@ export default defineNuxtPlugin(() => {
       persist()
     }
   }
+
   function put(value: ChatIntent) {
     if (!ready.value)
       throw createError({ statusCode: 400, message: '正在读取待确认请求，请稍后重试。' })
+
     const next = [
       ...items.value.filter((row) => row.ownerId !== value.ownerId || row.slot !== value.slot),
       value,
     ]
+
     if (next.length > 10)
       throw createError({
         statusCode: 400,
@@ -52,27 +57,35 @@ export default defineNuxtPlugin(() => {
         message: warning.value,
       })
   }
+
   function remove(value: ChatIntent) {
     items.value = items.value.filter(
       (row) => row.ownerId !== value.ownerId || row.slot !== value.slot,
     )
     persist()
   }
+
   function clear() {
     question.value = ''
     owner = null
     items.value = []
     if (ready.value) persist()
   }
+
   if (import.meta.client)
     onNuxtReady(() => {
       try {
         const rows: unknown = JSON.parse(sessionStorage.getItem(storageKey) ?? '[]')
+
         if (!Array.isArray(rows) || rows.length > 10) throw new Error('无效恢复信息')
+
         const parsed: ChatIntent[] = []
+
         for (const row of rows) {
           if (!row || typeof row !== 'object') throw new Error('无效请求')
+
           const r = row as Record<string, unknown>
+
           if (
             !['ownerId', 'slot', 'question', 'requestKey'].every(
               (key) => typeof r[key] === 'string' && String(r[key]).length > 0,
@@ -83,6 +96,7 @@ export default defineNuxtPlugin(() => {
             )
           )
             throw new Error('无效请求')
+
           const value = {
             ownerId: String(r.ownerId),
             slot: String(r.slot),
@@ -91,6 +105,7 @@ export default defineNuxtPlugin(() => {
             versionId: r.versionId as string | null,
             conversationId: r.conversationId as string | null,
           }
+
           if (parsed.some((item) => item.ownerId === value.ownerId && item.slot === value.slot))
             throw new Error('重复请求')
           parsed.push(value)

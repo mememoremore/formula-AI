@@ -25,6 +25,7 @@ const store = createObjectStore({
 })
 const shutdownSignal = new AbortController()
 let stopping = false,
+  // eslint-disable-next-line prefer-const -- Shutdown may read this before startup has been assigned.
   startup: Promise<void> | undefined,
   shutdown: Promise<void> | undefined
 let metricsServer: Awaited<ReturnType<typeof startWorkerMetrics>> | undefined

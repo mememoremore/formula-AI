@@ -1,6 +1,5 @@
 import { recognitionResultState } from '../../shared/recognition-result'
 import { Prisma, type PrismaClient } from '../generated/prisma/client'
-export { reconcileTask } from './task-reconciliation'
 import { hasValidResourceIdentity } from './private-resources'
 import { WorkspaceError } from '../services/workspace-error'
 import type {
@@ -9,6 +8,7 @@ import type {
   ExportTaskState,
   RecognitionHistoryPage,
 } from '../../shared/types/tasks'
+export { reconcileTask } from './task-reconciliation'
 
 /** 最近识别包含排队、处理中和失败任务，离开等待页后也能重新找到它。 */
 export async function readRecognitionHistory(

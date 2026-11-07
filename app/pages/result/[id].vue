@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { formulaDraftChanged, formulaDraftFeedback } from '~/utils/formula-editor'
+
 definePageMeta({ bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '演示公式 · Formula AI' })
+
 const route = useRoute()
 const { formulas, categories, toggleFavorite, updateFormula } = useDemoLibrary()
 const { preview } = useUploadPreview()
@@ -29,6 +31,7 @@ const editorDirty = computed(
     categoryId.value !== original.value.categoryId,
 )
 const { canLeave } = useFormulaDraftGuard(showEditor, editorDirty, saving)
+
 watch(
   () => route.params.id,
   () => {
@@ -37,6 +40,7 @@ watch(
     showExport.value = false
   },
 )
+
 function edit() {
   if (!formula.value) return
   title.value = formula.value.title
@@ -46,9 +50,11 @@ function edit() {
   feedback.value = ''
   showEditor.value = true
 }
+
 function closeEditor() {
   if (canLeave()) showEditor.value = false
 }
+
 function save() {
   if (!formula.value || validation.value || !editorDirty.value) return
   if (!updateFormula(formula.value.id, latex.value, title.value, categoryId.value || null)) {
@@ -58,10 +64,12 @@ function save() {
   showEditor.value = false
   showToast('已保存到本机演示。')
 }
+
 function categorize() {
   categoryId.value = formula.value?.categoryId ?? ''
   showCategory.value = true
 }
+
 function saveCategory() {
   if (!formula.value) return
   updateFormula(

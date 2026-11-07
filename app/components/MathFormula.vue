@@ -26,6 +26,7 @@ const rendered = computed(() => {
       <p class="error-text">LaTeX 格式暂时无法预览，请检查后修改。</p>
     </template>
     <!-- KaTeX sanitizes its output with trust:false; raw user HTML is never rendered. -->
+    <!-- eslint-disable-next-line vue/no-v-html -- Only bounded KaTeX output with trust:false reaches this sink. -->
     <div v-else v-html="rendered.html" />
   </div>
 </template>

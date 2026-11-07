@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { libraryView } from '#shared/navigation'
+
 const route = useRoute()
 const { formulas, categories, addCategory } = useDemoLibrary()
 const { showToast } = useToast()
@@ -11,6 +12,7 @@ const error = ref('')
 const filtered = computed(() =>
   formulas.value.filter((item) => {
     const text = query.value.trim().toLowerCase()
+
     return (
       (!active.value || item.categoryId === active.value) &&
       (view.value !== 'recent' || item.source === 'mock-recognition') &&
@@ -19,6 +21,7 @@ const filtered = computed(() =>
     )
   }),
 )
+
 function create() {
   if (!addCategory(name.value)) {
     error.value = '请输入不重复的分类名称。'

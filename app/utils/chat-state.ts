@@ -1,13 +1,16 @@
 import { parseExplanation, explanationText } from '#shared/explanation'
 import type { SavedConversation, AccountMessage, ChatTurnState } from '../../shared/types/tasks'
+
 const record = (value: unknown): value is Record<string, unknown> =>
   !!value && typeof value === 'object'
 const nullableText = (value: unknown) => value === null || typeof value === 'string'
+
 /** 已校验的非负十进制串按长度/字典序比较，避免丢精度和客户端BigInt目标限制。 */
 function compareRevisions(a: string, b: string) {
   if (a.length !== b.length) return a.length > b.length ? 1 : -1
   return a === b ? 0 : a > b ? 1 : -1
 }
+
 /** SSE 是外部 JSON，不能靠类型断言跳过运行时协议检查。 */
 export function parseConversationSnapshot(
   value: unknown,
@@ -33,7 +36,9 @@ export function parseConversationSnapshot(
     throw new Error('对话协议需要刷新，缺少有效修订号')
   if (value.purpose !== undefined && !['CHAT', 'EXPLANATION'].includes(String(value.purpose)))
     throw new Error('无效会话用途')
+
   const base = value.baseExplanation
+
   if (value.purpose === 'EXPLANATION' && base === undefined) throw new Error('解释快照缺少基础解释')
   if (base !== undefined && base !== null) {
     if (
@@ -48,7 +53,9 @@ export function parseConversationSnapshot(
     )
       throw new Error('无效基础解释')
   }
+
   let position = 0
+
   for (const row of value.messages) {
     if (
       !record(row) ||
@@ -72,7 +79,9 @@ export function parseConversationSnapshot(
       throw new Error('无效结构化消息')
     position = Number(row.position)
   }
+
   const turn = value.currentTurn
+
   if (
     turn !== null &&
     (!record(turn) ||
@@ -93,7 +102,9 @@ export function parseConversationSnapshot(
     !['TEXT', 'FORMULA_EXPLANATION'].includes(String(turn.responseKind))
   )
     throw new Error('无效回答类型')
+
   const context = value.context
+
   if (
     context !== null &&
     (!record(context) ||
@@ -105,9 +116,11 @@ export function parseConversationSnapshot(
 }
 export const activeChatTurn = (turn: ChatTurnState | null | undefined) =>
   !!turn && ['QUEUED', 'PROCESSING'].includes(turn.status)
+
 function snapshotContent(value: SavedConversation) {
   const c = value.context,
     t = value.currentTurn
+
   return JSON.stringify([
     value.id,
     value.purpose,
@@ -138,6 +151,7 @@ function snapshotContent(value: SavedConversation) {
     ],
   ])
 }
+
 /** 只使用协议已有的服务端事实，不用到达时间充当服务端版本号。 */
 export function acceptConversationSnapshot(
   previous: SavedConversation | undefined,
@@ -149,6 +163,7 @@ export function acceptConversationSnapshot(
     parseConversationSnapshot(next, previous.id, true)
     if (previous.revision !== undefined) {
       const order = compareRevisions(next.revision!, previous.revision)
+
       if (order < 0) return previous
       if (order === 0) {
         if (snapshotContent(previous) !== snapshotContent(next))
@@ -170,9 +185,12 @@ export function acceptConversationSnapshot(
       JSON.stringify(previous.baseExplanation) !== JSON.stringify(next.baseExplanation)
     )
       throw new Error('基础解释发生冲突')
+
     const known = new Map(previous.messages.map((m) => [m.id, m]))
+
     for (const m of next.messages) {
       const old = known.get(m.id)
+
       if (
         old &&
         (old.content !== m.content ||
@@ -195,12 +213,17 @@ export function acceptConversationSnapshot(
       throw new Error('已结束轮次发生状态冲突')
     return next
   }
+
   const oldMax = previous.messages.at(-1)?.position ?? 0,
     newMax = next.messages.at(-1)?.position ?? 0
+
   if (newMax < oldMax) return previous
+
   const known = new Map<number, AccountMessage>(previous.messages.map((m) => [m.position, m]))
+
   for (const message of next.messages) {
     const old = known.get(message.position)
+
     if (
       old &&
       (old.id !== message.id ||
@@ -210,8 +233,10 @@ export function acceptConversationSnapshot(
     )
       return previous
   }
+
   const old = previous.currentTurn,
     turn = next.currentTurn
+
   if (old && turn && old.id === turn.id) {
     if (turn.attemptCount < old.attemptCount) return previous
     if (!activeChatTurn(old)) {
@@ -236,8 +261,10 @@ export function failedChatQuestion(value?: SavedConversation): string | null {
     (value.purpose === 'EXPLANATION' && !value.baseExplanation)
   )
     return null
+
   const answer = value.messages.at(-1),
     question = value.messages.at(-2)
+
   if (
     answer?.role !== 'ASSISTANT' ||
     answer.status !== 'FAILED' ||

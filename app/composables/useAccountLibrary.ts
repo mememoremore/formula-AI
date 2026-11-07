@@ -51,17 +51,22 @@ export function useAccountLibrary(
         )
       : '',
   )
+
   async function loadMore() {
     if (!owner.value || !query.hasNextPage.value || query.isFetching.value) return
     await query.fetchNextPage({ cancelRefetch: false })
   }
+
   async function reload() {
     if (!owner.value) return
+
     const key = options.value.queryKey
+
     await client.cancelQueries({ queryKey: key, exact: true })
     if (!owner.value || JSON.stringify(key) !== JSON.stringify(options.value.queryKey)) return
     await query.refetch({ cancelRefetch: false })
   }
+
   return {
     ready: owner.value ? query.suspense().catch(() => undefined) : Promise.resolve(),
     items,

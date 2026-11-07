@@ -103,7 +103,6 @@ async function checkAccount(page) {
     await page.getByLabel('邮箱', { exact: true }).fill(email)
     await page.getByLabel('密码', { exact: true }).fill('R9-testing-password')
   }
-  let mobilePassed = 0
   async function layouts(widths) {
     for (const width of widths) {
       await page.setViewportSize({ width, height: 850 })
@@ -629,7 +628,7 @@ async function checkAccount(page) {
   ensure((await page.evaluate(() => location.pathname)) === '/', '离开登录页后旧回调不导航')
   await page.unroute(base + '/api/auth/sign-in/email')
 
-  mobilePassed = checks.length
+  const mobilePassed = checks.length
   await layouts([768, 1024, 1440])
   return { passed: checks.length, mobilePassed, checks }
 }

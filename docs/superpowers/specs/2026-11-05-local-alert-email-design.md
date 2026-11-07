@@ -1,0 +1,3 @@
+# 本地告警邮件开关
+
+按用户已确认方案：本地开发只记录/展示告警，不发送监控邮件；注册验证码不改。新增FORMULA_ALERT_EMAIL_ENABLED，默认false，显式true才读取告警SMTP配置并渲染email接收器；未知值报错，不隐式启用。Alertmanager关闭邮件时仍运行，路由到无外部集成的local-panel接收器，Prometheus/Grafana规则与状态保留。已有SMTP secret不删除或输出；新安装关闭邮件时提供无效占位文件满足Compose挂载。热加载本机Alertmanager配置，不发测试邮件、不重启业务。纯配置测试＋amtool校验＋运行状态及面板查询验证。

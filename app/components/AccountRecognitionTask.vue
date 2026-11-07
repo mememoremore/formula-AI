@@ -8,6 +8,7 @@ import {
   recognitionResultOrigin,
 } from '~/utils/recognition-state'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+
 const props = defineProps<{ id: string; ownerId: string }>()
 const owner = toRef(props, 'ownerId'),
   flow = useAccountRecognition(owner)
@@ -15,11 +16,14 @@ const fetcher = useAccountFetch()
 const invalidateFormulaViews = useFormulaViewsInvalidation()
 const route = useRoute(),
   origins = useState<Record<string, string>>('page-origins', () => ({}))
+
 function prepareResultReturn() {
   const origin = recognitionResultOrigin(origins.value, route.fullPath)
+
   if (origin)
     origins.value[route.fullPath] = safeReturnPath(origin, '/library?space=account&view=recent')
 }
+
 let disposed = false,
   accepted: RecognitionTaskState | undefined
 const request = useTaskPolling<RecognitionTaskState>(
@@ -33,6 +37,7 @@ const request = useTaskPolling<RecognitionTaskState>(
         '/api/account/tasks/' + encodeURIComponent(props.id),
         { signal, retry: 0 },
       )
+
       signal.throwIfAborted()
       if (disposed) throw new Error('页面已离开')
       if (task.id !== props.id) throw new Error('任务响应不匹配')
@@ -49,12 +54,15 @@ const uncertain = computed(() => !!flow.retryReceipt(props.id))
 const errorCode = computed(() => (error.value as { statusCode?: number } | null)?.statusCode)
 const { recoveryWarning } = useNuxtApp().$uploadDraft
 let lastState = ''
+
 watch(
   task,
   (value) => {
     if (value) accepted = value
     if (!value || !import.meta.client) return
+
     const state = [value.status, value.attemptCount, value.formulaId].join(':')
+
     if (state !== lastState) {
       if (value.status === 'COMPLETED') invalidateFormulaViews(props.ownerId)
       clearNuxtData((key) =>
@@ -65,11 +73,13 @@ watch(
   },
   { immediate: true },
 )
+
 async function retry() {
   if (!task.value || busy.value || error.value || status.value === 'pending') return
   feedback.value = ''
   try {
     const next = await flow.retry(task.value)
+
     if (disposed) return
     clearNuxtData((key) => recognitionInvalidates(key, 'submitted'))
     await navigateTo('/recognitions/' + encodeURIComponent(next.id), { replace: true })
@@ -77,6 +87,7 @@ async function retry() {
     if (!disposed) feedback.value = workspaceFeedback(cause, '提交结果暂未确认，请沿用原请求重试。')
   }
 }
+
 onScopeDispose(() => {
   disposed = true
 })
@@ -140,8 +151,8 @@ await request
     <NuxtLink
       v-if="task.status === 'COMPLETED' && task.formulaId && !error"
       :to="'/formulas/' + encodeURIComponent(task.formulaId)"
-      @click="prepareResultReturn"
       class="button button-primary button-block section"
+      @click="prepareResultReturn"
     >
       查看识别结果
     </NuxtLink>

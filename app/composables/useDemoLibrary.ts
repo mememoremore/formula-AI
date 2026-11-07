@@ -7,11 +7,13 @@ export function useDemoLibrary() {
 
   function toggleFavorite(id: string) {
     const formula = formulas.value.find((item) => item.id === id)
+
     if (formula) formula.favorite = !formula.favorite
   }
 
   function updateFormula(id: string, latex: string, title: string, categoryId: string | null) {
     const formula = formulas.value.find((item) => item.id === id)
+
     if (!formula || !latex.trim() || latex.length > 5000 || !title.trim()) return false
     if (formula.latex !== latex.trim()) {
       formula.versionId = crypto.randomUUID()
@@ -48,6 +50,7 @@ export function useDemoLibrary() {
       source: 'mock-recognition',
       imageName,
     }
+
     formula.versions = [{ id: formula.versionId, latex: formula.latex, createdAt: now }]
     state.value.formulas.unshift(formula)
     return formula
@@ -55,6 +58,7 @@ export function useDemoLibrary() {
 
   function addCategory(name: string) {
     const cleaned = name.trim().slice(0, 20)
+
     if (!cleaned || categories.value.some((item) => item.name === cleaned)) return false
     state.value.categories.push({ id: crypto.randomUUID(), name: cleaned })
     return true

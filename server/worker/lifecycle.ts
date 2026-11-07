@@ -137,6 +137,7 @@ async function runTaskAttempt(
       code: safeDiagnosticCode(error),
     })
     // 保留调用方的暂时失败语义；pg-boss外层重复fail已被attempt/state围栏挡住。
+    // eslint-disable-next-line preserve-caught-error -- Deliberately replace provider errors with a safe queue failure.
     if (!fatal) throw new Error('任务暂时处理失败。')
   } finally {
     finishMetrics(metricOutcome)

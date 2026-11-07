@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { displayFormulaTitle, isRandomFormulaName } from '#shared/formula-title'
 import type { SavedFormula } from '#shared/types/workspace'
+
 definePageMeta({
   middleware: 'auth',
   bottomNav: false,
@@ -8,16 +9,21 @@ definePageMeta({
   alias: '/account/formulas/:id',
 })
 useHead({ title: '公式详情 · Formula AI' })
+
 const route = useRoute()
 const id = computed(() => String(route.params.id))
 const session = useAccountSession()
 const deletion = useFormulaDeleteMutation()
+
 await session
+
 const ownerId = computed(() =>
   session.status.value === 'success' ? session.data.value?.user?.id : undefined,
 )
 const { request, formula, update } = useAccountFormula(id, ownerId)
+
 await request
+
 const manual = computed(() => formula.value?.versions[0]?.origin === 'MANUAL')
 const current = computed(() => formula.value?.versions.at(-1))
 const showEditor = ref(false),
@@ -25,15 +31,19 @@ const showEditor = ref(false),
   deleting = deletion.busy,
   deleteError = ref('')
 const identity = computed(() => id.value + ':' + (ownerId.value ?? 'unconfirmed'))
+
 watch(identity, () => {
   showEditor.value = false
   showDelete.value = false
 })
+
 const { showToast } = useToast()
+
 function saved(value: SavedFormula) {
   update(value)
   showToast('公式已保存。')
 }
+
 async function removeFormula() {
   if (deleting.value || !ownerId.value) return
   deleteError.value = ''
@@ -46,6 +56,7 @@ async function removeFormula() {
     deleteError.value = workspaceFeedback(error, '删除失败，请稍后重试。')
   }
 }
+
 const errorCode = computed(
   () => (request.error.value as { statusCode?: number } | null)?.statusCode,
 )

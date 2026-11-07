@@ -1,4 +1,5 @@
 import type { ExportTaskState } from '../../shared/types/tasks'
+
 export const EXPORT_RECOVERY_KEY = 'formula-ai:export-retry:v1'
 export interface ExportReceipt {
   ownerId: string
@@ -9,21 +10,28 @@ export interface ExportReceipt {
 /** 损坏的回执不能静默变成新请求，否则可能重复使用额度。 */
 export function parseExportReceipts(raw: string | null): ExportReceipt[] {
   const rows: unknown = JSON.parse(raw ?? '[]')
+
   if (!Array.isArray(rows) || rows.length > 10) throw new Error('无法读取上次提交记录')
+
   const result: ExportReceipt[] = []
+
   for (const item of rows as unknown[]) {
     if (!item || typeof item !== 'object') throw new Error('无法读取上次提交记录')
+
     const row = item as Record<string, unknown>
     const text = (value: unknown): value is string =>
       typeof value === 'string' && /^[a-zA-Z0-9-]{1,100}$/.test(value)
+
     if (!text(row.ownerId) || !text(row.taskId) || !text(row.versionId) || !text(row.requestKey))
       throw new Error('无法读取上次提交记录')
+
     const receipt = {
       ownerId: row.ownerId,
       taskId: row.taskId,
       versionId: row.versionId,
       requestKey: row.requestKey,
     }
+
     if (
       result.some((value) => value.ownerId === receipt.ownerId && value.taskId === receipt.taskId)
     )
@@ -49,6 +57,7 @@ export function acceptExportSnapshot(previous: ExportTaskState | undefined, next
 }
 export function exportDownloadPath(task: ExportTaskState) {
   const path = '/api/account/exports/' + encodeURIComponent(task.id) + '/download'
+
   return task.status === 'COMPLETED' && task.downloadUrl === path ? path : null
 }
 export function exportFilename(name: string) {

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const props = defineProps<{ title: string; backTo?: string; subtitle?: string }>()
 const { destination, goBack } = usePageReturn(() => props.backTo ?? '/')
+
 function back(event: MouseEvent) {
   if (event.button !== 0 || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) return
   event.preventDefault()

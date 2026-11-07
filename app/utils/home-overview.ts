@@ -30,6 +30,7 @@ export async function loadHomeRecent(
     request<FormulaLibraryPage>('/api/account/library', options),
     request<ConversationPage>('/api/account/conversations', options),
   ])
+
   signal.throwIfAborted()
   return {
     ownerId,
@@ -47,16 +48,20 @@ export async function loadHomeRecent(
 export function homeDemoConversation(state: DemoState) {
   for (const [key, messages] of Object.entries(state.chats)) {
     if (!messages.length) continue
+
     const subtitle =
       messages.filter((message) => message.role === 'user').at(-1)?.content ?? '继续上次的思考'
+
     if (key === 'general')
       return { title: '自由提问', subtitle, to: '/ai/new?space=demo', latex: undefined }
     if (!key.startsWith('version:')) continue
+
     const versionId = key.slice('version:'.length)
     const formula = state.formulas.find((item) =>
       item.versions.some((version) => version.id === versionId),
     )
     const version = formula?.versions.find((item) => item.id === versionId)
+
     if (formula && version)
       return {
         title: formula.title,

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '意见反馈 · Formula AI' })
+
 const feedback = ref('')
 const kind = ref('问题反馈')
 const { showToast } = useToast()
@@ -10,11 +11,14 @@ const copying = ref(false),
   copyError = ref('')
 const prepared = computed(() => `Formula AI ${kind.value}\n\n${feedback.value.trim()}`)
 const manualText = ref<HTMLTextAreaElement>()
+
 function selectFeedback() {
   manualText.value?.focus()
   manualText.value?.select()
 }
+
 let disposed = false
+
 onScopeDispose(() => {
   disposed = true
 })
@@ -28,7 +32,9 @@ async function copyFeedback() {
   if (!feedback.value.trim() || copying.value) return
   copying.value = true
   copyError.value = ''
+
   const text = prepared.value
+
   try {
     await navigator.clipboard.writeText(text)
     if (disposed || prepared.value !== text) return

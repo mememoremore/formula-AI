@@ -1,6 +1,7 @@
 import type { RecognitionTaskState } from '../../shared/types/tasks'
 import { optionalFormulaTitleFeedback } from '#shared/formula-title'
 import { formulaViewsInvalidated, usageInvalidated } from './account-cache'
+
 export interface RecognitionReceipt {
   ownerId: string
   fileId: string
@@ -16,13 +17,18 @@ export function receiptIdentity(value: RecognitionReceipt) {
 export function parseRecognitionReceipts(raw: string | null): RecognitionReceipt[] {
   try {
     const rows: unknown = JSON.parse(raw ?? '[]')
+
     if (!Array.isArray(rows) || rows.length > 20) throw new Error('无效识别恢复记录')
+
     const text = (value: unknown): value is string =>
       typeof value === 'string' && value.length > 0 && value.length <= 100
     const result: RecognitionReceipt[] = []
+
     for (const item of rows as unknown[]) {
       if (!item || typeof item !== 'object') throw new Error('无效识别恢复记录')
+
       const row = item as Record<string, unknown>
+
       if (
         !text(row.ownerId) ||
         !text(row.fileId) ||
@@ -33,6 +39,7 @@ export function parseRecognitionReceipts(raw: string | null): RecognitionReceipt
         (row.sourceTaskId !== undefined && !text(row.sourceTaskId))
       )
         throw new Error('无效识别恢复记录')
+
       const value: RecognitionReceipt = {
         ownerId: row.ownerId,
         fileId: row.fileId,
@@ -41,6 +48,7 @@ export function parseRecognitionReceipts(raw: string | null): RecognitionReceipt
         ...(row.requestedTitle ? { requestedTitle: row.requestedTitle } : {}),
         ...(row.sourceTaskId ? { sourceTaskId: row.sourceTaskId } : {}),
       }
+
       if (result.some((item) => receiptIdentity(item) === receiptIdentity(value)))
         throw new Error('重复识别恢复记录')
       result.push(value)
@@ -79,6 +87,7 @@ export function recognitionInvalidates(key: string, event: 'submitted' | 'change
 /** 计算上传前的候选入口；调用方继续使用共享导航校验，不改变全局规则。 */
 export function recognitionResultOrigin(origins: Record<string, string>, taskPath: string) {
   const source = origins[taskPath]
+
   return source?.split(/[?#]/)[0] === '/upload'
     ? (origins[source] ?? '/library?space=account&view=recent')
     : undefined

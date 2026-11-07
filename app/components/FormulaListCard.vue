@@ -16,7 +16,9 @@ withDefaults(
   }>(),
   { category: '未分类', sourceLabel: '已保存公式' },
 )
+
 const emit = defineEmits<{ favorite: []; category: [] }>()
+
 function date(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
     timeZone: 'Asia/Shanghai',

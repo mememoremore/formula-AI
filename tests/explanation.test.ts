@@ -11,6 +11,8 @@ import { buildChatMessages } from '../server/chat/prompt'
 import { acceptConversationSnapshot, parseConversationSnapshot } from '../app/utils/chat-state'
 import type { SavedConversation } from '../shared/types/tasks'
 import { parseExplanationIntent } from '../app/utils/explanation-intent'
+
+import { explanationCopyText } from '../app/utils/explanation-copy'
 test('解释契约接受完整结构及空的可选区块', () => {
   assert.deepEqual(decodeExplanation(JSON.stringify(value)), value)
   assert.ok(explanationText(value).includes('适用条件'))
@@ -124,8 +126,6 @@ test('账号回执拒绝损坏内容及其他账号/公式', () => {
   assert.equal(parseExplanationIntent(raw, id, other), null)
   assert.equal(parseExplanationIntent('{', id, id), null)
 })
-
-import { explanationCopyText } from '../app/utils/explanation-copy'
 test('完整解释复制以确定顺序保留LaTeX，不含协议或内部元数据', () => {
   const output = explanationCopyText(value)
   assert.equal(

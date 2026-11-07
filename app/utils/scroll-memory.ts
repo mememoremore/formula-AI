@@ -6,6 +6,7 @@ export interface ScrollPosition {
 /** 仅保存本标签页的位置；有界缓存防止长会话持续累积 URL。 */
 export function createScrollMemory(limit = 100) {
   const positions = new Map<string, ScrollPosition>()
+
   return {
     get: (path: string) => positions.get(path),
     remember(path: string, position: ScrollPosition) {

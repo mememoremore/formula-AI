@@ -1,9 +1,13 @@
 <script setup lang="ts">
 import { authClient } from '~/utils/auth-client'
+
 definePageMeta({ bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '设置 · Formula AI' })
+
 const session = useAccountSession()
+
 await session
+
 const { data: account, error, status, refresh } = session
 const boundary = useNuxtApp().$accountBoundary
 const ownerId = computed(() =>
@@ -14,6 +18,7 @@ const busy = ref(false),
 let disposed = false,
   allowExit = false,
   controller: AbortController | undefined
+
 onBeforeRouteLeave(() => {
   if (busy.value && !allowExit) return false
 })
@@ -21,6 +26,7 @@ onScopeDispose(() => {
   disposed = true
   controller?.abort()
 })
+
 async function logout() {
   if (busy.value || !ownerId.value) return
   busy.value = true
@@ -30,6 +36,7 @@ async function logout() {
     const result = await authClient.signOut({
       fetchOptions: { signal: controller.signal, retry: 0, timeout: 20000 },
     })
+
     if (disposed) return
     if (!result.error) boundary.confirmedLogout()
     await refresh()

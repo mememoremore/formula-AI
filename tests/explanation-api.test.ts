@@ -30,6 +30,8 @@ import {
 import { InferenceFailure } from '../server/inference/failure'
 import { LostJobClaim } from '../server/queue/claim'
 import type { ChatAdapter } from '../server/chat/adapter'
+import { Client } from 'pg'
+import { readFileSync } from 'node:fs'
 const db = createDatabaseClient(testEnvironment.databaseUrl),
   boss = createTestQueueClient()
 const base = testEnvironment.apiUrl
@@ -439,8 +441,6 @@ test('真实Worker进程在生成JSON时退出，监督恢复后沿用版本和�
     before,
   )
 })
-import { Client } from 'pg'
-import { readFileSync } from 'node:fs'
 
 test('迁移真实旧表数据兼容且事务失败整体回滚', async () => {
   const client = new Client({ connectionString: testEnvironment.databaseUrl }),

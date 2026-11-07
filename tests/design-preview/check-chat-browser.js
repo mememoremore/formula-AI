@@ -92,7 +92,6 @@ async function checkChat(page) {
     ensure(!value.bad.length, name + '操作触控至少44px')
     ensure(!(await page.evaluate(() => window.__r8Errors)).length, name + '无脚本或水合异常')
   }
-  let mobilePassed = 0
   for (const width of [320, 390, 430]) {
     await cookies('account', 'r8-layout-' + width)
     await page.setViewportSize({ width, height: 850 })
@@ -516,7 +515,7 @@ async function checkChat(page) {
   })
   await page.getByRole('textbox').fill('')
 
-  mobilePassed = checks.length
+  const mobilePassed = checks.length
   for (const width of [768, 1024, 1440]) {
     await cookies('account', 'r8-layout-' + width)
     await page.setViewportSize({ width, height: 850 })

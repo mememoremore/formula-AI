@@ -6,20 +6,24 @@ export function useLibraryFilters(live = false) {
   const activeCategory = computed(() =>
     typeof route.query.category === 'string' ? route.query.category : '',
   )
+
   watch(
     () => route.query.q,
     (value) => {
       query.value = typeof value === 'string' ? value : ''
     },
   )
+
   function search() {
     if ((typeof route.query.q === 'string' ? route.query.q : '') === query.value.trim()) return
     return router[live ? 'replace' : 'push']({
       query: { ...route.query, q: query.value.trim() || undefined },
     })
   }
+
   function selectCategory(id: string) {
     return router.push({ query: { ...route.query, category: id || undefined } })
   }
+
   return { query, activeCategory, search, selectCategory }
 }

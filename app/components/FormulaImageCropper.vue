@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type Cropper from 'cropperjs'
 import { containsCrop, cropOutputSize, transformedImageBounds } from '#shared/image-crop'
+
 const cropperTemplate = `
 <cropper-canvas background>
 <cropper-image rotatable scalable translatable>
@@ -47,11 +48,15 @@ let cropper: Cropper | undefined,
   rotation = 0,
   disposed = false,
   guard = false
+
 function selectionBounds() {
   const selection = cropper?.getCropperSelection(),
     canvas = cropper?.getCropperCanvas()
+
   if (!selection || !canvas) return null
+
   const rect = canvas.getBoundingClientRect()
+
   return {
     left: rect.left + selection.x,
     top: rect.top + selection.y,
@@ -59,30 +64,40 @@ function selectionBounds() {
     height: selection.height,
   }
 }
+
 function reset() {
   const image = cropper?.getCropperImage(),
     selection = cropper?.getCropperSelection(),
     canvas = cropper?.getCropperCanvas()
+
   if (!image || !selection || !canvas) return
   guard = false
   image.$setTransform(1, 0, 0, 1, 0, 0).$center('contain')
+
   const rect = image.getBoundingClientRect(),
     parent = canvas.getBoundingClientRect()
+
   selection.$change(rect.left - parent.left, rect.top - parent.top, rect.width, rect.height)
   guard = true
 }
+
 function close() {
   if (!exporting.value) emit('close')
 }
+
 async function complete() {
   if (!ready.value || exporting.value || !sourceImage) return
+
   const image = cropper?.getCropperImage(),
     selection = cropper?.getCropperSelection(),
     bounds = selectionBounds()
+
   if (!image || !selection || !bounds) return
   exporting.value = true
   error.value = ''
+
   let output: HTMLCanvasElement | undefined
+
   try {
     const size = cropOutputSize(
       rotation % 2 === 0 ? sourceImage.naturalWidth : sourceImage.naturalHeight,
@@ -90,6 +105,7 @@ async function complete() {
       image.getBoundingClientRect(),
       bounds,
     )
+
     output = await selection.$toCanvas({
       ...size,
       beforeDraw(context) {
@@ -97,6 +113,7 @@ async function complete() {
         context.fillRect(0, 0, context.canvas.width, context.canvas.height)
       },
     })
+
     const blob = await new Promise<Blob>((resolve, reject) =>
       output!.toBlob(
         (value) => (value ? resolve(value) : reject(new Error('浏览器无法生成裁剪图片。'))),
@@ -104,6 +121,7 @@ async function complete() {
         0.95,
       ),
     )
+
     if (!blob.size || blob.size > 10 * 1024 * 1024)
       throw new Error('裁剪结果超过 10MB，请缩小裁剪区域。')
     if (!disposed)
@@ -124,23 +142,29 @@ async function complete() {
     if (!disposed) exporting.value = false
   }
 }
+
 async function mountCropper(imageSource: HTMLImageElement) {
   const { default: CropperClass } = await import('cropperjs')
+
   if (disposed || !host.value) return
   cropper = new CropperClass(imageSource, {
     container: host.value,
     template: cropperTemplate,
   })
+
   const image = cropper.getCropperImage()!,
     selection = cropper.getCropperSelection()!
+
   await image.$ready()
   if (disposed) return
   reset()
   selection.addEventListener('change', (event) => {
     if (!guard) return
+
     const data = (event as CustomEvent<{ x: number; y: number; width: number; height: number }>)
       .detail
     const canvas = cropper!.getCropperCanvas()!.getBoundingClientRect()
+
     if (
       !containsCrop(image.getBoundingClientRect(), {
         left: canvas.left + data.x,
@@ -153,6 +177,7 @@ async function mountCropper(imageSource: HTMLImageElement) {
   })
   image.addEventListener('transform', (event) => {
     if (!guard) return
+
     const next = (event as CustomEvent<{ matrix: number[] }>).detail.matrix
     const bounds = transformedImageBounds(
         image.getBoundingClientRect(),
@@ -160,14 +185,18 @@ async function mountCropper(imageSource: HTMLImageElement) {
         next,
       ),
       selected = selectionBounds()
+
     if (!bounds || !selected || !containsCrop(bounds, selected)) event.preventDefault()
   })
   ready.value = true
 }
+
 async function rotateImage() {
   if (!ready.value || exporting.value) return
   error.value = ''
+
   const image = cropper?.getCropperImage()
+
   if (!image) return
   // Rotation is handled by Cropper's transform, so it never re-encodes or reloads the source.
   // Its selection is transformed with the image; replacing it from a stale DOM rectangle would
@@ -183,11 +212,15 @@ async function rotateImage() {
     requestAnimationFrame(() => requestAnimationFrame(() => resolve())),
   )
   if (disposed) return
+
   const selection = cropper?.getCropperSelection(),
     canvas = cropper?.getCropperCanvas()
+
   if (!selection || !canvas) return
+
   const imageRect = image.getBoundingClientRect(),
     canvasRect = canvas.getBoundingClientRect()
+
   selection.$change(
     imageRect.left - canvasRect.left,
     imageRect.top - canvasRect.top,
@@ -198,8 +231,10 @@ async function rotateImage() {
   guard = true
   ready.value = true
 }
+
 onMounted(async () => {
   let bitmap: ImageBitmap | undefined, normalized: HTMLCanvasElement | undefined
+
   try {
     if (
       !['image/jpeg', 'image/png'].includes(props.file.type) ||
@@ -213,9 +248,12 @@ onMounted(async () => {
     normalized = document.createElement('canvas')
     normalized.width = bitmap.width
     normalized.height = bitmap.height
+
     const context = normalized.getContext('2d')
+
     if (!context) throw new Error('浏览器暂不支持图片裁剪。')
     context.drawImage(bitmap, 0, 0)
+
     // Bake EXIF orientation exactly once; the cropper receives an oriented, metadata-free image.
     const blob = await new Promise<Blob>((resolve, reject) =>
       normalized!.toBlob(
@@ -223,6 +261,7 @@ onMounted(async () => {
         'image/png',
       ),
     )
+
     if (disposed) return
     sourceUrl = URL.createObjectURL(blob)
     sourceImage = new Image()

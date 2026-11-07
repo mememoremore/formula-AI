@@ -33,6 +33,7 @@ export function useHomeOverview(session: ReturnType<typeof useWorkspace>) {
     () => uploadTo.value + (uploadTo.value.includes('?') ? '&' : '?') + 'source=camera',
   )
   const libraryTo = computed(() => (session.demo.value ? '/library?space=demo' : '/library'))
+
   return {
     session,
     request,

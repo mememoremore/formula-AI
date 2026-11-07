@@ -1,11 +1,13 @@
 import type { AccountUser } from '#shared/types/account'
 import { safeReturnPath } from '#shared/navigation'
+
 export default defineNuxtRouteMiddleware(async (to) => {
   try {
     const { user } = await useRequestFetch()<{ user: AccountUser | null }>('/api/account/session', {
       timeout: 10_000,
       retry: 0,
     })
+
     if (user) return
   } catch {
     throw createError({

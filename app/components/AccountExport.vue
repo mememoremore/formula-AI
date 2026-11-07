@@ -1,9 +1,10 @@
 <script setup lang="ts">
-const accountFetch = useAccountFetch()
 import type { SavedFormula } from '#shared/types/workspace'
 import type { ExportTaskState } from '#shared/types/tasks'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { usageInvalidated } from '~/utils/account-cache'
+
+const accountFetch = useAccountFetch()
 const props = defineProps<{ formula: SavedFormula }>()
 const busy = ref(false),
   open = ref(false),
@@ -12,20 +13,25 @@ const version = computed(() => props.formula.versions.at(-1))
 let requestKey = '',
   controller: AbortController | undefined,
   disposed = false
+
 watch(version, () => {
   requestKey = ''
   feedback.value = ''
 })
+
 function show() {
   feedback.value = ''
   open.value = true
 }
+
 async function submit() {
   if (busy.value || !version.value) return
   busy.value = true
   feedback.value = ''
   requestKey ||= crypto.randomUUID()
+
   const versionId = version.value.id
+
   controller = new AbortController()
   try {
     const task = await accountFetch<ExportTaskState>('/api/account/exports', {
@@ -35,6 +41,7 @@ async function submit() {
       timeout: 20_000,
       signal: controller.signal,
     })
+
     if (disposed) return
     clearNuxtData(usageInvalidated)
     await navigateTo(`/exports/${task.id}`)
@@ -48,6 +55,7 @@ async function submit() {
     if (!disposed) busy.value = false
   }
 }
+
 onScopeDispose(() => {
   disposed = true
   controller?.abort()

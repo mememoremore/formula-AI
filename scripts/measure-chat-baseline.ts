@@ -1,5 +1,10 @@
 import { readLegacyConversation } from '../tests/support/chat-baseline'
-import { readConversationForStream } from '../server/database/conversations'
+import {
+  readConversationForStream,
+  createConversation,
+  readConversation,
+  submitChatTurn,
+} from '../server/database/conversations'
 import { bumpConversation } from '../server/database/chat-revision'
 import { testEnvironment } from '../tests/support/integration.ts'
 import assert from 'node:assert/strict'
@@ -10,11 +15,6 @@ import { PrismaPg } from '@prisma/adapter-pg'
 import { PrismaClient } from '../server/generated/prisma/client'
 import { createQueueClient, queues, type JobPayload } from '../server/queue/client'
 import { createFormula } from '../server/database/formulas'
-import {
-  createConversation,
-  readConversation,
-  submitChatTurn,
-} from '../server/database/conversations'
 import { defaultUsageLimits } from '../server/database/usage'
 import { processChat } from '../server/worker/chat'
 import { InferenceFailure } from '../server/inference/failure'

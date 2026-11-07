@@ -34,6 +34,7 @@ export function useAccountHistory(ownerId: string, query = '') {
     },
   )
   const items = computed(() => request.data.value?.items ?? [])
+
   onMounted(() => {
     if (revalidate) void request.refresh()
   })
@@ -44,10 +45,14 @@ export function useAccountHistory(ownerId: string, query = '') {
     },
     { immediate: true },
   )
+
   async function more() {
     const cursor = request.data.value?.nextCursor
+
     if (!cursor || loadingMore.value || request.status.value === 'pending' || disposed) return
+
     const controller = new AbortController()
+
     moreController = controller
     loadingMore.value = true
     feedback.value = ''
@@ -58,8 +63,11 @@ export function useAccountHistory(ownerId: string, query = '') {
         retry: 0,
         timeout: 15_000,
       })
+
       if (disposed || controller.signal.aborted) return
+
       const merged = mergeLibraryItems(items.value, page.items)
+
       boundary.value = merged.at(-1)?.id ?? null
       request.data.value = { items: merged, nextCursor: page.nextCursor }
     } catch (error) {
@@ -72,10 +80,12 @@ export function useAccountHistory(ownerId: string, query = '') {
       }
     }
   }
+
   function reload() {
     feedback.value = ''
     return request.refresh()
   }
+
   onScopeDispose(() => {
     disposed = true
     moreController?.abort()

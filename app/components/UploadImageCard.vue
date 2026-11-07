@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { UploadPreview } from '~/composables/useUploadPreview'
+
 defineProps<{
   preview: UploadPreview | null
   checking: boolean

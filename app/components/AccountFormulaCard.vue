@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { displayFormulaTitle } from '#shared/formula-title'
 import type { FormulaLibraryItem } from '#shared/types/library'
+
 const props = defineProps<{ formula: FormulaLibraryItem }>()
 const emit = defineEmits<{
   categorize: [formula: FormulaLibraryItem]
 }>()
 const { busy, setFavorite } = useAccountFavorite()
+
 async function toggle() {
   await setFavorite(props.formula.id, !props.formula.favorite)
 }

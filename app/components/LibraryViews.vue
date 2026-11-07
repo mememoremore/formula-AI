@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { libraryView } from '#shared/navigation'
+
 const route = useRoute()
+
 defineProps<{ filterable?: boolean; filtered?: boolean }>()
 defineEmits<{ filter: [] }>()
+
 const options = [
   { id: 'all', label: '全部' },
   { id: 'favorites', label: '收藏' },

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 defineProps<{ src?: string; latex?: string; sample?: boolean }>()
+
 const failed = ref(false)
 </script>
 <template>

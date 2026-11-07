@@ -7,6 +7,7 @@ import {
   activeChatTurn,
   failedChatQuestion,
 } from '~/utils/chat-state'
+
 export function useAccountChat(id: string, ownerId: string) {
   const accountFetch = useAccountFetch()
   let disposed = false,
@@ -20,14 +21,17 @@ export function useAccountChat(id: string, ownerId: string) {
   const feedback = ref(''),
     submitting = ref(false),
     stopping = ref(false)
+
   function accept(value: SavedConversation) {
     accepted = acceptConversationSnapshot(accepted, parseConversationSnapshot(value, id, true))
     return accepted
   }
+
   const events = useConversationEvents(
     id,
     (value) => {
       const next = accept(value)
+
       request.data.value = next
       request.error.value = undefined
       return next
@@ -55,6 +59,7 @@ export function useAccountChat(id: string, ownerId: string) {
           `/api/account/conversations/${encodeURIComponent(id)}`,
           { signal, retry: 0, timeout: 15000, headers: { 'X-Conversation-Protocol': '2' } },
         )
+
         signal.throwIfAborted()
         if (disposed) throw new Error('页面已离开')
         return accept(value)
@@ -62,6 +67,7 @@ export function useAccountChat(id: string, ownerId: string) {
     },
   )
   const mounted = ref(false)
+
   onMounted(() => {
     mounted.value = true
   })
@@ -81,15 +87,20 @@ export function useAccountChat(id: string, ownerId: string) {
     },
     { immediate: true },
   )
+
   async function refresh() {
     await request.refresh()
     if (!disposed && activeChatTurn(accepted?.currentTurn))
       events.reconnect(accepted!.currentTurn!.id)
   }
+
   async function stop() {
     const turn = accepted?.currentTurn
+
     if (!activeChatTurn(turn) || stopping.value || disposed) return
+
     const controller = new AbortController()
+
     controllers.add(controller)
     stopping.value = true
     feedback.value = ''
@@ -104,6 +115,7 @@ export function useAccountChat(id: string, ownerId: string) {
           headers: { 'X-Conversation-Protocol': '2' },
         },
       )
+
       if (disposed || controller.signal.aborted) return
       request.data.value = accept(value)
       if (!activeChatTurn(accepted?.currentTurn)) events.close()
@@ -115,10 +127,13 @@ export function useAccountChat(id: string, ownerId: string) {
       if (!disposed) stopping.value = false
     }
   }
+
   const generating = computed(() => activeChatTurn(request.data.value?.currentTurn))
   const busy = computed(() => submitting.value || generating.value)
+
   async function send(question: string) {
     const cleaned = question.trim()
+
     if (
       !cleaned ||
       cleaned.length > 2000 ||
@@ -132,6 +147,7 @@ export function useAccountChat(id: string, ownerId: string) {
       feedback.value = '上一条提问尚未确认，请先用原内容确认发送。'
       return false
     }
+
     const intent = pendingIntent.value ?? {
       ownerId,
       slot,
@@ -141,6 +157,7 @@ export function useAccountChat(id: string, ownerId: string) {
       conversationId: id,
     }
     const controller = new AbortController()
+
     controllers.add(controller)
     submitting.value = true
     feedback.value = ''
@@ -167,6 +184,7 @@ export function useAccountChat(id: string, ownerId: string) {
       if (!disposed) submitting.value = false
     }
   }
+
   onScopeDispose(() => {
     disposed = true
     events.close()
@@ -174,12 +192,15 @@ export function useAccountChat(id: string, ownerId: string) {
     controllers.clear()
     if (import.meta.client) request.clear()
   })
+
   const retryQuestion = computed(() => failedChatQuestion(request.data.value))
+
   async function regenerate() {
     if (!retryQuestion.value || pendingIntent.value || busy.value || request.error.value)
       return false
     return send(retryQuestion.value)
   }
+
   return {
     retryQuestion,
     regenerate,

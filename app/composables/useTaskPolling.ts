@@ -21,13 +21,16 @@ export function useTaskPolling<T>(
         const value = options.read
           ? await options.read(signal)
           : ((await requestFetch(url, { signal, retry: 0 })) as T)
+
         signal.throwIfAborted()
         failures = 0
         lastSuccess.value = value
         return value
       } catch (error) {
         failures = Math.min(failures + 1, 5)
+
         const failure = error as { statusCode?: number }
+
         if ([401, 403, 404].includes(failure?.statusCode ?? 0)) lastSuccess.value = undefined
         throw error
       }
@@ -45,6 +48,7 @@ export function useTaskPolling<T>(
         : {}),
     },
   )
+
   // SSR 水合时不会再次执行 handler，同样需要记住成功快照。
   watch(
     request.data,
@@ -53,12 +57,14 @@ export function useTaskPolling<T>(
     },
     { immediate: true },
   )
+
   let timer: ReturnType<typeof setTimeout> | undefined
   let disposed = false
   const forbidden = () => [401, 403, 404].includes(request.error.value?.statusCode ?? 0)
   const available = () => navigator.onLine && document.visibilityState !== 'hidden'
   let resuming = false
   let lastResume = 0
+
   async function resume() {
     if (
       disposed ||
@@ -80,10 +86,12 @@ export function useTaskPolling<T>(
       schedule()
     }
   }
+
   function visibility() {
     if (available()) void resume()
     else clearTimeout(timer)
   }
+
   function schedule() {
     clearTimeout(timer)
     if (
@@ -105,6 +113,7 @@ export function useTaskPolling<T>(
       request.error.value ? Math.min(30000, 2000 * 2 ** Math.max(0, failures - 1)) : 1500,
     )
   }
+
   watch([request.data, request.error, request.status, () => options.paused?.value], schedule)
   onMounted(() => {
     window.addEventListener('online', visibility)

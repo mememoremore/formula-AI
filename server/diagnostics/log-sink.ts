@@ -7,7 +7,7 @@ export function writeDiagnosticFile(service: string, line: string) {
     const directory = resolve(process.env.FORMULA_LOG_DIR)
     mkdirSync(directory, { recursive: true })
     const file = join(directory, service + '.jsonl')
-    if (statSync(file, { throwIfNoEntry: false })?.size! > 5 * 1024 * 1024) {
+    if ((statSync(file, { throwIfNoEntry: false })?.size ?? 0) > 5 * 1024 * 1024) {
       rmSync(file + '.2', { force: true })
       if (statSync(file + '.1', { throwIfNoEntry: false })) renameSync(file + '.1', file + '.2')
       renameSync(file, file + '.1')

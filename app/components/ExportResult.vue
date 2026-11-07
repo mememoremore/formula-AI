@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { ExportTaskState } from '#shared/types/tasks'
+
 defineProps<{ task: ExportTaskState; downloadable: boolean; busy: boolean }>()
 defineEmits<{ download: [] }>()
+
 function size(value: number) {
   return value < 1024
     ? value + ' B'
@@ -33,8 +35,8 @@ function size(value: number) {
     type="button"
     :disabled="busy"
     :aria-busy="busy"
-    @click="$emit('download')"
     class="button button-primary button-block section"
+    @click="$emit('download')"
   >
     <AppIcon name="download" :size="19" />
     {{ busy ? '正在准备下载…' : '下载 Word' }}

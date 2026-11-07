@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FormulaContext } from '#shared/types/api'
+
 const route = useRoute()
 const { formulas } = useDemoLibrary()
 const sourceFormula = computed(() =>
@@ -15,6 +16,7 @@ const invalidContext = computed(
 )
 const formula = computed(() => {
   const value = sourceFormula.value
+
   if (!value || invalidContext.value) return undefined
   return selectedVersion.value
     ? { ...value, versionId: selectedVersion.value.id, latex: selectedVersion.value.latex }
@@ -25,8 +27,11 @@ const context = computed<FormulaContext | undefined>(() =>
 )
 const { messages, pending, error, send, clearMessages } = useDemoChat(context)
 const draft = ref('')
+
 onBeforeRouteLeave(() => !draft.value.trim() || window.confirm('演示提问尚未完成，确定离开吗？'))
+
 const { following, bottom } = useChatReading([() => messages.value.length])
+
 async function submit() {
   if (invalidContext.value) return
   if (await send(draft.value.trim())) {

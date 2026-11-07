@@ -1,5 +1,7 @@
 import { safeRoute } from '#shared/trace-context'
+
 export type BrowserErrorKind = 'vue' | 'window' | 'promise'
+
 const names = new Set([
   'Error',
   'TypeError',
@@ -10,6 +12,7 @@ const names = new Set([
   'EvalError',
   'AggregateError',
 ])
+
 export function browserErrorSummary(
   kind: BrowserErrorKind,
   error: unknown,
@@ -21,23 +24,30 @@ export function browserErrorSummary(
   let filename = frame?.filename,
     line = frame?.line,
     column = frame?.column
+
   if (!filename && error instanceof Error) {
     const match = error.stack?.match(/(https?:\/\/[^\s)]+):(\d+):(\d+)/)
+
     if (match) {
       filename = match[1]
       line = Number(match[2])
       column = Number(match[3])
     }
   }
+
   let asset: string | undefined
+
   try {
     const source = new URL(filename ?? '', page)
     const base = source.pathname.split('/').at(-1) ?? ''
+
     if (source.origin === location.origin && /^[A-Za-z0-9_-]{1,120}\.(?:m?js|vue)$/.test(base))
       asset = base
   } catch {}
+
   const bounded = (n: unknown) =>
     Number.isSafeInteger(n) && Number(n) >= 0 && Number(n) <= 1_000_000 ? Number(n) : undefined
+
   return {
     kind,
     errorName: name,
@@ -52,6 +62,7 @@ export function browserErrorGate() {
   const recent = new Map<string, number>()
   let count = 0,
     windowStart = 0
+
   return (key: string, now = Date.now()) => {
     if (now - windowStart >= 60000) {
       count = 0

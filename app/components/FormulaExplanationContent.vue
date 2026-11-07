@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FormulaExplanation } from '#shared/explanation'
+
 defineProps<{ value: FormulaExplanation }>()
 </script>
 <template>

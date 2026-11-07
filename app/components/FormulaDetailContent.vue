@@ -13,6 +13,7 @@ const props = defineProps<{
 const emit = defineEmits<{ edit: []; remove: [] }>()
 const original = ref(false),
   imageFailed = ref(false)
+
 watch(
   () => props.imageSrc,
   () => {

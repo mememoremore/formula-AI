@@ -12,6 +12,7 @@ export function explanationLayout<T extends Message>(conversation: {
 }) {
   if (conversation.purpose !== 'EXPLANATION')
     return { question: null, messages: conversation.messages }
+
   const baseId = conversation.baseExplanation?.messageId
   const index = conversation.messages.findIndex((row) => row.id === baseId)
   const questionIndex =
@@ -22,6 +23,7 @@ export function explanationLayout<T extends Message>(conversation: {
         : -1
   const initial = conversation.messages[questionIndex]
   const automatic = initial?.content === '请结构化解释这个固定版本公式。'
+
   return {
     question: !initial || automatic ? '请解释这个公式。' : initial.content,
     messages: conversation.messages.filter((row) => row.id !== baseId && row.id !== initial?.id),

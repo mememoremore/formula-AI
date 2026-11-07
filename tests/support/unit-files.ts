@@ -38,4 +38,5 @@ export const vitestLogicFiles = [
   'tests/output-contract.test.ts',
   'tests/task-input.test.ts',
   'tests/demo-input.test.ts',
+  'tests/observability-notification.test.ts',
 ]

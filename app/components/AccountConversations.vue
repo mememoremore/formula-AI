@@ -7,11 +7,14 @@ const { items, cursor, loading, feedback } = listing
 const { error, status, refresh } = listing.request
 const query = ref(listing.query.value)
 let searches = 0
+
 watch(listing.query, (value) => {
   if (!searches) query.value = value
 })
+
 const groups = computed(() => {
   const result = new Map<string, typeof items.value>()
+
   for (const item of items.value) {
     const date = new Intl.DateTimeFormat('zh-CN', {
       timeZone: 'Asia/Shanghai',
@@ -19,11 +22,13 @@ const groups = computed(() => {
       month: '2-digit',
       day: '2-digit',
     }).format(new Date(item.createdAt))
+
     if (!result.has(date)) result.set(date, [])
     result.get(date)!.push(item)
   }
   return [...result].map(([date, entries]) => ({ date, entries }))
 })
+
 async function search() {
   searches++
   try {
@@ -32,9 +37,11 @@ async function search() {
     searches--
   }
 }
+
 function resetEmptySearch() {
   if (!query.value.trim() && listing.query.value) void search()
 }
+
 await listing.request
 </script>
 <template>

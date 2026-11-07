@@ -1,5 +1,4 @@
 <script setup lang="ts">
-const accountFetch = useAccountFetch()
 import { usageInvalidated } from '~/utils/account-cache'
 import type { ExportTaskState } from '#shared/types/tasks'
 import {
@@ -10,6 +9,8 @@ import {
   parseExportReceipts,
 } from '~/utils/export-state'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+
+const accountFetch = useAccountFetch()
 const props = defineProps<{ id: string; ownerId: string }>()
 const fetcher = useAccountFetch(),
   session = useAccountSession()
@@ -35,6 +36,7 @@ const request = useTaskPolling<ExportTaskState>(
         '/api/account/exports/' + encodeURIComponent(props.id),
         { signal, retry: 0 },
       )
+
       signal.throwIfAborted()
       if (!current() || next.id !== props.id) throw new Error('导出任务响应已失效')
       accepted = acceptExportSnapshot(accepted, next)
@@ -45,6 +47,7 @@ const request = useTaskPolling<ExportTaskState>(
 const { data: task, error, status, refresh } = request
 const errorCode = computed(() => (error.value as { statusCode?: number } | null)?.statusCode)
 const downloadPath = computed(() => (task.value ? exportDownloadPath(task.value) : null))
+
 watch(
   task,
   (value, previous) => {
@@ -64,15 +67,19 @@ onMounted(() => {
     feedback.value = '无法读取上次提交记录。为避免重复导出，暂不提交；请先在原会话确认任务。'
   }
 })
+
 async function retry() {
   if (busy.value || !task.value || task.value.status !== 'FAILED' || error.value || !current())
     return
   busy.value = true
   feedback.value = ''
+
   let sent = false
+
   try {
     const rows = parseExportReceipts(sessionStorage.getItem(EXPORT_RECOVERY_KEY))
     let receipt = rows.find((row) => row.ownerId === props.ownerId && row.taskId === props.id)
+
     if (receipt && receipt.versionId !== task.value.formulaVersionId)
       throw new Error('提交记录与当前公式内容不一致')
     if (!receipt) {
@@ -89,6 +96,7 @@ async function retry() {
     sessionStorage.setItem(EXPORT_RECOVERY_KEY, JSON.stringify(rows))
     uncertain.value = true
     sent = true
+
     const next = await accountFetch<ExportTaskState>('/api/account/exports', {
       method: 'POST',
       body: { formulaVersionId: receipt.versionId, requestKey: receipt.requestKey },
@@ -96,6 +104,7 @@ async function retry() {
       timeout: 20000,
       signal: controller.signal,
     })
+
     if (!current()) return
     if (!next.id || next.formulaVersionId !== receipt.versionId)
       throw new Error('提交结果与公式内容不一致')
@@ -118,6 +127,7 @@ async function retry() {
     if (current()) busy.value = false
   }
 }
+
 async function download() {
   if (downloading.value || !downloadPath.value || !task.value || error.value || !current()) return
   downloading.value = true
@@ -129,15 +139,20 @@ async function download() {
       timeout: 30000,
       signal: controller.signal,
     })
+
     if (!current()) return
     if (
       !blob.size ||
       !blob.type.includes('application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     )
       throw new Error('下载内容不是有效的 Word 响应')
+
     const url = URL.createObjectURL(blob)
+
     objectUrls.add(url)
+
     const link = document.createElement('a')
+
     link.href = url
     link.download = exportFilename(task.value.file?.name ?? task.value.title)
     link.click()
@@ -156,6 +171,7 @@ async function download() {
     if (current()) downloading.value = false
   }
 }
+
 onScopeDispose(() => {
   disposed = true
   controller.abort()

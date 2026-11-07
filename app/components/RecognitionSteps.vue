@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { JobStatus } from '#shared/types/tasks'
+
 defineProps<{ status: JobStatus }>()
 </script>
 <template>

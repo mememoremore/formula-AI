@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { avatarCrop } from '#shared/avatar-crop'
+
 const props = defineProps<{ file: File }>()
 const emit = defineEmits<{ close: []; selected: [dataUrl: string] }>()
 const canvas = ref<HTMLCanvasElement>()
@@ -11,42 +12,57 @@ const ready = ref(false)
 let bitmap: ImageBitmap | undefined
 let disposed = false
 let pointer: { id: number; x: number; y: number } | undefined
+
 function draw() {
   if (!bitmap || !canvas.value) return
+
   const crop = avatarCrop(bitmap.width, bitmap.height, zoom.value, x.value, y.value)
+
   x.value = crop.offsetX
   y.value = crop.offsetY
+
   const ctx = canvas.value.getContext('2d')
+
   ctx?.clearRect(0, 0, 320, 320)
   ctx?.drawImage(bitmap, crop.x, crop.y, crop.width, crop.height)
 }
+
 function nudge(dx: number, dy: number) {
   x.value += dx
   y.value += dy
   draw()
 }
+
 watch(zoom, draw)
+
 function start(event: PointerEvent) {
   if (!ready.value || !canvas.value) return
   canvas.value.setPointerCapture(event.pointerId)
   pointer = { id: event.pointerId, x: event.clientX, y: event.clientY }
 }
+
 function move(event: PointerEvent) {
   if (!pointer || !canvas.value || pointer.id !== event.pointerId) return
+
   const ratio = 320 / canvas.value.getBoundingClientRect().width
+
   x.value += (event.clientX - pointer.x) * ratio
   y.value += (event.clientY - pointer.y) * ratio
   pointer = { id: event.pointerId, x: event.clientX, y: event.clientY }
   draw()
 }
+
 function complete() {
   if (!bitmap || !ready.value) return
   try {
     const output = document.createElement('canvas')
+
     output.width = 512
     output.height = 512
+
     const crop = avatarCrop(bitmap.width, bitmap.height, zoom.value, x.value, y.value, 320)
     const ctx = output.getContext('2d')
+
     if (!ctx) {
       error.value = '浏览器暂时无法裁剪图片。'
       return
@@ -59,6 +75,7 @@ function complete() {
     error.value = '裁剪结果无法生成，请取消后重新选择图片。'
   }
 }
+
 onMounted(async () => {
   try {
     if (
@@ -67,7 +84,9 @@ onMounted(async () => {
       props.file.size > 10 * 1024 * 1024
     )
       throw new Error('请选择不超过 10MB 的 JPG 或 PNG。')
+
     const loaded = await createImageBitmap(props.file, { imageOrientation: 'from-image' })
+
     if (disposed) {
       loaded.close()
       return

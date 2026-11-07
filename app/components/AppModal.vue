@@ -9,6 +9,7 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>()
 const dialog = ref<HTMLDialogElement>()
 const titleId = useId()
+
 watch(
   () => props.open,
   (open) => {

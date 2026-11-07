@@ -13,8 +13,11 @@ export function parseExplanationIntent(
   if (!raw || raw.length > 1500) return null
   try {
     const value: unknown = JSON.parse(raw)
+
     if (!value || typeof value !== 'object') return null
+
     const row = value as Record<string, unknown>
+
     if (
       row.ownerId !== ownerId ||
       row.formulaId !== formulaId ||

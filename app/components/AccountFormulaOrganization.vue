@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import type { SavedFormula } from '#shared/types/workspace'
+
 const props = defineProps<{ formula: SavedFormula }>()
 const emit = defineEmits<{ saved: [formula: SavedFormula] }>()
 const { busy, setFavorite } = useAccountFavorite()
 const showCategories = ref(false)
+
 async function favorite() {
   const formula = props.formula
   const active = await setFavorite(formula.id, !formula.favorite)
+
   if (active !== null && props.formula.id === formula.id)
     emit('saved', { ...props.formula, favorite: active })
 }

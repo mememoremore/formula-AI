@@ -34,8 +34,8 @@ async function api(
   })
 }
 const input = (title = '手动公式') => ({ requestKey: randomUUID(), title, latex: '\\frac{1}{2}' })
-let saved: SavedFormula,
-  first = input()
+let saved: SavedFormula
+const first = input()
 before(async () => {
   await db.$connect()
   const auth = createAuthentication(db, {

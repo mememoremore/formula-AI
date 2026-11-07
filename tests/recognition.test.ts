@@ -194,7 +194,7 @@ test('Python响应额外字段忽略、LaTeX归一化与本次请求绑定，不
 })
 test('Python无效JSON根与无效结果字段保持不同的非重试错误，且不泄漏输入', async () => {
   try {
-    for (const raw of ['null', '[]', '123', '\"text\"']) {
+    for (const raw of ['null', '[]', '123', '"text"']) {
       malformed = raw
       await assert.rejects(
         adapter().recognize(input),

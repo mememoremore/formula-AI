@@ -1,8 +1,9 @@
 <script setup lang="ts">
-const accountFetch = useAccountFetch()
 import type { AccountUser } from '#shared/types/account'
 import { profileInputSchema } from '#shared/schemas/profile-input'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+
+const accountFetch = useAccountFetch()
 const props = defineProps<{ user: AccountUser }>()
 const emit = defineEmits<{ saved: []; expired: []; reload: [] }>()
 const name = ref(props.user.name),
@@ -25,6 +26,7 @@ const previewUser = computed(() =>
 let disposed = false,
   sequence = 0,
   controller: AbortController | undefined
+
 function canLeave() {
   if (
     (dirty.value || busy.value) &&
@@ -38,13 +40,16 @@ function canLeave() {
   sequence++
   controller?.abort()
 }
+
 onBeforeRouteLeave(canLeave)
+
 function unload(event: BeforeUnloadEvent) {
   if (dirty.value || busy.value) {
     event.preventDefault()
     event.returnValue = ''
   }
 }
+
 onMounted(() => window.addEventListener('beforeunload', unload))
 onScopeDispose(() => {
   disposed = true
@@ -54,36 +59,47 @@ onScopeDispose(() => {
   avatar.value = undefined
   if (import.meta.client) window.removeEventListener('beforeunload', unload)
 })
+
 function restoreDefault() {
   if (busy.value) return
   avatar.value = null
   showOptions.value = false
 }
+
 function choose(event: Event) {
   if (busy.value) return
+
   const input = event.target as HTMLInputElement
+
   file.value = input.files?.[0]
   showOptions.value = false
   input.value = ''
 }
+
 function cropped(value: string) {
   avatar.value = value
   file.value = undefined
   feedback.value = ''
 }
+
 function reload() {
   if (!dirty.value || window.confirm('重新读取将放弃当前草稿，确定继续吗？')) emit('reload')
 }
+
 async function save() {
   if (busy.value || file.value || !dirty.value) return
+
   const input = profileInputSchema.safeParse({ name: name.value, avatar: avatar.value })
+
   if (!input.success) {
     feedback.value = input.error.issues[0]?.message ?? '资料格式无效。'
     return
   }
+
   const current = ++sequence,
     active = new AbortController(),
     submitted = input.data.name
+
   controller = active
   busy.value = true
   feedback.value = ''

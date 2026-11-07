@@ -1,15 +1,20 @@
 <script setup lang="ts">
 import { formulaSyntaxFeedback, manualFormulaFeedback } from '#shared/formula-validation'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+
 const props = defineProps<{ ownerId: string }>()
 const sourceField = ref<HTMLTextAreaElement>()
+
 function resizeSource() {
   const field = sourceField.value
+
   if (!field) return
   field.style.height = 'auto'
   field.style.height = Math.min(360, Math.max(168, field.scrollHeight)) + 'px'
 }
+
 onMounted(resizeSource)
+
 const titleTouched = ref(false),
   latexTouched = ref(false)
 const title = ref(''),
@@ -18,6 +23,7 @@ const title = ref(''),
   completed = ref(false)
 const creation = useManualFormulaCreation(toRef(props, 'ownerId'))
 const { receipt, busy, ready, recoveryError } = creation
+
 watch(
   receipt,
   (value) => {
@@ -29,9 +35,11 @@ watch(
   { immediate: true },
 )
 watch(latex, resizeSource, { flush: 'post' })
+
 const validation = computed(() => manualFormulaFeedback(title.value, latex.value))
 const displayValidation = computed(() => {
   const titleError = manualFormulaFeedback(title.value, 'x')
+
   if (titleTouched.value && titleError)
     return !title.value.trim()
       ? '请为公式起个名字。'
@@ -49,13 +57,17 @@ let leavingConfirmed = false
 const removeAfterEach = useRouter().afterEach((_to, _from, failure) => {
   if (failure) leavingConfirmed = false
 })
+
 function confirmLeave(leave: boolean) {
   showLeaveConfirmation.value = false
   leavingConfirmed = leave
+
   const resolve = resolveLeave
+
   resolveLeave = undefined
   resolve?.(leave)
 }
+
 function canLeave() {
   if (completed.value) return true
   if (busy.value) return false
@@ -66,24 +78,29 @@ function canLeave() {
     resolveLeave = resolve
   })
 }
+
 onBeforeRouteLeave(canLeave)
 onBeforeRouteUpdate(canLeave)
+
 function beforeUnload(event: BeforeUnloadEvent) {
   if (completed.value || leavingConfirmed || (!dirty.value && !busy.value)) return
   event.preventDefault()
   event.returnValue = ''
 }
+
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onScopeDispose(() => {
   confirmLeave(false)
   removeAfterEach()
   if (import.meta.client) window.removeEventListener('beforeunload', beforeUnload)
 })
+
 async function save() {
   if (busy.value || !ready.value || validation.value) return
   feedback.value = ''
   try {
     const formula = await creation.save(title.value, latex.value)
+
     completed.value = true
     await navigateTo('/formulas/' + encodeURIComponent(formula.id))
   } catch (error) {
@@ -91,6 +108,7 @@ async function save() {
     feedback.value = workspaceFeedback(error, '保存结果尚未确认，请用原请求重试；草稿已保留。')
   }
 }
+
 function discard() {
   if (
     window.confirm(
@@ -107,19 +125,18 @@ function discard() {
       <input
         id="manual-title"
         v-model="title"
-        @blur="titleTouched = true"
         class="input"
         maxlength="100"
         autocomplete="off"
         placeholder="为公式起个名字"
         :disabled="!ready || busy || !!receipt"
+        @blur="titleTouched = true"
       />
       <label class="field-label" for="manual-latex">LaTeX</label>
       <textarea
         id="manual-latex"
         ref="sourceField"
         v-model="latex"
-        @blur="latexTouched = true"
         class="input manual-source"
         maxlength="5000"
         spellcheck="false"
@@ -127,6 +144,7 @@ function discard() {
         :disabled="!ready || busy || !!receipt"
         :aria-invalid="!!syntax"
         aria-describedby="manual-feedback"
+        @blur="latexTouched = true"
       />
       <p v-if="displayValidation" id="manual-feedback" class="error-text" role="status">
         {{ displayValidation }}

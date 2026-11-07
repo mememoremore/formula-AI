@@ -23,6 +23,7 @@ export function useAccountCategories(expected?: MaybeRefOrGetter<string | undefi
   const error = computed(() =>
     owner.value ? currentQueryError(client, options.value.queryKey, query.error.value) : null,
   )
+
   return {
     data,
     error,

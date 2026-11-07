@@ -6,6 +6,7 @@ export default defineNuxtRouteMiddleware(async (to, from) => {
   if (to.path.startsWith('/result/')) return navigateTo('/library', { replace: true })
   if (to.query.space === 'demo') {
     const query = { ...to.query }
+
     delete query.space
     delete query.demoVersionId
     if (to.path.startsWith('/ai')) delete query.formulaId

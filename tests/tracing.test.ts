@@ -35,7 +35,7 @@ test('异步上下文隔离、队列恢复和每次attempt使用新span', async 
   )
   assert.notEqual(parseTraceparent(parents[0])!.traceId, parseTraceparent(parents[1])!.traceId)
   const ids: string[] = []
-  for (const attempt of [1, 2])
+  for (const _attempt of [1, 2])
     await traced(
       'worker',
       async () => {

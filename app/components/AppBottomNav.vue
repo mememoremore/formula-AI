@@ -1,13 +1,17 @@
 <script setup lang="ts">
 import { mainTabs, navigationSection, mainTabDestination } from '#shared/navigation'
 import type { ContentWidth } from '~/utils/layout'
+
 withDefaults(defineProps<{ contentWidth?: ContentWidth }>(), { contentWidth: 'compact' })
+
 const route = useRoute()
 const activeSection = computed(() => navigationSection(route.path))
 const mounted = ref(false)
+
 onMounted(() => {
   mounted.value = true
 })
+
 // URL fragment 不会发送给 SSR；挂载前两端都省略，避免旧地址带锚点时水合不一致。
 const tabRoute = computed(() => ({
   path: route.path,

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FormulaLibraryPage, FormulaLibraryItem } from '#shared/types/library'
+
 const props = defineProps<{ ownerId: string }>()
 const emit = defineEmits<{ close: []; selected: [formula: FormulaLibraryItem] }>()
 const draft = ref(''),
@@ -15,6 +16,7 @@ const { data, error, status, refresh } = await useAsyncData(
         retry: 0,
         timeout: 15000,
       })
+
     signal.throwIfAborted()
     return { ...page, q }
   },
@@ -25,22 +27,27 @@ const loading = ref(false),
   feedback = ref('')
 let controller: AbortController | undefined,
   disposed = false
+
 function cancel() {
   controller?.abort()
   controller = undefined
   loading.value = false
   feedback.value = ''
 }
+
 watch(query, cancel, { flush: 'sync' })
 onScopeDispose(() => {
   disposed = true
   cancel()
 })
+
 async function more() {
   if (!page.value?.nextCursor || loading.value || status.value === 'pending') return
+
   const q = query.value,
     cursor = page.value.nextCursor,
     active = new AbortController()
+
   controller = active
   loading.value = true
   feedback.value = ''
@@ -51,8 +58,11 @@ async function more() {
       retry: 0,
       timeout: 15000,
     })
+
     if (disposed || active.signal.aborted || q !== query.value || !page.value) return
+
     const ids = new Set(page.value.items.map((item) => item.id))
+
     data.value = {
       ...page.value,
       items: [...page.value.items, ...next.items.filter((item) => !ids.has(item.id))],

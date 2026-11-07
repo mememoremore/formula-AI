@@ -1,10 +1,9 @@
 import { bumpChatTurn } from './chat-revision'
-import { lockTaskConversation } from './task-lifecycle'
+import { lockTaskConversation, appendFailedAnswer } from './task-lifecycle'
 import type { PrismaClient } from '../generated/prisma/client'
 import type { PgBoss } from 'pg-boss'
 import { fromPrisma } from 'pg-boss'
 import { queues } from '../queue/client'
-import { appendFailedAnswer } from './task-lifecycle'
 import { LostJobClaim, touchClaim, type RunningJob } from '../queue/claim'
 
 /** 锁住当前队列领取记录后更新片段，完成/取消/接管不能与旧Worker写入交错。 */

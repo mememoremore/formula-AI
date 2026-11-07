@@ -1,5 +1,6 @@
 import type { ConversationPage } from '#shared/types/tasks'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+
 /** URL 搜索限定列表快照，首屏与追加请求都不能跨关键词写入。 */
 export function useConversationListing(ownerId: string) {
   const accountFetch = useAccountFetch()
@@ -16,6 +17,7 @@ export function useConversationListing(ownerId: string) {
         retry: 0,
         timeout: 15000,
       })
+
       signal.throwIfAborted()
       return { ...page, q }
     },
@@ -36,23 +38,28 @@ export function useConversationListing(ownerId: string) {
     feedback = ref('')
   let controller: AbortController | undefined,
     disposed = false
+
   function cancel() {
     controller?.abort()
     controller = undefined
     loading.value = false
     feedback.value = ''
   }
+
   watch(query, cancel, { flush: 'sync' })
   onScopeDispose(() => {
     disposed = true
     cancel()
     if (import.meta.client) request.clear()
   })
+
   async function more() {
     if (!cursor.value || loading.value || request.status.value === 'pending' || disposed) return
+
     const q = query.value,
       after = cursor.value,
       active = new AbortController()
+
     controller = active
     loading.value = true
     feedback.value = ''
@@ -63,8 +70,11 @@ export function useConversationListing(ownerId: string) {
         retry: 0,
         timeout: 15000,
       })
+
       if (disposed || active.signal.aborted || query.value !== q || !current.value) return
+
       const ids = new Set(items.value.map((item) => item.id))
+
       request.data.value = {
         ...current.value,
         items: [...items.value, ...page.items.filter((item) => !ids.has(item.id))],
@@ -80,5 +90,6 @@ export function useConversationListing(ownerId: string) {
       }
     }
   }
+
   return { request, query, items, cursor, loading, feedback, more }
 }

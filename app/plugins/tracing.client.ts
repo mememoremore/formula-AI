@@ -8,6 +8,7 @@ import { TracerProvider, BatchSpanProcessor } from '@opentelemetry/sdk-trace'
 import { resourceFromAttributes } from '@opentelemetry/resources'
 import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http'
 import { parseTraceparent, traceparent, safeRoute } from '#shared/trace-context'
+
 export default defineNuxtPlugin((nuxt) => {
   if (!useRuntimeConfig().public.observabilityEnabled)
     return {
@@ -18,6 +19,7 @@ export default defineNuxtPlugin((nuxt) => {
         ): { header: string; end: () => void } | undefined => undefined,
       },
     }
+
   const diagnostic = useState<{
     traceId: string
     requestId?: string
@@ -44,12 +46,15 @@ export default defineNuxtPlugin((nuxt) => {
   const pending = new Map<string, Span>()
   const original = globalThis.$fetch
   const admitError = browserErrorGate()
-  let errorQueue: Record<string, unknown>[] = [],
-    errorTimer: ReturnType<typeof setTimeout> | undefined
+  const errorQueue: Record<string, unknown>[] = []
+  let errorTimer: ReturnType<typeof setTimeout> | undefined
+
   function flushErrors() {
     clearTimeout(errorTimer)
     errorTimer = undefined
+
     const events = errorQueue.splice(0, 10)
+
     if (events.length)
       void fetch('/api/account/telemetry/errors', {
         method: 'POST',
@@ -62,6 +67,7 @@ export default defineNuxtPlugin((nuxt) => {
         .catch(() => {})
     if (errorQueue.length) errorTimer = setTimeout(flushErrors, 1000)
   }
+
   function captureError(
     kind: BrowserErrorKind,
     error: unknown,
@@ -77,8 +83,11 @@ export default defineNuxtPlugin((nuxt) => {
         summary.line,
         summary.column,
       ].join('|')
+
       if (!admitError(key)) return
+
       const span = tracer.startSpan('browser.error', {}, ROOT_CONTEXT)
+
       span.setStatus({ code: SpanStatusCode.ERROR })
       errorQueue.push({ ...summary, traceparent: traceparent(span.spanContext()) })
       diagnostic.value = {
@@ -90,6 +99,7 @@ export default defineNuxtPlugin((nuxt) => {
       if (!errorTimer) errorTimer = setTimeout(flushErrors, 1000)
     } catch {}
   }
+
   nuxt.hook('vue:error', (error) => captureError('vue', error))
   window.addEventListener('error', (event) => {
     if (event instanceof ErrorEvent)
@@ -103,6 +113,7 @@ export default defineNuxtPlugin((nuxt) => {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'hidden') flushErrors()
   })
+
   function finish(
     options: { headers: Headers },
     status?: number,
@@ -111,11 +122,14 @@ export default defineNuxtPlugin((nuxt) => {
   ) {
     const id = parseTraceparent(options.headers.get('traceparent'))
     const span = id && pending.get(id.spanId)
+
     if (!span) return
     pending.delete(id!.spanId)
     if ((!status || status >= 400) && !cancelled) {
       span.setStatus({ code: SpanStatusCode.ERROR })
+
       const route = span.spanContext()
+
       diagnostic.value = {
         traceId: route.traceId,
         requestId,
@@ -127,6 +141,7 @@ export default defineNuxtPlugin((nuxt) => {
     if (status) span.setAttribute('http.response.status_code', status)
     span.end()
   }
+
   const accountFetch = original.create({
     onRequest({ request, options }) {
       if (
@@ -135,6 +150,7 @@ export default defineNuxtPlugin((nuxt) => {
         request.includes('/telemetry/')
       )
         return
+
       const parent = parseTraceparent(options.headers.get('traceparent'))
       const ctx = parent ? trace.setSpanContext(ROOT_CONTEXT, parent) : ROOT_CONTEXT
       const span = tracer.startSpan(
@@ -142,6 +158,7 @@ export default defineNuxtPlugin((nuxt) => {
         { kind: SpanKind.CLIENT },
         ctx,
       )
+
       options.headers.set('traceparent', traceparent(span.spanContext()))
       pending.set(span.spanContext().spanId, span)
     },
@@ -152,11 +169,13 @@ export default defineNuxtPlugin((nuxt) => {
       finish(options, undefined, undefined, options.signal?.aborted)
     },
   })
+
   return {
     provide: {
       accountFetch,
       traceOperation(name: 'recognition.submit' | 'recognition.retry') {
         const span = tracer.startSpan(name, {}, ROOT_CONTEXT)
+
         return { header: traceparent(span.spanContext()), end: () => span.end() }
       },
     },

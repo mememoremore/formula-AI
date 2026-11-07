@@ -14,12 +14,17 @@ export async function readHistoryWindow(
   let items: RecognitionHistoryPage['items'] = []
   let cursor: string | undefined
   const visited = new Set<string>()
+
   while (true) {
     signal.throwIfAborted()
+
     const page = await read(cursor)
+
     signal.throwIfAborted()
     items = mergeLibraryItems(items, page.items)
+
     const end = boundary ? items.findIndex((item) => item.id === boundary) : -1
+
     if (!boundary) return { items, nextCursor: page.nextCursor }
     if (end >= 0)
       return {

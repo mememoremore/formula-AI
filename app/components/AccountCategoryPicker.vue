@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { SavedFormula } from '#shared/types/workspace'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+
 const props = defineProps<{ formulaId: string; currentCategoryId: string | null }>()
 const emit = defineEmits<{ close: []; saved: [formula: SavedFormula] }>()
 const { data: categories, error, status, refresh } = useAccountCategories()
@@ -8,6 +9,7 @@ const selected = ref(props.currentCategoryId ?? '')
 const mutation = useFormulaCategoryMutation()
 const saving = mutation.busy
 const feedback = ref('')
+
 async function save() {
   if (saving.value || status.value === 'pending' || error.value) return
   feedback.value = ''
@@ -16,6 +18,7 @@ async function save() {
       id: props.formulaId,
       categoryId: selected.value || null,
     })
+
     emit('saved', formula)
     emit('close')
   } catch (error) {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref, useId, watch, nextTick, onMounted, onScopeDispose } from 'vue'
+
 const draft = defineModel<string>({ required: true })
 const props = withDefaults(
   defineProps<{
@@ -19,20 +20,25 @@ const input = ref<HTMLTextAreaElement>(),
 let observer: ResizeObserver | undefined,
   frame = 0,
   disposed = false
+
 function resize() {
   if (!input.value || disposed) return
   input.value.style.height = 'auto'
   input.value.style.height = Math.min(input.value.scrollHeight, 160) + 'px'
 }
+
 function viewport() {
   cancelAnimationFrame(frame)
   frame = requestAnimationFrame(() => {
     if (disposed) return
+
     const vv = window.visualViewport,
       offset = vv && vv.scale === 1 ? Math.max(0, window.innerHeight - vv.height - vv.offsetTop) : 0
+
     document.documentElement.style.setProperty('--chat-keyboard-offset', offset + 'px')
   })
 }
+
 onMounted(() => {
   observer = new ResizeObserver(() => {
     if (container.value)
@@ -64,9 +70,11 @@ watch(draft, async () => {
   await nextTick()
   resize()
 })
+
 function send() {
   if (!props.busy && !props.disabled && !composing.value && draft.value.trim()) emit('send')
 }
+
 function enter(event: KeyboardEvent) {
   if (
     event.key === 'Enter' &&

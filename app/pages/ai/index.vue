@@ -5,9 +5,12 @@ definePageMeta({
   alias: '/account/conversations',
 })
 useHead({ title: 'AI 助手 · Formula AI' })
+
 const route = useRoute(),
   session = useAccountSession()
+
 await session
+
 const ownerId = computed(() =>
   session.status.value === 'success' && !session.error.value
     ? session.data.value?.user?.id
@@ -20,6 +23,7 @@ const demo = computed(
     (route.query.space === 'demo' || !ownerId.value),
 )
 const intents = useNuxtApp().$chatDraft
+
 watch(
   [session.status, () => session.data.value?.user?.id],
   ([status, id]) => {

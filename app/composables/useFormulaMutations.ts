@@ -10,10 +10,12 @@ export type FormulaEditInput = { id: string } & FormulaEditPayload
 export function useFormulaEditMutation() {
   const fetcher = useAccountFetch(),
     invalidate = useFormulaViewsInvalidation()
+
   return useAccountMutation(
     'edit',
     async (input: FormulaEditInput, { owner, signal }) => {
       const { id, ...body } = input
+
       return fetcher<SavedFormula>('/api/account/formulas/' + encodeURIComponent(id), {
         method: 'PATCH',
         body,
@@ -32,6 +34,7 @@ export function useFormulaDeleteMutation() {
   const fetcher = useAccountFetch(),
     invalidate = useFormulaViewsInvalidation(),
     client = useNuxtApp().$queryClient
+
   return useAccountMutation(
     'delete',
     (id: string, { owner, signal }) =>
@@ -52,6 +55,7 @@ export function useFormulaFavoriteMutation() {
   const fetcher = useAccountFetch(),
     invalidate = useFormulaViewsInvalidation(),
     client = useNuxtApp().$queryClient
+
   return useAccountMutation(
     'favorite',
     (input: { id: string } & FormulaFavoritePayload, { owner, signal }) =>
@@ -75,6 +79,7 @@ export function useFormulaFavoriteMutation() {
 export function useFormulaCategoryMutation() {
   const fetcher = useAccountFetch(),
     invalidate = useFormulaViewsInvalidation()
+
   return useAccountMutation(
     'assign-category',
     (input: { id: string } & FormulaCategoryPayload, { owner, signal }) =>
@@ -98,6 +103,7 @@ export type CategoryWrite =
 export function useCategoryMutation() {
   const fetcher = useAccountFetch(),
     invalidate = useFormulaViewsInvalidation()
+
   return useAccountMutation(
     'category',
     (input: CategoryWrite, { owner, signal }) =>

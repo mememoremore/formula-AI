@@ -7,5 +7,6 @@ export default defineNuxtPlugin((nuxtApp) => {
     if (from.name)
       pageScrollMemory.remember(from.fullPath, { left: window.scrollX, top: window.scrollY })
   })
+
   nuxtApp.vueApp.onUnmount(removeGuard)
 })

@@ -1,5 +1,6 @@
 import type { SavedConversation } from '#shared/types/tasks'
 import { parseConversationSnapshot, activeChatTurn } from '~/utils/chat-state'
+
 /** 数据库快照流；有限自动重连后交回只读轮询，不重新提交消息。 */
 export function useConversationEvents(
   id: string,
@@ -14,6 +15,7 @@ export function useConversationEvents(
     retries = 0,
     disposed = false,
     currentTurn = ''
+
   function close() {
     clearTimeout(timer)
     timer = undefined
@@ -22,6 +24,7 @@ export function useConversationEvents(
     source = undefined
     connected.value = false
   }
+
   function connect(turnId: string) {
     if (import.meta.server || disposed || failedTurn === turnId) return
     if (currentTurn !== turnId) {
@@ -30,15 +33,19 @@ export function useConversationEvents(
       currentTurn = turnId
     }
     if (source || timer) return
+
     const current = new EventSource(
       `/api/account/conversations/${encodeURIComponent(id)}/events?protocol=2`,
     )
+
     source = current
+
     const fail = () => {
       if (source !== current || disposed) return
       close()
       if (retries < 2) {
         const delay = 1000 * ++retries
+
         feedback.value = '实时连接中断，正在重连；同时查询已保存的状态。'
         timer = setTimeout(() => {
           timer = undefined
@@ -53,6 +60,7 @@ export function useConversationEvents(
       clearTimeout(watchdog)
       watchdog = setTimeout(fail, 15000)
     }
+
     current.onopen = () => {
       if (source === current) {
         connected.value = true
@@ -69,6 +77,7 @@ export function useConversationEvents(
         const value = onSnapshot(
           parseConversationSnapshot(JSON.parse((event as MessageEvent<string>).data), id, true),
         )
+
         arm()
         if (!activeChatTurn(value.currentTurn)) close()
       } catch {
@@ -79,6 +88,7 @@ export function useConversationEvents(
       if (source !== current || disposed) return
       try {
         const data: unknown = JSON.parse((event as MessageEvent<string>).data)
+
         if (
           data &&
           typeof data === 'object' &&
@@ -97,12 +107,14 @@ export function useConversationEvents(
     })
     current.onerror = fail
   }
+
   function reconnect(turnId: string) {
     close()
     failedTurn = ''
     retries = 0
     connect(turnId)
   }
+
   onScopeDispose(() => {
     disposed = true
     close()

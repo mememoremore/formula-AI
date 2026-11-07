@@ -3,8 +3,10 @@ import type { RecognitionRequest, RecognitionResult } from '#shared/types/api'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { recognitionInvalidates } from '~/utils/recognition-state'
 import { normalizeOptionalFormulaTitle, optionalFormulaTitleFeedback } from '#shared/formula-title'
+
 definePageMeta({ bottomNav: false, middleware: 'workspace', contentWidth: 'reading' })
 useHead({ title: '公式识别 · Formula AI' })
+
 const route = useRoute(),
   fileInput = ref<HTMLInputElement>(),
   cameraInput = ref<HTMLInputElement>()
@@ -18,7 +20,9 @@ const {
   refresh: refreshSession,
   demo,
 } = useWorkspace()
+
 await useAccountSession()
+
 const accountFlow = computed(() => !!account.value?.user && !demo.value)
 const ownerId = computed(() =>
   sessionStatus.value === 'success' && !sessionError.value && accountFlow.value
@@ -34,24 +38,29 @@ const titleFeedback = computed(() => optionalFormulaTitleFeedback(requestedTitle
 const { addRecognition } = useDemoLibrary()
 const cropping = ref(false)
 const recropping = ref(false)
+
 watch(originalFile, (value) => {
   recropping.value = false
   cropping.value = !!value
 })
+
 function cropped(value: File) {
   applyCrop(value)
   cropping.value = false
   recropping.value = false
 }
+
 function cancelCrop() {
   if (!recropping.value) removeImage()
   cropping.value = false
   recropping.value = false
 }
+
 function recrop() {
   recropping.value = true
   cropping.value = true
 }
+
 const pending = ref(false),
   error = ref('')
 const feedback = computed(() => selectionError.value || error.value)
@@ -69,12 +78,14 @@ const selectionLocked = computed(() => blocked.value || (accountFlow.value && fl
 let sequence = 0,
   disposed = false,
   demoController: AbortController | undefined
+
 function cancel() {
   sequence++
   flow.cancel()
   demoController?.abort()
   pending.value = false
 }
+
 const identity = computed(() =>
   sessionStatus.value !== 'success' || sessionError.value
     ? 'unconfirmed'
@@ -82,6 +93,7 @@ const identity = computed(() =>
       ? 'account:' + ownerId.value
       : 'demo',
 )
+
 watch(
   identity,
   (value) => {
@@ -120,16 +132,21 @@ watch(
   },
   { immediate: true },
 )
+
 function choose(value: 'camera' | 'image') {
   if (selectionLocked.value) return
   source.value = value
   ;(value === 'camera' ? cameraInput : fileInput).value?.click()
 }
+
+//
 async function recognize() {
   if (blocked.value || (!file.value && !flow.receipt.value)) return
+
   const token = ++sequence,
     original = file.value,
     space = identity.value
+
   pending.value = true
   error.value = ''
   try {
@@ -139,6 +156,7 @@ async function recognize() {
         mode.value,
         normalizeOptionalFormulaTitle(requestedTitle.value) ?? undefined,
       )
+
       if (disposed || token !== sequence || identity.value !== space) return
       clearNuxtData((key) => recognitionInvalidates(key, 'submitted'))
       file.value = null
@@ -146,6 +164,7 @@ async function recognize() {
       await navigateTo('/recognitions/' + encodeURIComponent(task.id))
     } else if (original) {
       demoController = new AbortController()
+
       const body: RecognitionRequest = {
         image: {
           name: original.name,
@@ -161,12 +180,15 @@ async function recognize() {
         retry: 0,
         timeout: 15_000,
       })
+
       if (disposed || token !== sequence || identity.value !== space) return
+
       const formula = addRecognition(
         result,
         original.name,
         normalizeOptionalFormulaTitle(requestedTitle.value) ?? undefined,
       )
+
       attachFormula(formula.id)
       file.value = null
       await navigateTo('/result/' + encodeURIComponent(formula.id) + '?space=demo')
@@ -183,18 +205,21 @@ async function recognize() {
     if (token === sequence) pending.value = false
   }
 }
+
 function beforeUnload(event: BeforeUnloadEvent) {
   if (pending.value || file.value || flow.receipt.value) {
     event.preventDefault()
     event.returnValue = ''
   }
 }
+
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onScopeDispose(() => {
   disposed = true
   cancel()
   if (import.meta.client) window.removeEventListener('beforeunload', beforeUnload)
 })
+
 const buttonLabel = computed(() =>
   sessionError.value || sessionStatus.value !== 'success'
     ? '等待账号确认'

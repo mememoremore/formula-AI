@@ -1,8 +1,11 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'workspace', contentWidth: 'reading', alias: '/account' })
 useHead({ title: '我的 · Formula AI' })
+
 const session = useAccountSession()
+
 await session
+
 const { data: account, error, status, refresh } = session
 const menus = [
   { to: '/settings', label: '设置', icon: 'settings' },
@@ -22,11 +25,13 @@ const { data: stats, error: statsError } = await useAsyncData(
       : Promise.resolve(null),
   { getCachedData: () => undefined },
 )
+
 function count(key: 'formulas' | 'favorites' | 'conversations') {
   return !statsError.value && stats.value?.ownerId === account.value?.user?.id
     ? stats.value?.[key] + ' 条'
     : '—'
 }
+
 const personal = [
   { to: '/library?space=account', label: '我的公式', count: 'formulas', icon: 'book' },
   {

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-const accountFetch = useAccountFetch()
 import type { ExplanationHistoryPage } from '#shared/types/tasks'
 import type { SavedFormula } from '#shared/types/workspace'
 import { chatSubmissionInvalidated } from '~/utils/account-cache'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { EXPLANATION_RECOVERY_KEY, parseExplanationIntent } from '~/utils/explanation-intent'
+
+const accountFetch = useAccountFetch()
 const props = defineProps<{ formula: SavedFormula; ownerId: string }>()
 const route = useRoute()
 const selected = computed(() => props.formula.versions.at(-1)!.id)
@@ -22,9 +23,12 @@ let disposed = false,
   sequence = 0,
   controller: AbortController | undefined,
   submitController: AbortController | undefined
+
 async function load(more = false) {
   if (more && (loading.value || !cursor.value)) return
+
   const ticket = ++sequence
+
   controller?.abort()
   controller = new AbortController()
   loading.value = true
@@ -41,6 +45,7 @@ async function load(more = false) {
         timeout: 15000,
       },
     )
+
     if (disposed || ticket !== sequence) return
     items.value = more
       ? [...new Map([...items.value, ...data.items].map((row) => [row.id, row])).values()]
@@ -53,6 +58,7 @@ async function load(more = false) {
     if (!disposed && ticket === sequence) loading.value = false
   }
 }
+
 watch(selected, () => {
   items.value = []
   cursor.value = null
@@ -61,14 +67,18 @@ watch(selected, () => {
 onMounted(() => {
   try {
     const raw = sessionStorage.getItem(EXPLANATION_RECOVERY_KEY)
+
     pending.value = parseExplanationIntent(raw, props.ownerId, props.formula.id)
     if (raw && !pending.value) {
       let other: unknown
+
       try {
         other = JSON.parse(raw)
       } catch {}
+
       const id =
         other && typeof other === 'object' && 'formulaId' in other ? other.formulaId : undefined
+
       if (typeof id === 'string' && parseExplanationIntent(raw, props.ownerId, id)) {
         otherFormula.value = id
         feedback.value = '另一个公式的提交尚未确认，请先返回该公式。'
@@ -89,20 +99,24 @@ onScopeDispose(() => {
   controller?.abort()
   submitController?.abort()
 })
+
 async function generate() {
   if (sending.value || disposed || !ready.value) return
+
   const intent = pending.value ?? {
     ownerId: props.ownerId,
     formulaId: props.formula.id,
     versionId: selected.value,
     requestKey: crypto.randomUUID(),
   }
+
   sending.value = true
   feedback.value = ''
   submitController = new AbortController()
   try {
     sessionStorage.setItem(EXPLANATION_RECOVERY_KEY, JSON.stringify(intent))
     pending.value = intent
+
     const result = await accountFetch<{ conversationId: string }>(
       '/api/account/formulas/' + intent.formulaId + '/explanations',
       {
@@ -114,6 +128,7 @@ async function generate() {
         signal: submitController.signal,
       },
     )
+
     if (disposed || submitController.signal.aborted) return
     sessionStorage.removeItem(EXPLANATION_RECOVERY_KEY)
     pending.value = null
@@ -122,9 +137,11 @@ async function generate() {
   } catch (cause) {
     if (!disposed && !submitController.signal.aborted) {
       feedback.value = workspaceFeedback(cause, '提交结果尚未确认，请确认原请求。')
+
       const code =
         (cause as { statusCode?: number; status?: number }).statusCode ??
         (cause as { status?: number }).status
+
       if (code && code >= 400 && code < 500 && code !== 408) {
         try {
           sessionStorage.removeItem(EXPLANATION_RECOVERY_KEY)
@@ -136,6 +153,7 @@ async function generate() {
     if (!disposed) sending.value = false
   }
 }
+
 const labels = { QUEUED: '排队中', PROCESSING: '生成中', COMPLETED: '解释完成', FAILED: '未完成' }
 </script>
 <template>

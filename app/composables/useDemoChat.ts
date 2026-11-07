@@ -1,5 +1,6 @@
 import type { ChatMessage, ChatRequest, ChatResponse, FormulaContext } from '#shared/types/api'
 import { errorMessage } from '~/utils/error-message'
+
 export function useDemoChat(context: Ref<FormulaContext | undefined>) {
   const store = useDemoStore(),
     pending = ref(false),
@@ -12,6 +13,7 @@ export function useDemoChat(context: Ref<FormulaContext | undefined>) {
     disposed = false,
     generation = 0
   let rollback: (() => void) | undefined
+
   function cancel() {
     rollback?.()
     rollback = undefined
@@ -20,20 +22,25 @@ export function useDemoChat(context: Ref<FormulaContext | undefined>) {
     controller = undefined
     pending.value = false
   }
+
   watch(threadKey, cancel, { flush: 'sync' })
   onScopeDispose(() => {
     disposed = true
     cancel()
   })
+
   async function send(content: string) {
     const cleaned = content.trim()
+
     if (!cleaned || cleaned.length > 2000 || pending.value || disposed) return false
+
     const key = threadKey.value,
       formula = context.value ? { ...context.value } : undefined,
       previous = [...(store.value.chats[key] ?? [])],
       current = ++generation,
       active = new AbortController()
     const outgoing: ChatMessage[] = [...previous.slice(-18), { role: 'user', content: cleaned }]
+
     controller = active
     pending.value = true
     error.value = ''
@@ -50,6 +57,7 @@ export function useDemoChat(context: Ref<FormulaContext | undefined>) {
         retry: 0,
         timeout: 20000,
       })
+
       if (disposed || current !== generation || key !== threadKey.value) return false
       store.value.chats[key] = [...outgoing, response.message]
       rollback = undefined
@@ -68,10 +76,12 @@ export function useDemoChat(context: Ref<FormulaContext | undefined>) {
       }
     }
   }
+
   function clearMessages() {
     if (pending.value) return
     store.value.chats[threadKey.value] = []
     error.value = ''
   }
+
   return { messages, pending, error, send, clearMessages }
 }

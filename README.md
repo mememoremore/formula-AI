@@ -68,6 +68,12 @@ npm run worker
 
 真实识别配置见 [模型服务手册](docs/Docker模型服务操作手册.md)，DeepSeek 配置见 [AI 联调手册](docs/DeepSeek配置与联调手册.md)。Word 导出依赖 Pandoc，见 [后台任务与导出手册](docs/后台任务与导出操作手册.md)。生产 Node 服务需由部署环境注入配置，不会自动读取工程目录的 .env。
 
+## ESLint
+
+运行 `npm run lint` 检查Vue、TypeScript与JavaScript；运行 `npm run lint:fix` 修复可自动处理的问题。命令先生成Nuxt的自动导入/ESLint配置，再执行零警告检查，首次安装或CI使用 `npm ci --ignore-scripts` 后也能运行。`quality:quick`及现有GitHub Actions已包含lint阶段。
+
+VS Code已提供推荐扩展和工作区配置：安装/启用ESLint扩展后，保存时执行显式自动修复。ESLint负责静态代码问题及前端逻辑分组空行，Prettier负责缩进和换行；Nuxt开发服务器启动成功不等于通过lint。配置约定与验证见[ESLint接入记录](docs/eslint-setup.md)。
+
 ## 检查与 CI
 
 ```powershell
@@ -149,7 +155,7 @@ Vue组件测试通过`tsconfig.vitest.json`用vue-tsc检查；后端tsc不重复
 
 ## 本地日志与 Trace
 
-观测入口为 http://127.0.0.1:3300 ，包含运行总览、Prometheus 指标、统一业务日志、trace 查询、前端异常和 QQ 邮件告警。平台已要求登录，本机凭据与备份操作见下方指南。新增 [自动错误中心](http://127.0.0.1:3300/d/formula-errors)，集中查看自动收集的前端、API、任务和Python错误，无须用户提交反馈。独立 Compose 启动方式、专用日志目录、诊断复制、保留与停用规则见 [观测使用指南](docs/OBSERVABILITY.md)。默认不启用遥测导出，不依赖监控服务完成业务。
+观测入口为 http://127.0.0.1:3300 ，包含运行总览、Prometheus 指标、统一业务日志、trace 查询、前端异常和可选的 QQ 邮件告警（本地默认关闭）。平台已要求登录，本机凭据与备份操作见下方指南。新增 [自动错误中心](http://127.0.0.1:3300/d/formula-errors)，集中查看自动收集的前端、API、任务和Python错误，无须用户提交反馈。独立 Compose 启动方式、专用日志目录、诊断复制、保留与停用规则见 [观测使用指南](docs/OBSERVABILITY.md)。默认不启用遥测导出，不依赖监控服务完成业务。
 
 ## 文档入口
 

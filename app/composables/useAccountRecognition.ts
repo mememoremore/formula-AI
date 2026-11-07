@@ -15,20 +15,24 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
   const uncertain = computed(() => !!receipt.value || !!draft.transfer.value?.uncertain)
   let controller: AbortController | undefined,
     disposed = false
+
   function cancel() {
     controller?.abort()
     controller = undefined
     stage.value = 'idle'
   }
+
   watch(ownerId, cancel, { flush: 'sync' })
   onScopeDispose(() => {
     disposed = true
     cancel()
   })
+
   function check(signal: AbortSignal, owner: string) {
     signal.throwIfAborted()
     if (disposed || ownerId.value !== owner) throw new Error('账号或页面已变化')
   }
+
   async function submit(value: RecognitionReceipt, signal: AbortSignal, parent?: string) {
     draft.putReceipt(value)
     stage.value = 'submitting'
@@ -46,24 +50,32 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
         timeout: 30_000,
         signal,
       })
+
       check(signal, value.ownerId)
       if (response.status !== 202 || !response._data?.id) throw new Error('任务响应尚未确认')
       draft.removeReceipt(value)
       return response._data
     } catch (error) {
       const status = (error as { statusCode?: number }).statusCode
+
       if (!signal.aborted && [400, 401, 403, 404, 413, 415, 422, 429].includes(status ?? 0))
         draft.removeReceipt(value)
       throw error
     }
   }
+
   async function recognize(file: File | null, mode: RecognitionMode, requestedTitle?: string) {
     const owner = ownerId.value
+
     if (!owner || controller || disposed) throw new Error('当前不能提交')
     draft.requireRecovery()
+
     const active = new AbortController()
+
     controller = active
+
     const operation = tracing?.('recognition.submit')
+
     try {
       if (receipt.value) return await submit(receipt.value, active.signal, operation?.header)
       if (!file) throw new Error('请重新选择图片')
@@ -75,7 +87,9 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
           image: null,
           uncertain: false,
         }
+
       const transfer = draft.transfer.value!
+
       if (!transfer.image) {
         stage.value = 'uploading'
         transfer.uncertain = true
@@ -94,6 +108,7 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
               'x-upload-key': transfer.key,
             },
           })
+
           check(active.signal, owner)
           transfer.image = result.image
           transfer.uncertain = false
@@ -129,19 +144,26 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
       }
     }
   }
+
   function retryReceipt(taskId: string) {
     return draft.receipts.value.find(
       (row) => row.ownerId === ownerId.value && row.sourceTaskId === taskId,
     )
   }
+
   async function retry(task: RecognitionTaskState) {
     const owner = ownerId.value
+
     if (!owner || controller || disposed || task.status !== 'FAILED')
       throw new Error('当前不能重试')
     draft.requireRecovery()
+
     const active = new AbortController()
+
     controller = active
+
     const operation = tracing?.('recognition.retry')
+
     try {
       return await submit(
         retryReceipt(task.id) ?? {
@@ -163,6 +185,7 @@ export function useAccountRecognition(ownerId: Ref<string | undefined>) {
       }
     }
   }
+
   return {
     stage,
     receipt,

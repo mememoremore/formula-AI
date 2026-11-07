@@ -1,12 +1,17 @@
 <script setup lang="ts">
 import type { AccountUser } from '#shared/types/account'
+
 definePageMeta({ middleware: 'auth', bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '编辑资料 · Formula AI' })
+
 const session = useAccountSession()
+
 await session
+
 const user = shallowRef<AccountUser | null | undefined>(),
   saved = ref(false),
   revision = ref(0)
+
 watch(
   [session.status, session.data],
   ([status, value]) => {
@@ -14,10 +19,12 @@ watch(
   },
   { immediate: true },
 )
+
 const visible = computed(
   () => session.status.value === 'success' && !session.error.value && !!user.value,
 )
 const { showToast } = useToast()
+
 async function refresh() {
   await session.refresh()
   if (saved.value && !session.error.value && session.data.value?.user) {
@@ -25,15 +32,18 @@ async function refresh() {
     saved.value = false
   }
 }
+
 async function onSaved() {
   saved.value = true
   await refresh()
 }
+
 function expired() {
   session.data.value = undefined
   session.error.value = createError({ statusCode: 401, message: '账号已失效，请重新确认身份。' })
   session.status.value = 'error'
 }
+
 async function reload() {
   revision.value++
   await refresh()

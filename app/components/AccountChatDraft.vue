@@ -1,13 +1,13 @@
 <script setup lang="ts">
-const accountFetch = useAccountFetch()
 import { chatSubmissionInvalidated } from '~/utils/account-cache'
 import type { SavedConversation, VersionContext } from '#shared/types/tasks'
 import type { SavedFormula } from '#shared/types/workspace'
 import type { FormulaLibraryItem } from '#shared/types/library'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
+
+const accountFetch = useAccountFetch()
 const props = defineProps<{ ownerId: string; versionId: string; formulaId?: string }>()
-const route = useRoute(),
-  fetcher = useAccountFetch(),
+const fetcher = useAccountFetch(),
   intents = useNuxtApp().$chatDraft
 const {
   data: context,
@@ -22,6 +22,7 @@ const {
         { retry: 0, timeout: 15000 },
       )
       const content = formula.versions.at(-1)
+
       if (!content) throw new Error('公式内容不存在')
       return {
         id: content.id,
@@ -52,9 +53,11 @@ const {
 const pending = computed(() =>
   intents.items.value.find((row) => row.ownerId === props.ownerId && row.slot === 'new'),
 )
+
 async function reload() {
   await Promise.all([reloadContext(), reloadSettings()])
 }
+
 const suggestions = computed(() =>
   context.value
     ? [
@@ -74,6 +77,7 @@ const draft = intents.question,
 let disposed = false,
   sequence = 0,
   controller: AbortController | undefined
+
 watch(
   pending,
   (value) => {
@@ -81,12 +85,14 @@ watch(
   },
   { immediate: true },
 )
+
 function beforeUnload(event: BeforeUnloadEvent) {
   if (draft.value.trim() && (!pending.value || intents.warning.value)) {
     event.preventDefault()
     event.returnValue = ''
   }
 }
+
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onBeforeRouteLeave((to) => {
   if (
@@ -108,6 +114,7 @@ onScopeDispose(() => {
   controller?.abort()
   if (import.meta.client) window.removeEventListener('beforeunload', beforeUnload)
 })
+
 async function selectFormula(formula: FormulaLibraryItem) {
   if (pending.value || busy.value || selecting.value) return
   selecting.value = true
@@ -118,8 +125,11 @@ async function selectFormula(formula: FormulaLibraryItem) {
       retry: 0,
       timeout: 15000,
     })
+
     if (disposed) return
+
     const latest = saved.versions.at(-1)
+
     if (!latest) throw new Error('缺少公式内容')
     showPicker.value = false
     await navigateTo({ path: '/ai/new', query: { formulaId: saved.id } }, { replace: true })
@@ -129,6 +139,7 @@ async function selectFormula(formula: FormulaLibraryItem) {
     if (!disposed) selecting.value = false
   }
 }
+
 async function send() {
   if (
     busy.value ||
@@ -139,8 +150,11 @@ async function send() {
     contextError.value
   )
     return
+
   const question = pending.value?.question ?? draft.value.trim()
+
   if (!question || question.length > 2000) return
+
   const intent = pending.value ?? {
     ownerId: props.ownerId,
     slot: 'new',
@@ -149,8 +163,11 @@ async function send() {
     versionId: context.value?.id ?? null,
     conversationId: null,
   }
+
   busy.value = true
+
   const current = ++sequence
+
   feedback.value = ''
   controller = new AbortController()
   try {
@@ -163,6 +180,7 @@ async function send() {
         timeout: 20000,
         signal: controller.signal,
       })
+
       if (disposed || current !== sequence) return
       intent.conversationId = saved.id
       intents.put({ ...intent })

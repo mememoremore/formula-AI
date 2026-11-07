@@ -24,11 +24,15 @@ export default defineNuxtPlugin(() => {
     recoveryWarning = ref(''),
     recoveryReady = ref(false)
   let confirmedOwner: string | null | undefined
+
   function requireRecovery() {
     if (recoveryReady.value) return
+
     const message = recoveryWarning.value || '识别恢复记录正在读取，请稍后再试。'
+
     throw createError({ statusCode: 400, message, data: { message } })
   }
+
   function persist() {
     if (import.meta.server) return true
     try {
@@ -40,9 +44,12 @@ export default defineNuxtPlugin(() => {
       return false
     }
   }
+
   function putReceipt(value: RecognitionReceipt) {
     requireRecovery()
+
     const rows = receipts.value.filter((row) => receiptIdentity(row) !== receiptIdentity(value))
+
     if (rows.length >= 20)
       throw createError({
         statusCode: 400,
@@ -54,10 +61,12 @@ export default defineNuxtPlugin(() => {
       throw createError({ statusCode: 400, data: { message: recoveryWarning.value } })
     }
   }
+
   function removeReceipt(value: RecognitionReceipt) {
     receipts.value = receipts.value.filter((row) => receiptIdentity(row) !== receiptIdentity(value))
     persist()
   }
+
   function confirmOwner(id: string | null) {
     confirmedOwner = id
     if (ownerId.value && ownerId.value !== id) {
@@ -72,6 +81,7 @@ export default defineNuxtPlugin(() => {
       persist()
     }
   }
+
   function clearAccountState() {
     confirmedOwner = null
     file.value = null
@@ -82,6 +92,7 @@ export default defineNuxtPlugin(() => {
     useUploadPreview().replacePreview(null)
     if (recoveryReady.value) persist()
   }
+
   watch(
     file,
     () => {

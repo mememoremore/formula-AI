@@ -1,15 +1,19 @@
 <script setup lang="ts">
 import type { AccountUser } from '#shared/types/account'
+
 const props = withDefaults(
   defineProps<{ user?: AccountUser | null; size?: number; preview?: string }>(),
   { size: 48 },
 )
 const failed = ref(false)
 const image = ref<HTMLImageElement>()
+
 function failedImage(event: Event) {
   if (event.target === image.value) failed.value = true
 }
+
 const src = computed(() => props.preview || props.user?.image || '')
+
 watch(src, () => {
   failed.value = false
 })

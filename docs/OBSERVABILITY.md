@@ -98,7 +98,7 @@ Grafana在Windows挂载目录下每30秒轮询看板文件，避免文件事件�
 
 ## 基础告警与邮件
 
-Prometheus 评估 observability/alerts.yaml，Alertmanager 将告警和恢复通知发送到用户指定的 QQ 邮箱。Grafana 的 /d/formula-alerts 展示 pending/firing 状态；通知历史仍应在 Alertmanager 指标和日志中核实。
+Prometheus 评估 observability/alerts.yaml，本地默认仅在面板显示告警，不发送监控邮件。Alertmanager仍运行，但使用没有外部通知集成的local-panel接收器。Grafana 的 /d/formula-alerts 展示 pending/firing 状态；通知历史仍应在 Alertmanager 指标和日志中核实。
 
 当前阈值是本机初始值，需要有真实流量后调整：
 
@@ -111,11 +111,11 @@ Prometheus 评估 observability/alerts.yaml，Alertmanager 将告警和恢复通
 | 任务失败     | 10分钟至少5个终态，失败超过20%，持续5分钟，排除取消 |
 | AI首字慢     | real模式10分钟至少5次，P95超过15秒，持续10分钟      |
 
-同类告警合并，持续故障每4小时提醒；Worker离线时抑制其队列告警。没有流量不触发错误率/延迟告警，快照无效不误报积压。
+显式启用邮件时，同类告警合并，持续故障每4小时提醒；Worker离线时抑制其队列告警。没有流量不触发错误率/延迟告警，快照无效不误报积压。
 
-启动安全脚本会从已有 FORMULA_SMTP_USER / FORMULA_SMTP_PASSWORD 读取 QQ SMTP 配置；FORMULA_ALERT_TO 可设置收件人，默认发给 SMTP 账号。授权码仅写入忽略的本地 secret 文件，通过 Docker secret 挂载，禁止输出环境文件或 Compose 完整渲染结果。邮件只含告警摘要和平台地址，不包含用户输入和日志正文。
+本地保持FORMULA_ALERT_EMAIL_ENABLED未设置或false。正式部署需要邮件时显式设置为true，再运行scripts/observability-secure.ps1；只有启用后才读取FORMULA_SMTP_USER / FORMULA_SMTP_PASSWORD，FORMULA_ALERT_TO可设置收件人，默认发给SMTP账号。安全脚本会校验配置并热加载已有Alertmanager，不会因为容器已在运行而沿用旧邮件配置。注册验证码使用独立发信路径，不受此开关影响。授权码仅写入忽略的本地 secret 文件，通过 Docker secret 挂载，禁止输出环境文件或 Compose 完整渲染结果。邮件只含告警摘要和平台地址，不包含用户输入和日志正文。
 
-本次已实际发送测试告警与恢复通知；SMTP 接受两次通知，失败计数为零。这不等于已核实邮箱收件箱。规则验证命令 npm run test:alerts 使用隔离、无网络、只读 promtool 容器；CI 同样执行。
+早期邮件联调曾发送测试告警与恢复通知，SMTP接受两次且失败计数为零；本轮关闭本地告警邮件后未发送测试邮件。规则验证命令 npm run test:alerts 使用隔离、无网络、只读 promtool 容器；CI 同样执行。
 
 ## 前端异常与诊断
 

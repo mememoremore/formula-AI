@@ -11,9 +11,11 @@ export function updateLibraryRecords(
   change: LibraryRecordChange,
 ) {
   const prefix = [...formulaQueryKeys.owner(owner), 'library']
+
   void client.cancelQueries({ queryKey: prefix })
   for (const query of client.getQueryCache().findAll({ queryKey: prefix })) {
     const favoritesOnly = query.queryKey[3] === 'favorites'
+
     client.setQueryData<LibraryPages>(
       query.queryKey,
       (previous) =>

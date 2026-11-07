@@ -6,9 +6,12 @@ definePageMeta({
   alias: '/account/tasks/:id',
 })
 useHead({ title: '识别任务 · Formula AI' })
+
 const route = useRoute(),
   session = useAccountSession()
+
 await session
+
 const ownerId = computed(() =>
   session.status.value === 'success' && !session.error.value
     ? session.data.value?.user?.id
@@ -16,6 +19,7 @@ const ownerId = computed(() =>
 )
 const id = computed(() => String(route.params.id))
 const draft = useNuxtApp().$uploadDraft
+
 watch(
   [session.status, () => session.data.value?.user?.id],
   ([status, id]) => {
@@ -36,8 +40,8 @@ watch(
   </div>
   <AccountRecognitionTask
     v-else-if="ownerId"
-    :key="ownerId + ':' + id"
     :id="id"
+    :key="ownerId + ':' + id"
     :owner-id="ownerId"
   />
   <div v-else class="card status-panel" role="alert">

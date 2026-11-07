@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ServiceStatusResponse } from '#shared/types/services'
+
 const props = defineProps<{ ownerId?: string }>()
 const { data, status, error, execute } = useFetch<ServiceStatusResponse>(
   '/api/account/service-status',
@@ -14,9 +15,11 @@ const { data, status, error, execute } = useFetch<ServiceStatusResponse>(
     getCachedData: (key, app) => (app.isHydrating ? app.payload.data[key] : undefined),
   },
 )
+
 function opened(event: Event) {
   if ((event.target as HTMLDetailsElement).open && status.value === 'idle') void execute()
 }
+
 const labels = { ready: '已连接', configured: '已配置', demo: '模拟模式', unavailable: '暂不可用' }
 </script>
 <template>

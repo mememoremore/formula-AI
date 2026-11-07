@@ -2,7 +2,7 @@ import { createHash, randomUUID } from 'node:crypto'
 import type { PrismaClient, ResourceLease } from '../generated/prisma/client'
 import type { PrivateObjectStore } from '../storage/object-store'
 import { normalizeAvatar } from '../images/avatar'
-import { type ProfileUpdate } from './profile-input'
+import type { ProfileUpdate } from './profile-input'
 import { WorkspaceError } from './workspace-error'
 import {
   reserveResource,

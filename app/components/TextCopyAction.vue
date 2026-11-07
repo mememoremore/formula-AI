@@ -10,6 +10,7 @@ const busy = ref(false),
   fallback = ref<string | null>(null),
   field = ref<HTMLTextAreaElement>()
 let generation = 0
+
 watch(
   () => props.text,
   () => {
@@ -21,10 +22,13 @@ watch(
 onScopeDispose(() => {
   generation++
 })
+
 async function copy() {
   if (busy.value) return
+
   const current = ++generation,
     text = props.text
+
   busy.value = true
   try {
     if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable')
@@ -40,6 +44,7 @@ async function copy() {
     if (current === generation) busy.value = false
   }
 }
+
 function select() {
   field.value?.focus()
   field.value?.select()

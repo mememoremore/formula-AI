@@ -258,7 +258,7 @@ try {
   stopping = true
   if (setupLog !== undefined) closeSync(setupLog)
   await interrupting
-  let cleanup: 'verified' | 'unconfirmed' | 'not-created' = 'not-created'
+  let cleanup: 'verified' | 'unconfirmed' | 'not-created'
   try {
     for (const child of children.reverse()) await stop(child)
     if (manifest) console.log(`测试容器清理：${cleanupEnvironment(manifest)} 个，未操作开发资源`)

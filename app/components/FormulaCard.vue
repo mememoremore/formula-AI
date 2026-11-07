@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Formula } from '#shared/types/api'
+
 const props = defineProps<{ formula: Formula; compact?: boolean }>()
 const { toggleFavorite, categories } = useDemoLibrary()
 const { preview } = useUploadPreview()

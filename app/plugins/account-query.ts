@@ -7,6 +7,7 @@ export default defineNuxtPlugin({
     // Created here, never at module scope: each SSR request owns an isolated cache.
     const queryClient = createAccountQueryClient(import.meta.server)
     const state = useState<DehydratedState | null>('account-query-cache', () => null)
+
     app.vueApp.use(VueQueryPlugin, { queryClient })
     if (import.meta.server)
       app.hook('app:rendered', () => {

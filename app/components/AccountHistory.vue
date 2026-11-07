@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { recognitionHistoryTitle, recognitionResultPresentation } from '#shared/recognition-result'
+
 const props = defineProps<{ ownerId: string; query: string }>()
 const {
   request,
@@ -12,6 +13,7 @@ const {
 const { error, status } = request
 const cursor = computed(() => request.data.value?.nextCursor ?? null)
 const labels = { QUEUED: '排队中', PROCESSING: '识别中', COMPLETED: '已完成', FAILED: '识别失败' }
+
 await request
 </script>
 <template>

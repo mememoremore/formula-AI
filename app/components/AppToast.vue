@@ -1,6 +1,7 @@
 <script setup lang="ts">
 const { message, timestamp } = useToast()
 let timer: ReturnType<typeof setTimeout> | undefined
+
 watch(timestamp, () => {
   clearTimeout(timer)
   timer = setTimeout(() => {

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { FormulaLibraryItem } from '#shared/types/library'
+
 const props = defineProps<{ kind: 'library' | 'favorites'; ownerId: string }>()
 const route = useRoute()
 const favoritesOnly = props.kind === 'favorites'
@@ -26,12 +27,14 @@ const heading = computed(() =>
       ? '已收藏的公式'
       : '最近保存',
 )
+
 watch(
   () => categories.value?.items,
   () => {
     ensureActiveCategory()
   },
 )
+
 function ensureActiveCategory() {
   if (
     !categoryRequest.error.value &&
@@ -42,6 +45,7 @@ function ensureActiveCategory() {
   )
     void selectCategory('')
 }
+
 await Promise.all([listing.ready, categoryRequest.ready])
 </script>
 

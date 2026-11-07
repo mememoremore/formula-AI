@@ -1,4 +1,5 @@
 export default defineNuxtConfig({
+  modules: ['@nuxt/eslint'],
   compatibilityDate: '2026-10-20',
   devtools: { enabled: false },
   css: ['katex/dist/katex.min.css', '~/assets/css/main.css'],

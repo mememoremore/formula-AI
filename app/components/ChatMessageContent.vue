@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { chatSegments } from '~/utils/chat-content'
+
 const props = defineProps<{ content: string }>()
 const segments = computed(() => chatSegments(props.content))
 </script>

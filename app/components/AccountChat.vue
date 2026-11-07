@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { explanationLayout } from '~/utils/explanation-layout'
 import { explanationCopyText } from '~/utils/explanation-copy'
+
 const props = defineProps<{ conversationId: string; ownerId: string }>()
 const chat = useAccountChat(props.conversationId, props.ownerId)
 const { data: conversation, error, status } = chat.request
@@ -12,18 +13,21 @@ const layout = computed(() =>
 )
 const turn = computed(() => conversation.value?.currentTurn)
 const draft = ref('')
+
 onBeforeRouteLeave(
   () =>
     !draft.value.trim() ||
     !!pendingIntent.value ||
     window.confirm('提问尚未发送，确定放弃草稿吗？'),
 )
+
 function beforeUnload(event: BeforeUnloadEvent) {
   if (draft.value.trim() && !pendingIntent.value) {
     event.preventDefault()
     event.returnValue = ''
   }
 }
+
 onMounted(() => window.addEventListener('beforeunload', beforeUnload))
 onScopeDispose(() => {
   if (import.meta.client) window.removeEventListener('beforeunload', beforeUnload)
@@ -35,16 +39,19 @@ watch(
   },
   { immediate: true },
 )
+
 const { following, bottom } = useChatReading([
   () => conversation.value?.messages.length,
   () => turn.value?.partialContent,
 ])
+
 async function submit() {
   if (await chat.send(draft.value)) {
     draft.value = ''
     bottom()
   }
 }
+
 await chat.request
 </script>
 <template>

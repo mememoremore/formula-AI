@@ -1,6 +1,7 @@
 import type { DemoState } from '#shared/types/demo'
 
 export const DEMO_STORAGE_KEY = 'formula-ai:demo:v1'
+
 const record = (value: unknown): value is Record<string, unknown> =>
   typeof value === 'object' && value !== null && !Array.isArray(value)
 const text = (value: unknown, max = 5000): value is string =>
@@ -10,6 +11,7 @@ const text = (value: unknown, max = 5000): value is string =>
 export function parseDemoState(raw: string): DemoState | null {
   try {
     const value: unknown = JSON.parse(raw)
+
     if (
       !record(value) ||
       value.schemaVersion !== 1 ||

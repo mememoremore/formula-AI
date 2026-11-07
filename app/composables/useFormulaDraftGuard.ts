@@ -9,13 +9,16 @@ export function useFormulaDraftGuard(
     if (saving.value) return false
     return !dirty.value || window.confirm('公式修改尚未保存，确定放弃吗？')
   }
+
   onBeforeRouteLeave(canLeave)
   onBeforeRouteUpdate(canLeave)
+
   function beforeUnload(event: BeforeUnloadEvent) {
     if (!open.value || (!dirty.value && !saving.value)) return
     event.preventDefault()
     event.returnValue = ''
   }
+
   onMounted(() => window.addEventListener('beforeunload', beforeUnload))
   onScopeDispose(() => {
     if (import.meta.client) window.removeEventListener('beforeunload', beforeUnload)

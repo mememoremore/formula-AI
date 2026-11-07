@@ -1,10 +1,14 @@
 <script setup lang="ts">
 import { displayFormulaTitle } from '#shared/formula-title'
+
 const workspace = useWorkspace()
+
 await useAccountSession()
+
 const home = useHomeOverview(workspace)
 const { demo, recent, demoFormula, demoConversation, preview, loading } = home
 const { error: sessionError, status: sessionStatus } = home.session
+
 await home.request
 </script>
 <template>

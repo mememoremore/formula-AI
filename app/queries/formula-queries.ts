@@ -59,12 +59,14 @@ export function libraryQueryOptions(
 ) {
   // Snapshot the parameters; a delayed response must belong to its original key.
   const params = { ...filters, ...(kind === 'favorites' ? { favorites: 'true' } : {}) }
+
   return infiniteQueryOptions({
     queryKey: formulaQueryKeys.library(owner, kind, filters),
     enabled: !!owner,
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam, signal }) => {
       if (!owner) throw new Error('账号尚未确认')
+
       const page = await fetcher<FormulaLibraryPage>('/api/account/library', {
         query: { ...params, ...(pageParam ? { cursor: pageParam } : {}) },
         headers: { 'x-account-id': owner },
@@ -72,6 +74,7 @@ export function libraryQueryOptions(
         retry: 0,
         timeout: 15_000,
       })
+
       signal.throwIfAborted()
       return page
     },
@@ -85,12 +88,14 @@ export function categoryQueryOptions(owner: string | undefined, fetcher: Account
     enabled: !!owner,
     queryFn: async ({ signal }) => {
       if (!owner) throw new Error('账号尚未确认')
+
       const result = await fetcher<CategoryCollection>('/api/account/categories', {
         headers: { 'x-account-id': owner },
         signal,
         retry: 0,
         timeout: 15_000,
       })
+
       signal.throwIfAborted()
       return result
     },
@@ -125,5 +130,6 @@ export function isAccountQueryDenied(error: unknown) {
   const status =
     (error as { statusCode?: number; status?: number } | null)?.statusCode ??
     (error as { status?: number } | null)?.status
+
   return status === 401 || status === 403
 }

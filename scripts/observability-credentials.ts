@@ -1,4 +1,5 @@
 import 'dotenv/config'
+import { alertEmailEnabled, alertmanagerConfig } from './observability-alert-config'
 import { randomBytes } from 'node:crypto'
 import { mkdirSync, existsSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
@@ -12,46 +13,24 @@ writeFileSync(
   'URL: http://127.0.0.1:3300\nUsername: admin\nPassword file: grafana-admin-password\n',
   { mode: 0o600 },
 )
-const user = process.env.FORMULA_SMTP_USER?.trim(),
-  pass = process.env.FORMULA_SMTP_PASSWORD?.trim()
-const recipient = process.env.FORMULA_ALERT_TO?.trim() || user
-if (!user || !pass || !recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient))
-  throw new Error('告警SMTP配置不完整；未输出配置内容。')
-writeFileSync(resolve(directory, 'qq-smtp-password'), pass + '\n', { mode: 0o600 })
-const q = (value: string) => JSON.stringify(value)
-const config = `global:
-  resolve_timeout: 5m
-  smtp_smarthost: smtp.qq.com:465
-  smtp_from: ${q(user)}
-  smtp_auth_username: ${q(user)}
-  smtp_auth_password_file: /run/secrets/qq-smtp-password
-  smtp_require_tls: true
-route:
-  receiver: qq-email
-  group_by: [alertname, job, kind]
-  group_wait: 30s
-  group_interval: 5m
-  repeat_interval: 4h
-  routes:
-    - matchers: ['alertname="ObservabilityMailTest"']
-      receiver: qq-email
-      group_wait: 0s
-      group_interval: 1m
-receivers:
-  - name: qq-email
-    email_configs:
-      - to: ${q(recipient)}
-        force_implicit_tls: true
-        send_resolved: true
-        headers:
-          Subject: '[Formula AI] {{ .Status }} {{ .CommonLabels.alertname }}'
-        text: >-
-          Formula AI 监控告警。状态：{{ .Status }}。
-          {{ range .Alerts }}{{ .Annotations.summary }} {{ end }}
-          查看平台：http://127.0.0.1:3300/d/formula-overview
-inhibit_rules:
-  - source_matchers: ['alertname="FormulaServiceDown"', 'job="formula-worker"']
-    target_matchers: ['alertname=~"FormulaQueueSnapshotUnavailable|FormulaQueueBacklog"']
-`
-writeFileSync(resolve(directory, 'alertmanager.yaml'), config, { mode: 0o600 })
-console.log('本地观测凭据已准备，内容未输出。')
+const enabled = alertEmailEnabled(process.env.FORMULA_ALERT_EMAIL_ENABLED)
+let mail: { sender: string; recipient: string } | undefined
+const smtpSecret = resolve(directory, 'qq-smtp-password')
+if (enabled) {
+  const user = process.env.FORMULA_SMTP_USER?.trim(),
+    pass = process.env.FORMULA_SMTP_PASSWORD?.trim()
+  const recipient = process.env.FORMULA_ALERT_TO?.trim() || user
+  if (!user || !pass || !recipient || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(recipient))
+    throw new Error('告警SMTP配置不完整；未输出配置内容。')
+  writeFileSync(smtpSecret, pass + '\n', { mode: 0o600 })
+  mail = { sender: user, recipient }
+} else if (!existsSync(smtpSecret)) {
+  // Compose mounts this file even when no receiver uses SMTP. Never copy credentials by default.
+  writeFileSync(smtpSecret, 'email-disabled\n', { mode: 0o600 })
+}
+writeFileSync(resolve(directory, 'alertmanager.yaml'), alertmanagerConfig(mail), { mode: 0o600 })
+console.log(
+  enabled
+    ? '观测凭据已准备，告警邮件已显式启用。'
+    : '观测凭据已准备，告警仅在面板显示，不发送邮件。',
+)

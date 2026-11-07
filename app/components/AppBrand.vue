@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { AccountUser } from '#shared/types/account'
+
 const props = withDefaults(
   defineProps<{ avatar?: boolean; tagline?: boolean; accountUser?: AccountUser | null }>(),
   { avatar: true, tagline: false },

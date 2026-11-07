@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { authClient } from '~/utils/auth-client'
 import { authenticationError, accountRedirect } from '~/utils/auth-feedback'
+
 definePageMeta({ bottomNav: false })
 useHead({ title: '登录 · Formula AI' })
+
 const route = useRoute(),
   session = useAccountSession(),
   boundary = useNuxtApp().$accountBoundary
+
 await session
+
 const { data: account, error: sessionError, status: sessionStatus } = session
 const mode = ref<'login' | 'register'>('login'),
   email = ref(''),
@@ -21,6 +25,7 @@ const registrationPending = ref(false),
   otp = ref(''),
   resendWait = ref(0)
 let resendTimer: ReturnType<typeof setInterval> | undefined
+
 function startResendWait() {
   resendWait.value = 60
   if (resendTimer) clearInterval(resendTimer)
@@ -28,10 +33,12 @@ function startResendWait() {
     if (--resendWait.value <= 0 && resendTimer) clearInterval(resendTimer)
   }, 1000)
 }
+
 const isRegister = computed(() => mode.value === 'register')
 let controller: AbortController | undefined,
   disposed = false,
   sequence = 0
+
 onBeforeRouteLeave(() => {
   sequence++
   controller?.abort()
@@ -41,6 +48,7 @@ onScopeDispose(() => {
   controller?.abort()
   if (resendTimer) clearInterval(resendTimer)
 })
+
 function returnToLogin() {
   registrationPending.value = false
   mode.value = 'login'
@@ -54,8 +62,10 @@ function changeMode() {
   showPassword.value = false
   feedback.value = ''
 }
+
 async function confirmSession(navigate = false) {
   const expected = sequence
+
   await session.refresh()
   if (disposed || sequence !== expected) return false
   if (session.error.value) {
@@ -76,6 +86,7 @@ async function confirmSession(navigate = false) {
   }
   return false
 }
+
 async function retrySession() {
   if (busy.value) return
   busy.value = true
@@ -85,6 +96,7 @@ async function retrySession() {
     if (!disposed) busy.value = false
   }
 }
+
 async function submit() {
   if (
     busy.value ||
@@ -98,8 +110,10 @@ async function submit() {
     feedback.value = '请填写邮箱、密码和有效昵称。'
     return
   }
+
   const current = ++sequence,
     active = new AbortController()
+
   controller = active
   busy.value = true
   feedback.value = ''
@@ -109,6 +123,7 @@ async function submit() {
     const result = isRegister.value
       ? await authClient.signUp.email({ ...credentials, name: name.value.trim() }, options)
       : await authClient.signIn.email(credentials, options)
+
     if (disposed || current !== sequence) return
     if (result.error) {
       feedback.value = authenticationError(result.error.code, result.error.status)
@@ -138,13 +153,16 @@ async function submit() {
   } catch {
     if (disposed || current !== sequence) return
     feedback.value = '请求结果尚未确认，正在核对账号状态。'
+
     const confirmed = await confirmSession(true)
+
     if (!confirmed && !session.error.value && !acknowledged.value)
       feedback.value = '尚未确认登录，请核对网络后重试。若注册已完成，可切换到登录。'
   } finally {
     if (!disposed && current === sequence) busy.value = false
   }
 }
+
 async function resendCode() {
   if (busy.value || resendWait.value > 0) return
   busy.value = true
@@ -154,6 +172,7 @@ async function resendCode() {
       email: email.value.trim().toLowerCase(),
       type: 'email-verification',
     })
+
     if (result.error) feedback.value = '验证码发送失败，请稍后重试。'
     else {
       feedback.value = '如果账号已创建，验证码将发送到该邮箱。'
@@ -165,6 +184,7 @@ async function resendCode() {
     if (!disposed) busy.value = false
   }
 }
+
 async function verifyRegistration() {
   if (busy.value || !/^[0-9]{6}$/.test(otp.value)) {
     feedback.value = '请输入 6 位邮箱验证码。'
@@ -175,11 +195,14 @@ async function verifyRegistration() {
   try {
     const address = email.value.trim().toLowerCase()
     const verified = await authClient.emailOtp.verifyEmail({ email: address, otp: otp.value })
+
     if (verified.error) {
       feedback.value = '验证码错误、已过期或尝试次数过多，请检查或重新发送。'
       return
     }
+
     const signedIn = await authClient.signIn.email({ email: address, password: password.value })
+
     if (signedIn.error) {
       password.value = ''
       registrationPending.value = false

@@ -1,8 +1,11 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'auth', bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '手动创建公式 · Formula AI' })
+
 const session = useAccountSession()
+
 await session
+
 const ownerId = computed(() =>
   session.status.value === 'success' && !session.error.value
     ? session.data.value?.user?.id

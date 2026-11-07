@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
-import { mkdir, copyFile, writeFile, readFile } from 'node:fs/promises'
+import { mkdir, copyFile, writeFile } from 'node:fs/promises'
 import { resolve, dirname } from 'node:path'
 import { spawn, execFileSync } from 'node:child_process'
 import { pipeline } from 'node:stream/promises'

@@ -6,9 +6,12 @@ definePageMeta({
   contentWidth: 'reading',
 })
 useHead({ title: 'Word 导出 · Formula AI' })
+
 const route = useRoute()
 const session = useAccountSession()
+
 await session
+
 const ownerId = computed(() =>
   session.status.value === 'success' && !session.error.value
     ? session.data.value?.user?.id
@@ -17,7 +20,7 @@ const ownerId = computed(() =>
 const id = computed(() => String(route.params.id))
 </script>
 <template>
-  <AccountExportTask v-if="ownerId" :key="ownerId + ':' + id" :id="id" :owner-id="ownerId" />
+  <AccountExportTask v-if="ownerId" :id="id" :key="ownerId + ':' + id" :owner-id="ownerId" />
   <template v-else>
     <PageHeader title="Word 导出" back-to="/library" />
     <div class="card section stack" role="status">

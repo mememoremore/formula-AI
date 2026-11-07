@@ -1,14 +1,17 @@
 <script setup lang="ts">
 import { libraryView } from '#shared/navigation'
+
 definePageMeta({
   contentWidth: 'workspace',
   middleware: 'workspace',
   alias: ['/account/library', '/account/favorites', '/account/history', '/favorites', '/history'],
 })
 useHead({ title: '我的公式库 · Formula AI' })
+
 const route = useRoute()
 const { query, search } = useLibraryFilters()
 const { data: account, error, refresh, demo, status } = useWorkspace()
+
 await useAccountSession()
 </script>
 <template>
@@ -42,9 +45,9 @@ await useAccountSession()
     </template>
     <AccountLibrary
       v-else
+      :key="account.user.id + ':' + libraryView(route.query.view)"
       :kind="libraryView(route.query.view) === 'favorites' ? 'favorites' : 'library'"
       :owner-id="account.user.id"
-      :key="account.user.id + ':' + libraryView(route.query.view)"
     />
   </template>
   <p v-if="demo && !error" class="library-demo-note">本机演示 · 数据仅保存在当前浏览器</p>

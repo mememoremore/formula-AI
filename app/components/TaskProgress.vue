@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import type { TaskState } from '#shared/types/tasks'
+
 const props = defineProps<{
   task: TaskState
   title: string

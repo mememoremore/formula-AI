@@ -3,6 +3,7 @@ import type { AccountUser } from '#shared/types/account'
 import { privateAccountKey } from '~/utils/account-state'
 import { MANUAL_CREATION_RECOVERY_KEY } from '~/utils/manual-creation'
 import { EXPORT_RECOVERY_KEY } from '~/utils/export-state'
+
 /** 只观察已确认身份；网络失败不会被当作退出，也不会擅自清除演示数据。 */
 export default defineNuxtPlugin({
   name: 'account-boundary',
@@ -10,6 +11,7 @@ export default defineNuxtPlugin({
   setup(app) {
     const session = useNuxtData<{ user: AccountUser | null }>('account-session')
     let previous: string | null | undefined
+
     function clearPrivate() {
       app.$queryClient.clear()
       if (import.meta.client) {
@@ -21,7 +23,9 @@ export default defineNuxtPlugin({
           /* 存储不可用时回执仍按账号隔离。 */
         }
       }
+
       const keys: string[] = []
+
       clearNuxtData((key) => {
         if (!privateAccountKey(key)) return false
         keys.push(key)
@@ -30,6 +34,7 @@ export default defineNuxtPlugin({
       // 部分轮询使用上次快照作 default；身份边界必须清除这份回退展示。
       for (const key of keys) useNuxtData(key).data.value = undefined
     }
+
     function confirmedLogout() {
       session.data.value = { user: null }
       clearPrivate()
@@ -37,14 +42,18 @@ export default defineNuxtPlugin({
       app.$uploadDraft.clearAccountState()
       app.$chatDraft.clear()
     }
+
     let stop: (() => void) | undefined
+
     if (import.meta.client)
       onNuxtReady(() => {
         stop = watch(
           session.data,
           (value) => {
             if (!value) return
+
             const owner = value.user?.id ?? null
+
             if (previous !== undefined && previous !== owner) {
               clearPrivate()
               useState<Record<string, string>>('page-origins', () => ({})).value = {}

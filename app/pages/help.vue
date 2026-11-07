@@ -1,6 +1,7 @@
 <script setup lang="ts">
 definePageMeta({ bottomNav: false, contentWidth: 'reading' })
 useHead({ title: '使用帮助 · Formula AI' })
+
 const questions = [
   {
     title: '没有图片，也能创建公式吗？',

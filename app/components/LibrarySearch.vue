@@ -1,11 +1,15 @@
 <script setup lang="ts">
 const model = defineModel<string>({ required: true })
+
 defineProps<{ live?: boolean }>()
+
 const emit = defineEmits<{ search: [] }>()
+
 function clearSearch() {
   model.value = ''
   emit('search')
 }
+
 const id = useId()
 </script>
 <template>

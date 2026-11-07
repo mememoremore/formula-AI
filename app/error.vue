@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { safeReturnPath } from '#shared/navigation'
+
 const props = defineProps<{ error: { statusCode?: number; message?: string } }>()
 const code = computed(() => props.error.statusCode ?? 500)
 const heading = computed(() =>
@@ -20,15 +21,19 @@ const description = computed(() =>
 )
 const backTo = ref(''),
   leaving = ref(false)
+
 onMounted(() => {
   const previous = safeReturnPath(window.history.state?.back, '')
+
   if (previous && previous.split(/[?#]/)[0] !== window.location.pathname) backTo.value = previous
 })
+
 function recover(target: string) {
   if (leaving.value) return
   leaving.value = true
   return clearError({ redirect: safeReturnPath(target, '/') })
 }
+
 function retryPage() {
   leaving.value = true
   reloadNuxtApp({ force: true })
