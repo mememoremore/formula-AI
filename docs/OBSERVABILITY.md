@@ -81,7 +81,7 @@ docker compose -f compose.observability.yaml stop
 
 启动脚本显式设置 FORMULA_METRICS_ENABLED=true；Worker 本机9464端口、API /api/metrics、Python /metrics供采集。默认关闭时不监听Worker指标端口，API/Python指标返回404。Docker采集API时仅在指标启用后放行host.docker.internal这个开发Host，未关闭Host校验。Python沿用观测Compose覆盖文件，不添加Paddle依赖。
 
-Prometheus每15秒直接采集API、Worker和Python，不经过Alloy，避免重复采集。使用官方Quay镜像 v3.13.5（本轮核实的LTS）；TSDB保留7天或1GB，先达到的限制生效。这不是整个Docker数据卷的硬磁盘配额，WAL和活动数据仍有额外开销。
+Prometheus每15秒直接采集API、Worker和Python，不经过Alloy，避免重复采集。使用官方Quay镜像 v3.13.5（仓库锁定版本）；TSDB保留7天或1GB，先达到的限制生效。这不是整个Docker数据卷的硬磁盘配额，WAL和活动数据仍有额外开销。
 
 指标口径：
 
@@ -115,7 +115,7 @@ Prometheus 评估 observability/alerts.yaml，本地默认仅在面板显示告�
 
 本地保持FORMULA_ALERT_EMAIL_ENABLED未设置或false。正式部署需要邮件时显式设置为true，再运行scripts/observability-secure.ps1；只有启用后才读取FORMULA_SMTP_USER / FORMULA_SMTP_PASSWORD，FORMULA_ALERT_TO可设置收件人，默认发给SMTP账号。安全脚本会校验配置并热加载已有Alertmanager，不会因为容器已在运行而沿用旧邮件配置。注册验证码使用独立发信路径，不受此开关影响。授权码仅写入忽略的本地 secret 文件，通过 Docker secret 挂载，禁止输出环境文件或 Compose 完整渲染结果。邮件只含告警摘要和平台地址，不包含用户输入和日志正文。
 
-早期邮件联调曾发送测试告警与恢复通知，SMTP接受两次且失败计数为零；本轮关闭本地告警邮件后未发送测试邮件。规则验证命令 npm run test:alerts 使用隔离、无网络、只读 promtool 容器；CI 同样执行。
+实际邮件链路应在目标环境显式启用后验证，不能用历史联调结果代替。规则验证命令 npm run test:alerts 使用隔离、无网络、只读 promtool 容器；CI 同样执行。
 
 ## 前端异常与诊断
 
@@ -133,7 +133,7 @@ Loki 中使用 service=formula-browser，或查询事件：
 
 ## 容量、备份和恢复
 
-用 docker system df -v 查看各卷占用，并在 Docker Desktop 中查看可用磁盘。Loki/Tempo 的7天保留是时间策略，不是硬容量配额；Prometheus 的1GB不包含所有 WAL/活动块开销。本机安全日志受轮转限制，但其他 tmp 开发日志需要单独检查。建议剩余空间低于20%时人工处理；本轮未部署磁盘告警 exporter。
+用 docker system df -v 查看各卷占用，并在 Docker Desktop 中查看可用磁盘。Loki/Tempo 的7天保留是时间策略，不是硬容量配额；Prometheus 的1GB不包含所有 WAL/活动块开销。本机安全日志受轮转限制，但其他 tmp 开发日志需要单独检查。建议剩余空间低于20%时人工处理；当前未配置磁盘告警 exporter。
 
 在项目根目录运行：
 
@@ -143,7 +143,7 @@ node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/observability-ba
 
 脚本验证本机 Docker 和卷归属，短暂停止观测服务，备份六个观测卷到 backups/observability/时间目录，生成 SHA256 清单，然后恢复原运行容器。不会停止业务数据库或识别模型。最后将 Grafana 归档恢复到独立临时卷，执行 SQLite integrity_check，仅删除这一个带验证标签的临时卷；历史备份不自动删除。
 
-本轮六卷归档与隔离 Grafana 数据库恢复校验已通过。完整灾备仍须在另一台机器验证六服务启动、历史日志/trace 查询和告警状态。恢复前验证 manifest.json 的哈希，停止目标观测服务，先归档现有目标卷，再将指定归档解压到已确认的目标观测卷；不要覆盖业务卷，也不要直接对运行中卷解压。
+观测卷归档和 Grafana 数据库校验不等于完整灾备验证。完整灾备仍须在另一台机器验证六服务启动、历史日志/trace 查询和告警状态。恢复前验证 manifest.json 的哈希，停止目标观测服务，先归档现有目标卷，再将指定归档解压到已确认的目标观测卷；不要覆盖业务卷，也不要直接对运行中卷解压。
 
 备份含 Grafana 数据库与遥测记录，应限制访问并离线保存；本机 Windows 的实际文件保护由 NTFS ACL 决定，Node mode 不代替 Windows 权限。secret 文件与 .env 需单独加密备份，不能放进源码或公开附件。源码内的看板和规则可重新部署。没有设置自动备份计划和自动清理策略。
 
@@ -158,9 +158,9 @@ node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/observability-ba
 5. 配置持久卷、容量检查、异机备份与恢复演练。以上观测备份不替代业务 PostgreSQL、对象存储与模型的备份。
 6. 验证匿名请求被拒绝、三项 scrape 为 UP、日志/trace 可查询、一次测试告警及恢复通知被接受。
 
-## 验收范围
+## 验证方式
 
-隔离浏览器已通过识别、编辑、对话、Word导出、取消、Worker中断恢复，以及 trace 贯通和三类前端异常上报；SMTP、登录保护、监控查询和备份恢复由接口/命令验证。Grafana 人工视觉验收尚未完成：浏览器自动审批因使用额度拒绝打开该页面，未通过其他方式绕过。
+运行 npm run test:alerts 与 npm run test:errors 检查规则和查询边界；浏览器与链路回归入口见 [测试指南](TESTING.md)。部署后仍须验证真实采集、权限、链路跳转、邮件和备份恢复，不能用旧交付结果代替当前检查。
 
 ## 自动错误中心（用户无须提交）
 
@@ -172,6 +172,6 @@ node scripts/run-node.mjs node_modules/tsx/dist/cli.mjs scripts/observability-ba
 
 正常4xx（含表单校验、未登录、资源不存在）、自动重试、主动取消、失去任务领取权不计入这四类错误。纯UI错位、业务结果不符合预期但没有抛错、被业务主动吞掉的异常、登录前浏览器异常和离线丢失等不保证捕获。客户端上报仍是尽力投递，不能代替可靠审计。前端只保留错误类型、静态路由、同源文件/行列和标识，不增加原始message/stack/输入采集。
 
-邮件继续使用既有样本门槛和持续时间告警规则，不是每条错误都发邮件。本轮新增的是集中查看入口和查询分类，已有自动采集没有被改写。
+邮件继续使用既有样本门槛和持续时间告警规则，不是每条错误都发邮件。错误中心提供集中查看入口和查询分类。
 
 验证命令 npm run test:errors：仅创建带归属标签的临时Loki容器，不挂载业务卷，合成数据不会写入真实平台；实际测试四类计数、空记录、4xx/重试/取消/坏JSON过滤、中文摘要、trace链接提取及同类分组。

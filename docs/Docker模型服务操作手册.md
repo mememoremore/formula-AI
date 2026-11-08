@@ -11,9 +11,9 @@ formula-ai（Compose项目）
 └── recognition    Python公式识别服务
 ```
 
-`formula-ai` 是项目分组名，不是将所有服务合并运行的镜像。识别镜像为 `formula-ai-recognition:cpu-v1`；Nuxt 与 Node Worker 当前仍在 Windows 本机运行。
+`formula-ai` 是项目分组名，不是将所有服务合并运行的镜像。识别镜像为 `formula-ai-recognition:cpu-v1`；本地开发的 Nuxt 与 Node Worker 在宿主进程运行，生产使用独立容器。
 
-这样既能统一管理服务，又能单独构建、重启和排查 Python。数据库、存储与 Python 不必共享运行环境；后续 Nuxt 容器化时，继续作为同一 Compose 下的独立服务即可。
+这样既能统一管理服务，又能单独构建、重启和排查 Python。数据库、存储与 Python 不必共享运行环境；生产容器化后仍作为独立服务，不能把开发的回环地址照搬到容器内。
 
 模型目录默认是项目旁边的 `../model`，即当前桌面的 `model` 文件夹。Compose 将其只读挂载到 `/models/formula`，不会复制进镜像，不会修改原始图、配置或权重。换电脑时需要另行准备相同模型目录。
 
@@ -57,14 +57,14 @@ Worker 应提示 `识别（Python）`。`.env` 修改后独立 Worker 不会自�
 
 ## 配置变量
 
-| 变量                           | 默认值/含义                                           |
-| ------------------------------ | ----------------------------------------------------- |
-| `NUXT_RECOGNITION_PROVIDER`    | `mock` 或 `python`，明确选择识别来源                  |
-| `NUXT_RECOGNITION_SERVICE_URL` | 本机 Worker 使用 `http://127.0.0.1:8001`              |
-| `NUXT_RECOGNITION_API_KEY`     | Worker 与 Python 共用的私有服务密钥，至少24位且无空白 |
-| `RECOGNITION_MODEL_PATH`       | `../model`，相对于 `compose.yaml`；可使用实际绝对路径 |
-| `RECOGNITION_PORT`             | `8001`，绑定 Windows 回环地址；容器内部为8000         |
-| `RECOGNITION_CPU_THREADS`      | `4`，范围1～16；容器目前最多使用4个CPU、6GiB内存      |
+| 变量                           | 默认值/含义                                                   |
+| ------------------------------ | ------------------------------------------------------------- |
+| `NUXT_RECOGNITION_PROVIDER`    | `mock` 或 `python`，明确选择识别来源                          |
+| `NUXT_RECOGNITION_SERVICE_URL` | 本机 Worker 使用 `http://127.0.0.1:8001`                      |
+| `NUXT_RECOGNITION_API_KEY`     | Worker 与 Python 共用的私有服务密钥，至少24位且无空白         |
+| `RECOGNITION_MODEL_PATH`       | `../model`，相对于 `compose.yaml`；可使用实际绝对路径         |
+| `RECOGNITION_PORT`             | `8001`，绑定 Windows 回环地址；容器内部为8000                 |
+| `RECOGNITION_CPU_THREADS`      | `4`，范围1～16；开发容器上限见 compose.yaml，生产另设资源限制 |
 
 改端口时要同时修改服务 URL；改线程时注意容器 CPU 上限，线程更多不一定更快。服务当前是 CPU 单路推理，尚未配置 GPU 透传或 GPU 版框架。
 
@@ -111,6 +111,10 @@ npm run recognition:down
 - 更换模型时，先备份或使用新的发布目录，更新模型路径并重新创建识别容器。服务启动时计算三份模型文件的组合指纹，写入识别结果的模型版本。
 - 当前只接受已验证的 `PP-FormulaNet_plus-L` 处理链；新模型结构或处理配置变化时应明确适配，不能因为文件名相同就直接当成兼容版本。
 
+## 生产与模型来源
+
+模型权重由协作者提供，仓库只包含服务集成代码，不包含训练数据、训练过程或权重。请确认使用与分发授权，按 [生产手册](../deploy/README.md) 单独打包模型并只读挂载。单机试运行限制与开发 Compose 不同，不能用开发环境内存上限估算 4GB 服务器可用容量。
+
 ## 常见问题
 
 | 现象                           | 检查方法                                                                           |
@@ -121,7 +125,7 @@ npm run recognition:down
 | 识别提示配置或鉴权失败         | 确认 URL 与端口、密钥一致；不要把服务密钥填成 DeepSeek API 密钥                    |
 | 设备忙或暂时不可用             | 服务只接受一路计算，队列有限重试；检查是否还有上一条耗时推理                       |
 | 整页、多公式或模糊手写质量不好 | 首轮接口面向单公式；应先裁剪，并用实际样本评测，不能靠增加重试解决质量问题         |
-| Nuxt或Worker以后搬入容器       | URL通常改为 `http://recognition:8000`，容器内 `127.0.0.1` 指向其自身               |
+| Nuxt或Worker运行在容器         | URL通常改为 `http://recognition:8000`，容器内 `127.0.0.1` 指向其自身               |
 | 大型构建报内存分配失败         | 分开执行 Nuxt 构建和 Python 镜像构建，先确认系统可用资源；不要同时启动多份模型实例 |
 
 目前保留60秒识别期限和队列90秒执行期限；重试由 pg-boss 管理。HTTP 取消不会强行中断 Paddle 运算，计算线程会持有推理锁直到结束，避免重试产生并发堆积。

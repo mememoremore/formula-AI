@@ -1,12 +1,12 @@
 # Formula AI：4核4GB 单机试运行
 
-环境：Ubuntu24.04 x86_64、Docker29.1.3，已有宿主Nginx与备案域名。公网入口为 `https://www.ideal-formula.top`，根域名重定向到www。既有证书继续使用 `/etc/nginx/ssl/ideal-formula.top/fullchain.crt` 和 `private.key`，不复制进镜像或部署包。
+环境：Ubuntu24.04 x86_64、Docker29.1.3，已有宿主Nginx、域名及证书（公网域名访问前须确认备案与接入状态）。公网入口为 `https://www.ideal-formula.top`，根域名重定向到www。既有证书继续使用 `/etc/nginx/ssl/ideal-formula.top/fullchain.crt` 和 `private.key`，不复制进镜像或部署包。
 
 ## 包含与不包含
 
 镜像：Web/Worker/迁移共用一个 Node24 镜像，另有 PostgreSQL17、SeaweedFS4.48、CPU识别镜像。单独复制模型三个必需文件。`manifest.json` 记录镜像ID、源码状态、文件SHA256；不包含 `.env`、私钥、备份、数据库或用户图片。
 
-本轮使用**全新生产数据库和命名卷**。本机账号/公式不会自动出现在生产。不要导入本机开发库覆盖生产库。已有kind集群、模型原件、备份和旧站静态文件保留。
+首次部署使用**独立生产数据库和命名卷**；已有部署必须保留原卷，不能重复创建空环境冒充升级。本机账号/公式不会自动出现在生产。不要导入本机开发库覆盖生产库。已有kind集群、模型原件、备份和旧站静态文件保留。
 
 ## 1. 本地构建与打包（开发机）
 
@@ -82,12 +82,12 @@ sudo sh deploy/compose.sh ps -a
 
 stop保留卷。**不要使用 `down -v`、`docker system prune --volumes` 或删除模型/备份。**
 
-生产备份必须同时覆盖Postgres与Seaweed卷，单独复制数据库不能恢复图片。维护窗口内先停止Web和Worker，等Worker退出，再 `pg_dump -Fc`，停止Seaweed后归档其卷；配置环境文件另做私密备份。完成后按storage→Web/Worker顺序启动，并在独立环境试还原后才称为有效备份。此轮没有自动配置备份定时任务、远程备份或续期服务；上线后必须安排这些工作，磁盘上的单份数据不算备份。
+生产备份必须同时覆盖Postgres与Seaweed卷，单独复制数据库不能恢复图片。维护窗口内先停止Web和Worker，等Worker退出，再 `pg_dump -Fc`，停止Seaweed后归档其卷；配置环境文件另做私密备份。完成后按storage→Web/Worker顺序启动，并在独立环境试还原后才称为有效备份。当前未自动配置备份定时任务、远程备份或续期服务；上线后必须安排这些工作，磁盘上的单份数据不算备份。
 
-## 本轮修改与验证范围
+## 验证与运维边界
 
-Dockerfile/.dockerignore：Linux生产构建、依赖裁剪、固定Pandoc、排除秘密。compose.production.yaml：独立卷、内网服务、资源/日志上限与健康检查。deploy目录：生成私密配置、验证插件、离线包和启动/Nginx操作说明。Prisma/tsx从开发依赖移到运行依赖，版本不变。auth/client-ip与auth入口：显式信任反向代理的单IP；storage/object-store：仅定向允许隔离网络storage:8333的HTTP；deployment-boundaries测试覆盖边界。
+Dockerfile 与生产 Compose 提供 Linux 镜像、固定转换工具、资源与日志限制、内网服务和健康检查；部署脚本负责配置生成、离线包、启动与 Nginx 安装。开发验证入口见 [测试指南](../docs/TESTING.md)。
 
-实际验证记录见同日期spec/plan和验收记录。服务器部署与真实SMTP/DeepSeek请求需在上传之后核验，不能以本地测试替代。
+服务器部署后仍需核验 HTTPS、公网连通、账号发信、真实模型、DeepSeek、私有下载、故障恢复和备份还原。基础健康探针与本地替身测试不能代替这些检查。
 
 已知运维限制：既有诊断日志中的environment标签仍固定为local，生产排查须结合实际服务器、service和traceID；未将其当作已经区分的环境。当前没有集中接入云端日志或自动备份计划。
