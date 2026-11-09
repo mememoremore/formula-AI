@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { displayFormulaTitle } from '#shared/formula-title'
 import type { FormulaLibraryPage, FormulaLibraryItem } from '#shared/types/library'
 
 const props = defineProps<{ ownerId: string }>()
@@ -111,7 +112,7 @@ async function more() {
             class="card context-option"
             @click="emit('selected', formula)"
           >
-            <span>{{ formula.title }}</span>
+            <span>{{ displayFormulaTitle(formula.title) }}</span>
             <MathFormula :latex="formula.latex" :display="false" />
             <AppIcon name="plus" :size="16" />
           </button>

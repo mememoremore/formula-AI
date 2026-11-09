@@ -20,6 +20,21 @@ test('资料只接受有效昵称与内嵌图片，不接受远程 URL', () => {
   )
   assert.equal(accountAvatarUrl('https://evil.test/a.png', 'owner'), null)
 })
+
+test('年级和学习目的可选填、清空并限制长度，旧资料请求不覆盖新字段', () => {
+  assert.deepEqual(parseProfileUpdate({ name: '同学' }), { name: '同学' })
+  assert.deepEqual(
+    parseProfileUpdate({ name: '同学', grade: ' 高一 ', learningPurpose: ' 备考 ' }),
+    { name: '同学', grade: '高一', learningPurpose: '备考' },
+  )
+  assert.deepEqual(parseProfileUpdate({ name: '同学', grade: '', learningPurpose: ' ' }), {
+    name: '同学',
+    grade: null,
+    learningPurpose: null,
+  })
+  assert.throws(() => parseProfileUpdate({ name: '同学', grade: 'a'.repeat(81) }))
+  assert.throws(() => parseProfileUpdate({ name: '同学', learningPurpose: 'a'.repeat(301) }))
+})
 test('头像重新编码成512方形WebP，不信任客户端声明', async () => {
   const input = await sharp({
     create: { width: 80, height: 120, channels: 3, background: '#6257e5' },

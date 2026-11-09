@@ -23,7 +23,7 @@ export function createAuthentication(db: PrismaClient, config: AuthConfiguration
   }
   const origin = site.origin
   return betterAuth({
-    appName: 'Formula AI',
+    appName: '墨析',
     secret: config.secret,
     baseURL: origin,
     database: prismaAdapter(db, { provider: 'postgresql', transaction: true }),

@@ -44,6 +44,8 @@ export async function audit(
 export async function fileReferenced(tx: ResourceTransaction, file: StoredFile) {
   return Boolean(
     (await tx.recognitionTask.count({ where: { inputFileId: file.id } })) ||
+    (await tx.recognitionBatchImage.count({ where: { fileId: file.id } })) ||
+    (await tx.recognitionBatchPart.count({ where: { fileId: file.id } })) ||
     (await tx.exportTask.count({ where: { fileId: file.id } })) ||
     (await tx.user.count({ where: { image: file.objectKey } })),
   )

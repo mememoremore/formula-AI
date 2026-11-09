@@ -31,9 +31,9 @@ defineProps<{ status: JobStatus }>()
         <p v-if="status === 'QUEUED' || status === 'PROCESSING' || status === 'FAILED'">
           {{
             status === 'QUEUED'
-              ? '已进入队列，也可能正在等待自动重试。'
+              ? '已进入队列，也可能正在等待自动重试；'
               : status === 'PROCESSING'
-                ? '正在处理图片，暂不提供精确进度。'
+                ? '正在处理图片，暂不提供精确进度；'
                 : '请查看原因，确认后可重新提交。'
           }}
         </p>

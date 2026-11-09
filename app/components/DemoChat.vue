@@ -87,7 +87,7 @@ async function submit() {
   padding: 18px 0;
 }
 h2 {
-  font-size: 23px;
+  font-size: min(23px, var(--page-title-font-size, 24px));
   margin-top: 18px;
 }
 .demo-welcome > p {

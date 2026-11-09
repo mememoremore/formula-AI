@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { displayFormulaTitle } from '#shared/formula-title'
+
 const props = defineProps<{
   title: string
   latex: string
@@ -11,8 +13,7 @@ const props = defineProps<{
   deletable?: boolean
 }>()
 const emit = defineEmits<{ edit: []; remove: [] }>()
-const original = ref(false),
-  imageFailed = ref(false)
+const imageFailed = ref(false)
 
 watch(
   () => props.imageSrc,
@@ -25,17 +26,22 @@ watch(
   <article class="formula-detail">
     <header class="detail-title">
       <div class="detail-heading">
-        <h2>{{ title }}</h2>
-        <button
-          v-if="needsName"
-          type="button"
-          class="text-button"
-          aria-label="命名公式"
-          @click="emit('edit')"
-        >
-          <AppIcon name="pencil" :size="15" />
-          命名
-        </button>
+        <h2>{{ displayFormulaTitle(title) }}</h2>
+        <div v-if="$slots['title-actions']" class="detail-title-favorite">
+          <slot name="title-actions" />
+        </div>
+        <div class="detail-heading-actions">
+          <button
+            v-if="needsName"
+            type="button"
+            class="text-button"
+            aria-label="命名公式"
+            @click="emit('edit')"
+          >
+            <AppIcon name="pencil" :size="15" />
+            命名
+          </button>
+        </div>
       </div>
       <div v-if="badge" class="detail-meta">
         <span v-if="badge" class="detail-badge">{{ badge }}</span>
@@ -43,58 +49,26 @@ watch(
       <slot name="organization" />
     </header>
     <section class="detail-reading" aria-label="公式与原图">
-      <div v-if="!manual" class="detail-tabs" aria-label="公式展示">
-        <button
-          class="chip"
-          :class="{ active: !original }"
-          :aria-pressed="!original"
-          @click="original = false"
-        >
-          数学公式
-        </button>
-        <button
-          v-if="!manual"
-          class="chip"
-          :class="{ active: original }"
-          :aria-pressed="original"
-          @click="original = true"
-        >
-          {{ manual ? '原始输入' : sample ? '原始示例' : '原始图片' }}
-        </button>
+      <div v-if="!manual" class="detail-tabs">
+        <strong>{{ sample ? '原始示例' : '原始图片' }}</strong>
+        <div class="reading-actions"><slot name="reading-actions" /></div>
       </div>
-      <div v-if="!original" class="paper-preview detail-paper">
-        <MathFormula :latex="latex" tabindex="0" role="group" aria-label="数学公式，可横向滚动" />
-      </div>
-      <div v-else class="source-image">
+      <div v-if="!manual" class="source-image">
         <img
           v-if="imageSrc && !imageFailed"
           :src="imageSrc"
           alt="识别时选择的公式原图"
           @error="imageFailed = true"
         />
-        <template v-else-if="(sample || manual) && originalLatex">
-          <MathFormula
-            :latex="originalLatex"
-            tabindex="0"
-            :aria-label="manual ? '原始输入公式，可横向滚动' : '原始示例公式，可横向滚动'"
-          />
-          <p class="info-note">
-            {{ manual ? '手动输入，未上传原图。' : '预置公式示例，并非上传原图' }}
-          </p>
-        </template>
+        <MathFormula v-else-if="sample && originalLatex" :latex="originalLatex" />
         <p v-else class="info-note">原图暂时不可用，已保存的公式不受影响。</p>
       </div>
-    </section>
-    <slot name="primary" />
-    <section class="detail-tools" aria-label="公式操作">
-      <div class="detail-toolbar">
-        <button class="button button-white" @click="emit('edit')">
-          <AppIcon name="pencil" :size="16" />
-          编辑公式
-        </button>
-        <TextCopyAction :text="latex" label="复制 LaTeX" success-message="LaTeX 已复制。" />
-        <div class="detail-actions"><slot name="actions" /></div>
+      <p class="field-label" style="margin-top: 14px">数学公式</p>
+      <div class="paper-preview detail-paper">
+        <MathFormula :latex="latex" tabindex="0" role="group" aria-label="数学公式，可横向滚动" />
       </div>
+    </section>
+    <section class="detail-tools" aria-label="公式操作">
       <details class="card latex-card">
         <summary>
           LaTeX 代码
@@ -102,18 +76,18 @@ watch(
         </summary>
         <code>{{ latex }}</code>
       </details>
-      <details v-if="deletable" class="more-tools">
-        <summary>
-          更多操作
-          <AppIcon name="chevron" :size="15" />
-        </summary>
-        <button class="text-button danger-item" @click="emit('remove')">
-          <AppIcon name="trash" :size="16" />
-          删除公式
+      <div class="detail-toolbar">
+        <button class="button button-white" @click="emit('edit')">
+          <AppIcon name="pencil" :size="16" />
+          编辑公式
         </button>
-      </details>
+        <FormulaCopyAction :formulas="[latex]" />
+        <div class="detail-actions"><slot name="actions" /></div>
+      </div>
       <div v-if="$slots.note" class="info-note detail-note"><slot name="note" /></div>
     </section>
+    <slot name="primary" />
+    <slot name="footer" />
   </article>
 </template>
 <style scoped>
@@ -131,7 +105,7 @@ watch(
   margin-bottom: 10px;
 }
 .detail-title h2 {
-  font-size: 24px;
+  font-size: min(24px, var(--page-title-font-size, 24px));
   line-height: 1.45;
   overflow-wrap: anywhere;
   letter-spacing: -0.6px;
@@ -149,13 +123,19 @@ watch(
 }
 .detail-tabs {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 10px;
   margin-bottom: 10px;
 }
-.detail-tabs .chip {
-  min-height: 44px;
-  min-width: 100px;
+.reading-actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+.reading-actions :deep(.text-button) {
+  font-size: 13px;
+  white-space: nowrap;
 }
 .detail-paper {
   display: grid;
@@ -184,7 +164,7 @@ watch(
 .latex-card {
   min-width: 0;
   padding: 8px 18px;
-  margin-top: 18px;
+  margin: 0 0 14px;
 }
 summary {
   display: flex;
@@ -210,7 +190,7 @@ code {
   user-select: text;
 }
 .detail-tools {
-  margin-top: 24px;
+  margin-top: 14px;
 }
 .detail-actions {
   margin-top: 24px;
@@ -219,9 +199,6 @@ code {
   margin-top: 20px;
   line-height: 1.9;
   color: var(--color-text-secondary);
-}
-.danger-item {
-  color: var(--color-danger);
 }
 @media (min-width: 900px) {
   .detail-paper {
@@ -232,13 +209,21 @@ code {
   display: flex;
   align-items: center;
   gap: 12px;
-  justify-content: space-between;
 }
 .detail-heading h2 {
   min-width: 0;
 }
-.detail-heading > button {
+.detail-title-favorite {
+  display: flex;
+  align-items: center;
   flex-shrink: 0;
+}
+.detail-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  margin-left: auto;
 }
 .detail-toolbar {
   display: grid;
@@ -266,13 +251,6 @@ code {
 }
 .detail-toolbar > :has(.copy-fallback) {
   grid-column: 1 / -1;
-}
-.more-tools {
-  margin-top: 12px;
-}
-.more-tools summary {
-  color: var(--color-text-secondary);
-  justify-content: flex-start;
 }
 details[open] > summary > .app-icon {
   transform: rotate(90deg);

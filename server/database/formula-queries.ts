@@ -23,6 +23,7 @@ export async function readSavedFormula(
   const image = formula.recognitionTask?.inputFile
   return {
     id: formula.id,
+    identityId: formula.canonicalId ?? formula.id,
     title: formula.title,
     createdAt: formula.createdAt.toISOString(),
     updatedAt: formula.updatedAt.toISOString(),

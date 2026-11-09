@@ -83,7 +83,7 @@ async function save() {
 
     conflicted.value = conflict
     feedback.value = conflict
-      ? '公式名称或内容已被其他窗口修改。草稿仍保留，可先复制草稿，再重新读取最新内容。'
+      ? '公式名称或内容已被其他窗口修改；草稿仍保留，可先复制草稿，再重新读取最新内容。'
       : workspaceFeedback(error, '保存失败，草稿已保留，请检查网络后重试。')
   }
 }
@@ -91,7 +91,7 @@ async function save() {
 async function copyDraft() {
   try {
     await navigator.clipboard.writeText(title.value + '\n\n' + latex.value)
-    feedback.value = '草稿已复制。重新读取会替换当前编辑内容。'
+    feedback.value = '草稿已复制；重新读取会替换当前编辑内容。'
   } catch {
     feedback.value = '复制不可用，请手动保留名称和 LaTeX；当前草稿未变。'
   }

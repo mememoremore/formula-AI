@@ -13,6 +13,7 @@ export interface CategoryCollection {
   uncategorizedCount: number
 }
 export interface FormulaLibraryItem extends FormulaHistoryItem {
+  savedAt?: string
   imageId?: string | null
   category: FormulaCategory | null
   favorite: boolean
@@ -22,6 +23,7 @@ export interface FormulaLibraryPage {
   nextCursor: string | null
 }
 export interface FormulaLibraryFilters {
+  saved?: boolean
   q?: string
   category?: string
   favorites?: boolean

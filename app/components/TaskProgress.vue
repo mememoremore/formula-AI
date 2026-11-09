@@ -16,12 +16,13 @@ const labels = {
   COMPLETED: '处理完成',
   FAILED: '暂时未能完成',
 }
+const stopped = computed(() => props.task.errorMessage?.startsWith('已停止') ?? false)
 const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.status))
 </script>
 <template>
   <section
     class="task-progress"
-    :class="{ failed: task.status === 'FAILED', warning }"
+    :class="{ failed: task.status === 'FAILED' && !stopped, warning }"
     aria-live="polite"
   >
     <PaperArtwork v-if="!compact" />
@@ -39,17 +40,20 @@ const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.stat
         :size="29"
       />
     </span>
-    <h2>{{ heading || labels[task.status] }}</h2>
+    <h2>{{ stopped ? '已停止' : heading || labels[task.status] }}</h2>
     <p class="task-title">{{ title }}</p>
     <p v-if="!waiting" class="info-note">
       {{
-        description ||
+        (stopped ? '任务已停止，已经生成的结果保留。' : description) ||
         (task.status === 'COMPLETED'
           ? '结果已保存在你的账号。'
           : '已保留原始资料，可检查原因后重试。')
       }}
     </p>
-    <p v-if="task.errorMessage" :class="task.status === 'FAILED' ? 'error-text' : 'info-note'">
+    <p
+      v-if="task.errorMessage"
+      :class="task.status === 'FAILED' && !stopped ? 'error-text' : 'info-note'"
+    >
       {{ task.errorMessage }}
     </p>
   </section>
@@ -82,7 +86,7 @@ const waiting = computed(() => ['QUEUED', 'PROCESSING'].includes(props.task.stat
   line-height: 1.8;
 }
 h2 {
-  font-size: 24px;
+  font-size: min(24px, var(--page-title-font-size, 24px));
   line-height: 1.35;
 }
 p {

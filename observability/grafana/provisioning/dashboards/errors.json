@@ -1,6 +1,6 @@
 {
   "uid": "formula-errors",
-  "title": "Formula AI 自动错误中心",
+  "title": "墨析 自动错误中心",
   "schemaVersion": 39,
   "version": 1,
   "timezone": "browser",
@@ -9,7 +9,7 @@
     "from": "now-1h",
     "to": "now"
   },
-  "tags": ["Formula AI", "自动错误"],
+  "tags": ["墨析", "自动错误"],
   "links": [
     {
       "title": "运行总览",

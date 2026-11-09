@@ -1,12 +1,13 @@
 <script setup lang="ts">
-import { displayFormulaTitle } from '#shared/formula-title'
+import { recognitionHistoryTitle, recognitionResultPresentation } from '#shared/recognition-result'
 
 const workspace = useWorkspace()
 
 await useAccountSession()
 
 const home = useHomeOverview(workspace)
-const { demo, recent, demoFormula, demoConversation, preview, loading } = home
+const { demo, recent, demoFormula, preview, loading } = home
+const labels = { QUEUED: '排队中', PROCESSING: '识别中', COMPLETED: '已完成', FAILED: '识别失败' }
 const { error: sessionError, status: sessionStatus } = home.session
 
 await home.request
@@ -16,14 +17,18 @@ await home.request
     <AppBrand :account-user="home.session.data.value?.user ?? null" />
   </div>
   <HomeHero :camera-to="home.cameraTo.value" :upload-to="home.uploadTo.value" />
+  <PersonalizedRecommendations
+    v-if="!demo && home.session.data.value?.user"
+    :key="home.session.data.value.user.id"
+    :owner-id="home.session.data.value.user.id"
+  />
   <section class="home-recents" aria-labelledby="home-recents-title" :aria-busy="loading">
     <div class="section-heading">
       <div>
-        <p class="section-kicker">留住思考的轨迹</p>
-        <h2 id="home-recents-title">继续探索</h2>
+        <h2 id="home-recents-title">最近识别</h2>
       </div>
-      <NuxtLink :to="home.libraryTo.value" class="text-button">
-        公式库
+      <NuxtLink :to="demo ? '/library?space=demo' : '/library?view=recent'" class="text-button">
+        全部记录
         <AppIcon name="arrowRight" :size="14" />
       </NuxtLink>
     </div>
@@ -48,61 +53,29 @@ await home.request
     </div>
     <div v-else class="stack home-records">
       <div
-        v-if="recent.failed.length || home.request.error.value"
+        v-if="recent.failed || home.request.error.value"
         class="card status-panel home-feedback"
         role="alert"
       >
-        <h3>{{ recent.failed.length === 1 ? '部分记录暂时未能读取' : '最近记录暂时未能读取' }}</h3>
-        <p>
-          {{ recent.failed.includes('formulas') ? '公式记录暂不可用。' : ''
-          }}{{ recent.failed.includes('conversations') ? '对话记录暂不可用。' : '' }}
-          已读取的内容仍可打开。
-        </p>
+        <h3>最近识别暂时未能读取</h3>
+        <p>请重试，已有识别记录仍保存在账号中。</p>
         <button class="text-button" @click="home.retryRecent">重试最近记录</button>
       </div>
       <RecentEntryCard
-        v-if="!demo && recent.conversation"
-        label="最近创建的对话"
-        :title="
-          recent.conversation.latex
-            ? recent.conversation.title.replace(/ · v[0-9]+(?= 解释$|$)/, '')
-            : recent.conversation.title
-        "
+        v-for="item in recent.recognitions"
+        :key="item.id"
+        :title="recognitionHistoryTitle(item)"
         :subtitle="
-          recent.conversation.preview &&
-          recent.conversation.preview.trim() !== recent.conversation.title.trim()
-            ? recent.conversation.preview
-            : '继续提问'
+          item.createdAt.slice(0, 10) +
+          ' · ' +
+          (recognitionResultPresentation(item)?.label || labels[item.status])
         "
-        :latex="recent.conversation.latex ?? undefined"
-        :to="'/ai/' + recent.conversation.id"
-      />
-      <RecentEntryCard
-        v-else-if="demo && demoConversation"
-        label="继续本机对话"
-        v-bind="demoConversation"
-        sample
-      />
-      <RecentEntryCard
-        v-else-if="demo && demoFormula"
-        label="试着问问为什么"
-        title="从一个公式开始思考"
-        subtitle="体验公式解释与连续提问"
-        :latex="demoFormula.latex"
-        :to="'/ai/new?space=demo&formulaId=' + demoFormula.id"
-        sample
-      />
-      <RecentEntryCard
-        v-for="formula in recent.formulas"
-        :key="formula.id"
-        label="最近保存的公式"
-        :title="displayFormulaTitle(formula.title, !!formula.imageId)"
-        :subtitle="formula.category?.name || '未分类'"
         formula
-        :latex="formula.latex"
-        :to="'/formulas/' + formula.id"
-        :image-src="
-          formula.imageId ? '/api/account/files/' + formula.imageId + '/content' : undefined
+        :latex="item.latex ?? undefined"
+        :to="
+          item.formulaId && item.status === 'COMPLETED'
+            ? '/formulas/' + item.formulaId
+            : '/recognitions/' + item.id
         "
       />
       <RecentEntryCard
@@ -121,16 +94,16 @@ await home.request
       />
       <div
         v-if="
-          !recent.failed.length &&
+          !recent.failed &&
           !home.request.error.value &&
-          !recent.formulas.length &&
+          !recent.recognitions.length &&
           (!demo || !demoFormula)
         "
         class="card"
       >
         <EmptyState
-          title="等待你的第一笔"
-          description="上传一张清晰的公式图片，把新的思考留在这里。"
+          title="还没有识别记录，快去体验吧~"
+          description="拍照或上传公式图片，最近10条识别记录会显示在这里。"
           action-label="去识别"
           :action-to="home.uploadTo.value"
         />
@@ -155,12 +128,7 @@ await home.request
   align-items: flex-end;
 }
 .section-heading h2 {
-  font-size: 19px;
-}
-.section-kicker {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  margin-bottom: 3px;
+  font-size: 16px;
 }
 .home-records {
   gap: 16px;

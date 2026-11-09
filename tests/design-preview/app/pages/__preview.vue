@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ layout: false, bottomNav: false })
-useHead({ title: 'Formula AI · R2 设计样板' })
+useHead({ title: '墨析 · R2 设计样板' })
 const route = useRoute()
 const layout = computed(() => (route.query.layout === 'wide' ? 'wide' : 'centered'))
 const modal = ref(false)
@@ -19,7 +19,7 @@ function save() {
     <header class="sample-toolbar">
       <div class="sample-brand">
         <img src="/favicon.svg" alt="" width="28" height="28" />
-        <strong>Formula AI</strong>
+        <strong>墨析</strong>
         <span>设计样板 · R2</span>
       </div>
       <nav class="sample-switch" aria-label="仅预览布局对比">

@@ -5,6 +5,8 @@ import hmac
 import logging
 import re
 import threading
+import io
+import base64
 from contextlib import asynccontextmanager
 from typing import Annotated, Literal
 from uuid import uuid4
@@ -97,6 +99,49 @@ def create_app(settings: Settings | None = None, engine=None) -> FastAPI:
             # 不记录请求体、图片或原始依赖错误中的路径与服务配置。
             logger.error("推理失败 request_id=%s type=%s", request_id, type(error).__name__)
             raise HTTPException(status_code=503, detail="识别服务暂时不可用。") from error
+        finally:
+            await image.close()
+
+    @application.post("/regions", dependencies=[Depends(authorize)])
+    async def regions(image: Annotated[UploadFile, File()]):
+        if image.content_type not in {"image/jpeg", "image/png"}:
+            raise HTTPException(status_code=415, detail="仅支持 JPEG 或 PNG 图片。")
+        try:
+            content = await image.read(MAX_IMAGE_BYTES + 1)
+            if not content or len(content) > MAX_IMAGE_BYTES:
+                raise HTTPException(status_code=413, detail="图片为空或超出10MB限制。")
+
+            def detect():
+                import numpy as np
+                from PIL import Image
+                from .split_formulas import formula_crops
+                if not inference_lock.acquire(blocking=False):
+                    raise HTTPException(status_code=503, detail="识别设备忙，请稍后重试。")
+                try:
+                    with decode_image(content) as decoded:
+                        crops = formula_crops(np.asarray(decoded.convert("RGB"))[:, :, ::-1].copy())
+                        if not crops:
+                            raise ValueError("未检测到公式区域，请旋转或裁剪图片后重试。仅支持上下分开的公式。")
+                        if len(crops) > 20:
+                            raise ValueError("一次最多检测20条公式，请将图片分成几张后重试。")
+                        result = []
+                        total_bytes = 0
+                        for index, (box, crop) in enumerate(crops):
+                            part = Image.fromarray(crop[:, :, ::-1])
+                            part.thumbnail((1800, 1800))
+                            stream = io.BytesIO()
+                            part.save(stream, format="PNG")
+                            data = stream.getvalue()
+                            total_bytes += len(data)
+                            if total_bytes > 15 * 1024 * 1024:
+                                raise ValueError("公式区域图片过大，请缩小图片后重试。")
+                            result.append({"index": index, "bbox": box, "imageBase64": base64.b64encode(data).decode()})
+                        return {"regions": result, "imageWidth": decoded.width, "imageHeight": decoded.height}
+                finally:
+                    inference_lock.release()
+            return await run_in_threadpool(detect)
+        except (InvalidImage, ValueError) as error:
+            raise HTTPException(status_code=422, detail=str(error)) from error
         finally:
             await image.close()
 

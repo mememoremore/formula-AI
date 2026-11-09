@@ -1,12 +1,18 @@
 <script setup lang="ts">
-defineProps<{ title: string; description: string; actionLabel?: string; actionTo?: string }>()
+defineProps<{
+  title: string
+  description?: string
+  actionLabel?: string
+  actionTo?: string
+  hideIcon?: boolean
+}>()
 </script>
 
 <template>
   <div class="empty-state">
-    <div class="empty-icon"><AppIcon name="book" :size="28" /></div>
+    <div v-if="!hideIcon" class="empty-icon"><AppIcon name="book" :size="28" /></div>
     <h2>{{ title }}</h2>
-    <p>{{ description }}</p>
+    <p v-if="description">{{ description }}</p>
     <NuxtLink v-if="actionLabel && actionTo" :to="actionTo" class="button button-secondary">
       {{ actionLabel }}
     </NuxtLink>

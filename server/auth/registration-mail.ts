@@ -18,9 +18,9 @@ export async function sendRegistrationCode(email: string, otp: string) {
     socketTimeout: 15000,
   })
   await transport.sendMail({
-    from: { name: 'Formula AI', address: user },
+    from: { name: '墨析', address: user },
     to: email,
-    subject: 'Formula AI 注册验证码',
+    subject: '墨析 注册验证码',
     text: `你的注册验证码是 ${otp}，5 分钟内有效。请勿向任何人透露此验证码。`,
   })
 }

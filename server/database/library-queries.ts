@@ -10,8 +10,15 @@ import type {
 export async function readCategories(
   db: PrismaClient,
   ownerId: string,
+  favoritesOnly = false,
 ): Promise<CategoryCollection> {
   if (!hasValidResourceIdentity(ownerId, ownerId)) throw new WorkspaceError(401, '请先登录。')
+  const visible: Prisma.FormulaWhereInput = {
+    ownerId,
+    deletedAt: null,
+    canonicalId: null,
+    ...(favoritesOnly ? { favorites: { some: { ownerId } } } : {}),
+  }
   const [categories, totalCount, uncategorizedCount] = await db.$transaction(
     [
       db.category.findMany({
@@ -20,11 +27,15 @@ export async function readCategories(
         select: {
           id: true,
           name: true,
-          _count: { select: { formulas: { where: { ownerId, deletedAt: null } } } },
+          _count: {
+            select: { formulas: { where: visible } },
+          },
         },
       }),
-      db.formula.count({ where: { ownerId, deletedAt: null } }),
-      db.formula.count({ where: { ownerId, categoryId: null, deletedAt: null } }),
+      db.formula.count({ where: visible }),
+      db.formula.count({
+        where: { ...visible, categoryId: null },
+      }),
     ],
     { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
   )
@@ -43,6 +54,7 @@ interface LibraryRow {
   id: string
   title: string
   createdAt: Date
+  updatedAt: Date
   latex: string
   versionNumber: number
   isMock: boolean
@@ -59,7 +71,15 @@ export async function readFormulaLibrary(
   filters: FormulaLibraryFilters,
 ): Promise<FormulaLibraryPage> {
   if (!hasValidResourceIdentity(ownerId, ownerId)) throw new WorkspaceError(401, '请先登录。')
-  const conditions = [Prisma.sql`f."ownerId" = ${ownerId}::uuid`, Prisma.sql`f."deletedAt" IS NULL`]
+  const conditions = [
+    Prisma.sql`f."ownerId" = ${ownerId}::uuid`,
+    Prisma.sql`f."deletedAt" IS NULL`,
+    Prisma.sql`f."canonicalId" IS NULL`,
+  ]
+  if (filters.saved) {
+    conditions.push(Prisma.sql`f."categoryId" IS NOT NULL`)
+    if (filters.cursor) throw new WorkspaceError(400, '最近保存只显示最新10条，无需分页。')
+  }
   if (filters.category === 'uncategorized') conditions.push(Prisma.sql`f."categoryId" IS NULL`)
   else if (filters.category) {
     const category =
@@ -87,12 +107,15 @@ export async function readFormulaLibrary(
   if (filters.q)
     conditions.push(Prisma.sql`(
     position(lower(${filters.q}) in lower(f.title)) > 0 OR
-    position(lower(${filters.q}) in lower(v.latex)) > 0
+    position(lower(${filters.q}) in lower(v.latex)) > 0 OR
+    EXISTS (SELECT 1 FROM formula_learning l WHERE l."formulaId"=f.id AND l."ownerId"=${ownerId}::uuid AND (
+      position(lower(${filters.q}) in lower(l.notes)) > 0 OR position(lower(${filters.q}) in lower(l.conditions)) > 0 OR
+      position(lower(${filters.q}) in lower(l."masteryNotes")) > 0))
   )`)
 
   // LATERAL 复用 (formulaId, number) 唯一索引，不加载所有历史版本。
   const rows = await db.$queryRaw<LibraryRow[]>(Prisma.sql`
-    SELECT f.id, f.title, f."createdAt", v.latex, v.number AS "versionNumber", v."isMock",
+    SELECT f.id, f.title, f."createdAt", f."updatedAt", v.latex, v.number AS "versionNumber", v."isMock",
       c.id AS "categoryId", c.name AS "categoryName", (fav."formulaId" IS NOT NULL) AS favorite, image.id AS "imageId"
     FROM formulas f
     JOIN LATERAL (
@@ -105,7 +128,7 @@ export async function readFormulaLibrary(
     LEFT JOIN recognition_tasks t ON t.id=f."recognitionTaskId" AND t."ownerId"=${ownerId}::uuid
     LEFT JOIN stored_files image ON image.id=t."inputFileId" AND image."ownerId"=${ownerId}::uuid AND image.status='READY'
     WHERE ${Prisma.join(conditions, ' AND ')}
-    ORDER BY f."createdAt" DESC, f.id DESC LIMIT 21
+    ORDER BY ${filters.saved ? Prisma.sql`f."updatedAt"` : Prisma.sql`f."createdAt"`} DESC, f.id DESC LIMIT ${filters.saved ? 10 : 21}
   `)
   const visible = rows.slice(0, 20)
   return {
@@ -113,6 +136,7 @@ export async function readFormulaLibrary(
       id: row.id,
       title: row.title,
       createdAt: row.createdAt.toISOString(),
+      ...(filters.saved ? { savedAt: row.updatedAt.toISOString() } : {}),
       latex: row.latex,
       versionNumber: row.versionNumber,
       isMock: row.isMock,
@@ -120,6 +144,6 @@ export async function readFormulaLibrary(
       favorite: row.favorite,
       imageId: row.imageId,
     })),
-    nextCursor: rows.length > 20 ? visible.at(-1)!.id : null,
+    nextCursor: !filters.saved && rows.length > 20 ? visible.at(-1)!.id : null,
   }
 }

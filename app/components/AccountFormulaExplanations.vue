@@ -4,6 +4,7 @@ import type { SavedFormula } from '#shared/types/workspace'
 import { chatSubmissionInvalidated } from '~/utils/account-cache'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { EXPLANATION_RECOVERY_KEY, parseExplanationIntent } from '~/utils/explanation-intent'
+import { explanationDomainSchema } from '#shared/explanation-domain'
 
 const accountFetch = useAccountFetch()
 const props = defineProps<{ formula: SavedFormula; ownerId: string }>()
@@ -18,6 +19,9 @@ const loading = ref(false),
   feedback = ref(''),
   ready = ref(false)
 const pending = ref<ReturnType<typeof parseExplanationIntent>>(null)
+const domainOpen = ref(false),
+  domain = ref(''),
+  domainError = ref('')
 const fetcher = useAccountFetch()
 let disposed = false,
   sequence = 0,
@@ -100,7 +104,29 @@ onScopeDispose(() => {
   submitController?.abort()
 })
 
-async function generate() {
+function beginExplanation() {
+  if (sending.value || disposed || !ready.value) return
+  if (pending.value) {
+    void generate()
+    return
+  }
+  domain.value = props.formula.category?.name ?? ''
+  domainError.value = ''
+  domainOpen.value = true
+}
+
+async function confirmDomain() {
+  const result = explanationDomainSchema.safeParse(domain.value)
+
+  if (!result.success) {
+    domainError.value = result.error.issues[0]?.message ?? '请输入公式所属领域。'
+    return
+  }
+  domainOpen.value = false
+  await generate(result.data)
+}
+
+async function generate(selectedDomain?: string) {
   if (sending.value || disposed || !ready.value) return
 
   const intent = pending.value ?? {
@@ -108,6 +134,7 @@ async function generate() {
     formulaId: props.formula.id,
     versionId: selected.value,
     requestKey: crypto.randomUUID(),
+    ...(selectedDomain ? { domain: selectedDomain } : {}),
   }
 
   sending.value = true
@@ -121,7 +148,11 @@ async function generate() {
       '/api/account/formulas/' + intent.formulaId + '/explanations',
       {
         method: 'POST',
-        body: { versionId: intent.versionId, requestKey: intent.requestKey },
+        body: {
+          versionId: intent.versionId,
+          requestKey: intent.requestKey,
+          ...(intent.domain ? { domain: intent.domain } : {}),
+        },
         headers: { 'x-account-id': props.ownerId },
         retry: 0,
         timeout: 20000,
@@ -166,7 +197,7 @@ const labels = { QUEUED: '排队中', PROCESSING: '生成中', COMPLETED: '解�
       <button
         class="button button-primary button-block"
         :disabled="sending || !ready"
-        @click="generate"
+        @click="beginExplanation"
       >
         {{ sending ? '正在确认提交…' : pending ? '确认原解释请求' : '一键解释' }}
       </button>
@@ -216,8 +247,37 @@ const labels = { QUEUED: '排队中', PROCESSING: '生成中', COMPLETED: '解�
       </button>
     </details>
   </section>
+  <AppModal :open="domainOpen" title="请选择公式所属领域" @close="domainOpen = false">
+    <form class="stack domain-form" @submit.prevent="confirmDomain">
+      <MathFormula :latex="formula.versions.at(-1)!.latex" />
+      <label for="explanation-domain">公式所属领域</label>
+      <input
+        id="explanation-domain"
+        v-model="domain"
+        class="input"
+        maxlength="60"
+        placeholder="所属领域，如：数学、物理、化学"
+        autocomplete="off"
+        @input="domainError = ''"
+      />
+      <p v-if="domainError" class="error-text" role="alert">{{ domainError }}</p>
+      <div class="row domain-actions">
+        <button class="button button-secondary" type="button" @click="domainOpen = false">
+          取消
+        </button>
+        <button class="button button-primary" type="submit">确认并解释</button>
+      </div>
+    </form>
+  </AppModal>
 </template>
 <style scoped>
+.domain-actions {
+  justify-content: flex-end;
+  gap: 12px;
+}
+.domain-form label {
+  font-size: 14px;
+}
 .ask-question {
   margin-top: 0;
 }

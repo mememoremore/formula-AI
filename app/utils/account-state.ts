@@ -6,6 +6,12 @@ export function privateAccountKey(key: string) {
       key.startsWith('saved-formula-') ||
       key.startsWith('draft-') ||
       key.startsWith('chat-formula-picker') ||
+      key.startsWith('recognition-batch-') ||
+      key.startsWith('recognition-batches-') ||
+      key.startsWith('learning:') ||
+      key.startsWith('tasks:') ||
+      key.startsWith('review:') ||
+      key.startsWith('recycle:') ||
       key === 'home-recent')
   )
 }

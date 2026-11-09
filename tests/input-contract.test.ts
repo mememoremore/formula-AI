@@ -9,6 +9,33 @@ import { test, expect, vi } from 'vitest'
 import * as formulaValidation from '../shared/formula-validation'
 import { parseManualFormula } from '../server/services/manual-formula-input'
 import { WorkspaceError } from '../server/services/workspace-error'
+import { conversationNameInputSchema } from '../shared/schemas/conversation-name'
+import { formulaBatchDeleteSchema } from '../shared/schemas/formula-input'
+
+test('formula batch deletion validates, bounds and deduplicates resource IDs', () => {
+  const id = 'ABCDEFAB-0000-0000-0000-000000000000'
+  expect(formulaBatchDeleteSchema.parse({ ids: [id, id.toLowerCase()] })).toEqual({
+    ids: [id.toLowerCase()],
+  })
+  for (const ids of [[], Array(101).fill(id), ['bad'], null, id])
+    expect(formulaBatchDeleteSchema.safeParse({ ids }).success).toBe(false)
+})
+
+test('conversation names normalize, have 1–40 characters and reject controls', () => {
+  expect(conversationNameInputSchema.parse({ title: ' Cafe\u0301 ', extra: true })).toEqual({
+    title: 'Café',
+  })
+  expect(conversationNameInputSchema.parse({ title: '名'.repeat(40) }).title).toHaveLength(40)
+  for (const title of ['', ' ', '名'.repeat(41), 'a\nb', 'a\0b', 'a\u007fb', null, 123])
+    expect(conversationNameInputSchema.safeParse({ title }).success).toBe(false)
+})
+
+test('recent saved filter uses explicit boolean strings and leaves legacy queries unchanged', () => {
+  expect(parseLibraryFilters({ saved: 'true' })).toMatchObject({ saved: true })
+  expect(parseLibraryFilters({ saved: 'false' })).not.toHaveProperty('saved')
+  for (const saved of [true, 'TRUE', '1', ['true']])
+    rejected(() => parseLibraryFilters({ saved }), '搜索或分页参数无效，请重新选择。')
+})
 
 const id = 'ABCDEFAB-0000-0000-0000-000000000000'
 function rejected(run: () => unknown, message: string) {

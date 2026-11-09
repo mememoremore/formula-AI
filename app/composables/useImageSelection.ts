@@ -22,6 +22,7 @@ export function useImageSelection() {
     checking.value = false
     selectionError.value = ''
     file.value = null
+    originalFile.value = null
     replacePreview(null)
   }
 
@@ -46,7 +47,7 @@ export function useImageSelection() {
     selectionError.value = ''
     replacePreview(null)
     if (!['image/jpeg', 'image/png'].includes(selected.type)) {
-      selectionError.value = '请选择 JPEG 或 PNG 图片。'
+      selectionError.value = '请选择 JPG/JPEG、PNG 图片。'
       return
     }
     if (!selected.size || selected.size > 10 * 1024 * 1024) {

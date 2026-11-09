@@ -86,3 +86,15 @@ test('仅接受供应商原始整数用量，不推算未知用量或费用', ()
   })
   assert.equal(providerUsage({ total_tokens: 1.2 }), undefined)
 })
+
+test('图片消息在数据库文本外观保持兼容，模型只接收已识别公式而非私有图片地址', async () => {
+  const { chatFormulaAttachment } = await import('../shared/chat-formula')
+  const question =
+    chatFormulaAttachment('11111111-1111-4111-8111-111111111111', 'x^2=1') + '\n请解释'
+  const input = { messages: [{ role: 'user' as const, content: question }] }
+  const messages = buildChatMessages(input)
+  assert.ok(messages.at(-1)!.content.includes('$$x^2=1$$'))
+  assert.ok(messages.at(-1)!.content.includes('请解释'))
+  assert.ok(!messages.at(-1)!.content.includes('/api/account/files/'))
+  assert.equal(input.messages[0]!.content, question)
+})

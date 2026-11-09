@@ -10,7 +10,10 @@ const suites: Record<string, { files: string[]; integration: boolean }> = {
     files: ['tests/inference.test.ts', 'tests/recognition.test.ts'],
     integration: false,
   },
-  documents: { files: ['tests/documents.test.ts'], integration: false },
+  documents: {
+    files: ['tests/documents.test.ts', 'tests/moxi-documents.test.ts'],
+    integration: false,
+  },
   integration: {
     files: [
       'tests/isolation.test.ts',

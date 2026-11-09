@@ -2,7 +2,15 @@
 import type { SavedFormula } from '#shared/types/workspace'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 
-const props = defineProps<{ formulaId: string; currentCategoryId: string | null }>()
+const props = withDefaults(
+  defineProps<{
+    formulaId: string
+    currentCategoryId: string | null
+    title?: string
+    confirmLabel?: string
+  }>(),
+  { title: '整理到分类', confirmLabel: '保存分类' },
+)
 const emit = defineEmits<{ close: []; saved: [formula: SavedFormula] }>()
 const { data: categories, error, status, refresh } = useAccountCategories()
 const selected = ref(props.currentCategoryId ?? '')
@@ -29,7 +37,7 @@ async function save() {
 </script>
 
 <template>
-  <AppModal :open="true" title="整理到分类" @close="!saving && emit('close')">
+  <AppModal :open="true" :title="title" @close="!saving && emit('close')">
     <form class="stack" @submit.prevent="save">
       <p class="info-note">为这条公式选择一个分类，也可以保留为未分类。</p>
       <fieldset class="category-fieldset" :disabled="saving || status === 'pending' || !!error">
@@ -62,7 +70,7 @@ async function save() {
         class="button button-primary"
         :disabled="saving || status === 'pending' || !!error"
       >
-        {{ saving ? '正在保存…' : '保存分类' }}
+        {{ saving ? '正在保存…' : confirmLabel }}
       </button>
     </form>
   </AppModal>

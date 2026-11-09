@@ -1,18 +1,82 @@
 <script setup lang="ts">
 import type { FormulaLibraryItem } from '#shared/types/library'
+import { workspaceFeedback } from '~/utils/workspace-feedback'
 
 const props = defineProps<{ kind: 'library' | 'favorites'; ownerId: string }>()
 const route = useRoute()
 const favoritesOnly = props.kind === 'favorites'
 const listing = useAccountLibrary(props.kind, props.ownerId)
 const { items, error, status, nextCursor, loadingMore, refreshing, feedback } = listing
-const categoryRequest = useAccountCategories(toRef(props, 'ownerId'))
+const categoryRequest = useAccountCategories(toRef(props, 'ownerId'), favoritesOnly)
 const { data: categories, error: categoryError } = categoryRequest
 const { activeCategory, selectCategory } = useLibraryFilters()
 const showManager = ref(false)
 const selectedFormula = ref<FormulaLibraryItem | null>(null)
+const managing = ref(false),
+  selected = ref<string[]>([]),
+  confirmOpen = ref(false),
+  pendingDelete = ref<string[]>([]),
+  deleteError = ref('')
+const deletion = useFormulaBatchDeleteMutation(),
+  deleting = deletion.busy
+const { showToast } = useToast()
+
+watch(items, (records) => {
+  const visible = new Set(records.map((item) => item.id))
+
+  selected.value = selected.value.filter((id) => visible.has(id))
+})
+watch([activeCategory, () => route.query.q], () => {
+  managing.value = false
+  selected.value = []
+})
+
+function toggleManager() {
+  if (deleting.value) return
+  managing.value = !managing.value
+  selected.value = []
+}
+
+function selectAll() {
+  selected.value = items.value.slice(0, 100).map((item) => item.id)
+}
+
+function selectFormula(event: MouseEvent, id: string) {
+  if (!managing.value || (event.target as HTMLElement).closest('.formula-select')) return
+  event.preventDefault()
+  event.stopPropagation()
+  if (deleting.value) return
+  if (selected.value.includes(id)) selected.value = selected.value.filter((value) => value !== id)
+  else if (selected.value.length < 100) selected.value.push(id)
+}
+
+function askDelete() {
+  pendingDelete.value = [...selected.value]
+  deleteError.value = ''
+  confirmOpen.value = true
+}
+
+async function confirmDelete() {
+  if (deleting.value || !pendingDelete.value.length) return
+  deleteError.value = ''
+  try {
+    await deletion.execute(pendingDelete.value)
+    confirmOpen.value = false
+    managing.value = false
+    selected.value = []
+    showToast('已删除所选公式。')
+  } catch (cause) {
+    if (!isAccountWriteCancelled(cause))
+      deleteError.value = workspaceFeedback(cause, '暂时无法删除，请重试。')
+  }
+}
+
 const categoryFilters = computed(() => [
-  { id: '', name: '全部', count: categories.value?.totalCount ?? 0 },
+  {
+    id: '',
+    name: '全部',
+    count: categories.value?.totalCount ?? 0,
+  },
   { id: 'uncategorized', name: '未分类', count: categories.value?.uncategorizedCount ?? 0 },
   ...(categories.value?.items.map((item) => ({
     id: item.id,
@@ -25,7 +89,7 @@ const heading = computed(() =>
     ? (categoryFilters.value.find((item) => item.id === activeCategory.value)?.name ?? '分类结果')
     : favoritesOnly
       ? '已收藏的公式'
-      : '最近保存',
+      : '全部',
 )
 
 watch(
@@ -85,9 +149,28 @@ await Promise.all([listing.ready, categoryRequest.ready])
     <div class="section-heading">
       <h2>{{ heading }}</h2>
       <div class="row">
-        <span class="text-small muted">{{ items.length }} 条已显示</span>
+        <button
+          class="text-button manage-button formula-manager"
+          :disabled="deleting"
+          @click="toggleManager"
+        >
+          <AppIcon :name="managing ? 'close' : 'pencil'" :size="13" />
+          {{ managing ? '取消管理' : '管理公式' }}
+        </button>
       </div>
     </div>
+    <BulkSelectionBar
+      v-if="managing"
+      :count="selected.length"
+      :busy="deleting"
+      :available="items.length"
+      @select-all="selectAll"
+      @remove="askDelete"
+    >
+      <template #actions>
+        <StudySheetExport :ids="selected" :disabled="deleting" compact />
+      </template>
+    </BulkSelectionBar>
     <div v-if="error" class="card library-error" role="alert">
       <p>暂时无法读取公式，请重试或重新选择分类。</p>
       <div class="row">
@@ -105,12 +188,27 @@ await Promise.all([listing.ready, categoryRequest.ready])
     </div>
     <template v-else>
       <LibraryGrid v-if="items.length">
-        <AccountFormulaCard
+        <div
           v-for="formula in items"
           :key="formula.id"
-          :formula="formula"
-          @categorize="selectedFormula = $event"
-        />
+          class="managed-formula"
+          :class="{ selectable: managing, 'is-selected': selected.includes(formula.id) }"
+          @click.capture="selectFormula($event, formula.id)"
+        >
+          <label v-if="managing" class="formula-select">
+            <input
+              v-model="selected"
+              type="checkbox"
+              :value="formula.id"
+              :disabled="deleting || (selected.length >= 100 && !selected.includes(formula.id))"
+              :aria-label="'选择公式：' + formula.title"
+            />
+          </label>
+          <div v-if="managing" class="card managed-preview">
+            <MathFormula :latex="formula.latex" />
+          </div>
+          <AccountFormulaCard v-else :formula="formula" @categorize="selectedFormula = $event" />
+        </div>
       </LibraryGrid>
       <EmptyState
         v-else
@@ -130,7 +228,7 @@ await Promise.all([listing.ready, categoryRequest.ready])
               ? '试试其他关键词，或切换到全部分类。'
               : favoritesOnly
                 ? '点击公式旁的爱心，常用公式就会留在这里。'
-                : '上传一张公式图片，把识别结果保存到你的账号。'
+                : '图片识别或手动输入公式后，所有公式均显示在这里'
         "
         :action-label="nextCursor ? undefined : favoritesOnly ? '浏览公式库' : '上传公式图片'"
         :action-to="nextCursor ? undefined : favoritesOnly ? '/library' : '/upload'"
@@ -157,9 +255,67 @@ await Promise.all([listing.ready, categoryRequest.ready])
     :current-category-id="selectedFormula.category?.id ?? null"
     @close="selectedFormula = null"
   />
+  <AppModal :open="confirmOpen" title="删除所选公式？" @close="!deleting && (confirmOpen = false)">
+    <p>
+      将删除
+      {{ pendingDelete.length }}
+      条公式，保存、分类和收藏中的同一公式会一起移除；已有对话和导出保留，可在“我的—回收站”恢复公式。
+    </p>
+    <p v-if="deleteError" class="error-text" role="alert">{{ deleteError }}</p>
+    <div class="row formula-delete-actions">
+      <button class="button button-secondary" :disabled="deleting" @click="confirmOpen = false">
+        取消
+      </button>
+      <button class="button button-primary" :disabled="deleting" @click="confirmDelete">
+        {{ deleting ? '删除中…' : '确认删除' }}
+      </button>
+    </div>
+  </AppModal>
 </template>
 
 <style scoped>
+.formula-manager {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+.managed-formula {
+  position: relative;
+  min-width: 0;
+}
+.managed-formula.is-selected {
+  outline: 2px solid var(--color-primary);
+  border-radius: var(--radius-card);
+}
+.managed-formula.selectable :deep(.formula-list-card) {
+  padding-left: 46px;
+}
+.managed-preview {
+  padding: 24px 18px 24px 46px;
+  min-height: 100px;
+  display: grid;
+  align-items: center;
+}
+.formula-select {
+  position: absolute;
+  z-index: 1;
+  top: 16px;
+  left: 12px;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+}
+.formula-select input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--color-primary);
+}
+.formula-delete-actions {
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 20px;
+}
 .section {
   margin-top: 16px;
 }
@@ -177,6 +333,9 @@ await Promise.all([listing.ready, categoryRequest.ready])
   font-size: 12px;
 }
 .manage-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   font-size: 11px;
   color: var(--color-text-secondary);
 }

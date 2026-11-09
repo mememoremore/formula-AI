@@ -17,7 +17,7 @@ test('health exposes the mock boundary without private configuration', async () 
   assert.equal(response.status, 200)
   assert.deepEqual(await response.json(), {
     status: 'ok',
-    app: 'Formula AI',
+    app: '墨析',
     recognition: 'mock',
     chat: 'mock',
     persistence: 'browser-demo',
@@ -28,7 +28,7 @@ test('server-rendered page does not serialize the injected private config marker
   const response = await fetch(base + '/login')
   assert.equal(response.status, 200)
   const html = await response.text()
-  assert.ok(html.includes('Formula AI'))
+  assert.ok(html.includes('墨析'))
   assert.equal(html.includes('formula-ai-private-check-20261020'), false)
   assert.equal(html.includes('recognitionApiKey'), false)
   assert.equal(html.includes('databaseUrl'), false)

@@ -14,6 +14,8 @@ import { createScrollMemory } from '../app/utils/scroll-memory'
 test('回跳保留上下文，拒绝外站与认证自循环', () => {
   assert.equal(safeReturnPath('/library?view=favorites&q=x'), '/library?view=favorites&q=x')
   assert.equal(safeReturnPath('/ai/new?versionId=abc'), '/ai/new?versionId=abc')
+  assert.equal(safeReturnPath('/batches'), '/batches')
+  assert.equal(safeReturnPath('/batches/abc'), '/batches/abc')
   for (const value of [
     '//evil.test',
     '/login?redirect=/login',

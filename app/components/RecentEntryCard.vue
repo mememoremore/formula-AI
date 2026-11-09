@@ -1,6 +1,8 @@
 <script setup lang="ts">
+import { displayFormulaTitle } from '#shared/formula-title'
+
 defineProps<{
-  label: string
+  label?: string
   title: string
   subtitle: string
   to: string
@@ -14,13 +16,13 @@ defineProps<{
 <template>
   <article class="card recent-entry">
     <NuxtLink :to="to" class="entry-link">
-      <div class="entry-heading">
+      <div v-if="label" class="entry-heading">
         <h2>{{ label }}</h2>
       </div>
       <div class="entry-body">
         <span v-if="!formula" class="entry-symbol"><AppIcon name="message" :size="20" /></span>
         <div class="entry-copy">
-          <h3>{{ title }}</h3>
+          <h3>{{ formula ? displayFormulaTitle(title) : title }}</h3>
           <p>{{ subtitle }}</p>
         </div>
         <AppIcon name="chevron" :size="18" />
@@ -31,7 +33,7 @@ defineProps<{
       class="entry-formula"
       :latex="latex"
       tabindex="0"
-      :aria-label="title + '公式预览，可横向滚动'"
+      :aria-label="displayFormulaTitle(title) + '公式预览，可横向滚动'"
     />
   </article>
 </template>

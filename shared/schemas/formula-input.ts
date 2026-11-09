@@ -16,5 +16,17 @@ export const formulaEditInputSchema = z.object(
   { error: editMessage },
 )
 export const formulaFavoriteInputSchema = z.object({ favorite: z.boolean() })
+export const formulaBatchDeleteSchema = z.object({
+  ids: z
+    .array(
+      z
+        .string()
+        .regex(resourceIdPattern)
+        .transform((id) => id.toLowerCase()),
+    )
+    .min(1)
+    .max(100)
+    .transform((ids) => [...new Set(ids)].sort()),
+})
 export type FormulaEditPayload = z.output<typeof formulaEditInputSchema>
 export type FormulaFavoritePayload = z.output<typeof formulaFavoriteInputSchema>

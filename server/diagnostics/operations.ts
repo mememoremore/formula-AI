@@ -112,6 +112,8 @@ const codes = new Set([
   'TASK_RECONCILIATION_FAILED',
   'TASK_RECONCILIATION_UNRESOLVED',
   'CALL_OUTCOME_UNKNOWN',
+  'BATCH_DISPATCH_PENDING',
+  'BATCH_RECONCILIATION_PENDING',
 ])
 type Event =
   | 'browser.error'
@@ -125,6 +127,7 @@ type Event =
   | 'task.recovery'
   | 'worker.lifecycle'
   | 'queue.connection'
+  | 'recognition.batch'
 export function withDiagnostics<T>(
   fields: DiagnosticFields,
   action: () => T,

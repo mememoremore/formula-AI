@@ -20,12 +20,14 @@ export const libraryFiltersSchema = z
     category: z.union([z.literal('uncategorized'), resourceId]).optional(),
     cursor: resourceId.optional(),
     favorites: z.enum(['true', 'false']).optional(),
+    saved: z.enum(['true', 'false']).optional(),
   })
-  .transform(({ q, category, cursor, favorites }) => ({
+  .transform(({ q, category, cursor, favorites, saved }) => ({
     q,
     category,
     cursor,
     favorites: favorites === 'true',
+    ...(saved === 'true' ? { saved: true } : {}),
   }))
 export type CategoryPayload = z.output<typeof categoryInputSchema>
 export type FormulaCategoryPayload = z.output<typeof formulaCategoryInputSchema>

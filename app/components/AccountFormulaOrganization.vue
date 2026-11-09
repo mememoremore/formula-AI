@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import type { SavedFormula } from '#shared/types/workspace'
 
-const props = defineProps<{ formula: SavedFormula }>()
+const props = withDefaults(
+  defineProps<{ formula: SavedFormula; placement?: 'favorite' | 'library' }>(),
+  { placement: 'library' },
+)
 const emit = defineEmits<{ saved: [formula: SavedFormula] }>()
 const { busy, setFavorite } = useAccountFavorite()
 const showCategories = ref(false)
@@ -16,48 +19,34 @@ async function favorite() {
 </script>
 
 <template>
-  <div class="formula-organization">
-    <button class="text-button organization-category" @click="showCategories = true">
-      <AppIcon name="book" :size="15" />
-      <span>{{ formula.category?.name ?? '未分类' }}</span>
-      <AppIcon name="pencil" :size="12" />
-    </button>
-    <FavoriteButton
-      :active="formula.favorite"
-      :label="formula.favorite ? '取消收藏这条公式' : '收藏这条公式'"
-      :disabled="busy"
-      :aria-busy="busy"
-      @toggle="favorite"
-    />
-  </div>
+  <FavoriteButton
+    v-if="placement === 'favorite'"
+    :active="formula.favorite"
+    :label="formula.favorite ? '取消收藏这条公式' : '收藏这条公式'"
+    :disabled="busy"
+    :aria-busy="busy"
+    @toggle="favorite"
+  />
+  <button
+    v-else
+    class="button button-primary button-block add-to-library"
+    @click="showCategories = true"
+  >
+    添加到公式库
+  </button>
   <AccountCategoryPicker
     v-if="showCategories"
     :formula-id="formula.id"
     :current-category-id="formula.category?.id ?? null"
+    title="添加到公式库"
+    confirm-label="添加"
     @close="showCategories = false"
     @saved="emit('saved', $event)"
   />
 </template>
 
 <style scoped>
-.formula-organization {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 10px 0;
-  gap: 15px;
-}
-.organization-category {
-  max-width: 80%;
-  min-height: var(--control-hit-area);
-  color: var(--color-text-secondary);
-}
-.organization-category span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  text-align: left;
-}
-.organization-category svg {
-  flex-shrink: 0;
+.add-to-library {
+  margin-top: 18px;
 }
 </style>

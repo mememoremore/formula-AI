@@ -110,7 +110,7 @@ await request
     <p>
       {{
         errorCode === 404
-          ? '记录不存在，或当前账号无权访问。'
+          ? '记录不存在，或当前账号无权访问；'
           : '已暂停查询，连接问题不会新建任务或重复使用额度。'
       }}
     </p>
@@ -142,7 +142,7 @@ await request
       />
       <RecognitionSteps v-if="!outcome" :status="task.status" />
       <p class="task-note">
-        {{ task.mode === 'handwritten' ? '手写公式' : '印刷公式' }} · 已尝试
+        公式识别 · 已尝试
         {{ task.attemptCount }} 次{{
           task.isMock && task.status === 'COMPLETED' && !outcome ? ' · 模拟结果' : ''
         }}
@@ -171,8 +171,8 @@ await request
     <p v-if="task.status === 'FAILED'" class="info-note section">
       {{
         uncertain
-          ? '上次重新提交尚未确认，将沿用原请求确认结果，不创建另一个请求。'
-          : '这是已确认失败的任务。重新提交将创建新任务，使用 1 次新的识别额度。'
+          ? '上次重新提交尚未确认，将沿用原请求确认结果，不创建另一个请求；'
+          : '这是已确认失败的任务；重新提交将创建新任务，使用 1 次新的识别额度。'
       }}
     </p>
     <p v-if="feedback" class="error-text section" role="alert">{{ feedback }}</p>

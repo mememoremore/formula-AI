@@ -35,52 +35,64 @@ export async function submitRecognition(
     return task
   }
   return idempotentTask(read, () =>
-    resourceTransaction(db, input.ownerId, async (tx) => {
-      // 在资源锁内再次检查重放，优先于新的准入/额度判断。
-      const existing = await tx.recognitionTask.findUnique({
-        where: { ownerId_requestKey: { ownerId: input.ownerId, requestKey: input.requestKey } },
-      })
-      if (existing) {
-        if (
-          existing.inputFileId !== input.fileId ||
-          existing.mode !== mode ||
-          existing.requestedTitle !== requestedTitle
-        )
-          throw new WorkspaceError(409, '这个识别请求编号已用于其他图片、模式或名称。')
-        return existing
-      }
-      const policy = resourcePolicy()
-      const active: Prisma.RecognitionTaskWhereInput = { status: { in: ['QUEUED', 'PROCESSING'] } }
-      const total = await tx.recognitionTask.count({ where: active })
-      const owner = await tx.recognitionTask.count({ where: { ...active, ownerId: input.ownerId } })
-      if (total >= policy.globalRecognitions || owner >= policy.ownerRecognitions)
-        throw new ResourceLimitError(
-          'RECOGNITION_BUSY',
-          429,
-          '识别任务过多，请等待已有任务完成后重试。',
-        )
-      const file = await tx.storedFile.findFirst({
-        where: { id: input.fileId, ownerId: input.ownerId, kind: 'IMAGE', status: 'READY' },
-        select: { id: true },
-      })
-      if (!file) throw new WorkspaceError(404, '未找到可识别的图片，请重新上传。')
-      const task = await tx.recognitionTask.create({
-        data: {
-          ownerId: input.ownerId,
-          inputFileId: input.fileId,
-          mode,
-          requestKey: input.requestKey,
-          requestedTitle,
-        },
-      })
-      await reserveUsage(tx, input.ownerId, 'RECOGNITION', limits.RECOGNITION)
-      const queueJobId = await enqueueTask(boss, tx, 'recognition', {
-        taskId: task.id,
-        ownerId: input.ownerId,
-      })
-      return tx.recognitionTask.update({ where: { id: task.id }, data: { queueJobId } })
-    }),
+    resourceTransaction(db, input.ownerId, (tx) =>
+      submitRecognitionInTransaction(tx, boss, limits, input),
+    ),
   )
+}
+
+/** Reuse the same admission/quota rules when a batch and its child are committed atomically. */
+export async function submitRecognitionInTransaction(
+  tx: Prisma.TransactionClient,
+  boss: PgBoss,
+  limits: UsageLimits,
+  input: Parameters<typeof submitRecognition>[3],
+) {
+  const mode = input.mode === 'handwritten' ? 'HANDWRITTEN' : 'PRINTED'
+  const requestedTitle = input.requestedTitle ?? null
+  // 在资源锁内再次检查重放，优先于新的准入/额度判断。
+  const existing = await tx.recognitionTask.findUnique({
+    where: { ownerId_requestKey: { ownerId: input.ownerId, requestKey: input.requestKey } },
+  })
+  if (existing) {
+    if (
+      existing.inputFileId !== input.fileId ||
+      existing.mode !== mode ||
+      existing.requestedTitle !== requestedTitle
+    )
+      throw new WorkspaceError(409, '这个识别请求编号已用于其他图片、模式或名称。')
+    return existing
+  }
+  const policy = resourcePolicy()
+  const active: Prisma.RecognitionTaskWhereInput = { status: { in: ['QUEUED', 'PROCESSING'] } }
+  const total = await tx.recognitionTask.count({ where: active })
+  const owner = await tx.recognitionTask.count({ where: { ...active, ownerId: input.ownerId } })
+  if (total >= policy.globalRecognitions || owner >= policy.ownerRecognitions)
+    throw new ResourceLimitError(
+      'RECOGNITION_BUSY',
+      429,
+      '识别任务过多，请等待已有任务完成后重试。',
+    )
+  const file = await tx.storedFile.findFirst({
+    where: { id: input.fileId, ownerId: input.ownerId, kind: 'IMAGE', status: 'READY' },
+    select: { id: true },
+  })
+  if (!file) throw new WorkspaceError(404, '未找到可识别的图片，请重新上传。')
+  const task = await tx.recognitionTask.create({
+    data: {
+      ownerId: input.ownerId,
+      inputFileId: input.fileId,
+      mode,
+      requestKey: input.requestKey,
+      requestedTitle,
+    },
+  })
+  await reserveUsage(tx, input.ownerId, 'RECOGNITION', limits.RECOGNITION)
+  const queueJobId = await enqueueTask(boss, tx, 'recognition', {
+    taskId: task.id,
+    ownerId: input.ownerId,
+  })
+  return tx.recognitionTask.update({ where: { id: task.id }, data: { queueJobId } })
 }
 
 export async function submitExport(

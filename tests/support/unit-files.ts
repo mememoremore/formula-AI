@@ -7,6 +7,9 @@ export const nodeInfrastructureFiles = [
 ]
 
 export const vitestLogicFiles = [
+  'tests/learning.test.ts',
+  'tests/recommendations.test.ts',
+  'tests/recycle-retention.test.ts',
   'tests/navigation.test.ts',
   'tests/home.test.ts',
   'tests/library-state.test.ts',
@@ -37,6 +40,8 @@ export const vitestLogicFiles = [
   'tests/input-contract.test.ts',
   'tests/output-contract.test.ts',
   'tests/task-input.test.ts',
+  'tests/formula-intelligence.test.ts',
+  'tests/recognition-batch-worker.test.ts',
   'tests/demo-input.test.ts',
   'tests/observability-notification.test.ts',
 ]

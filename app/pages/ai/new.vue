@@ -5,7 +5,7 @@ definePageMeta({
   contentWidth: 'reading',
   alias: '/account/chat',
 })
-useHead({ title: '新对话 · Formula AI' })
+useHead({ title: '新对话 · 墨析' })
 
 const route = useRoute(),
   session = useAccountSession()

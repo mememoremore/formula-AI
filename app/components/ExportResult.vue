@@ -78,7 +78,7 @@ function size(value: number) {
     serif;
 }
 h2 {
-  font-size: 25px;
+  font-size: min(25px, var(--page-title-font-size, 24px));
   margin-bottom: 14px;
 }
 p {

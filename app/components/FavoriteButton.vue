@@ -38,7 +38,7 @@ defineEmits<{ toggle: [] }>()
     transform 180ms ease;
 }
 .favorite-button.is-active {
-  color: #8266d6;
+  color: #e54864;
 }
 .favorite-button.is-active :deep(svg) {
   fill: currentColor;
@@ -46,7 +46,7 @@ defineEmits<{ toggle: [] }>()
 }
 @media (hover: hover) {
   .favorite-button:hover {
-    color: #8266d6;
+    color: #e54864;
   }
 }
 @keyframes favorite-pop {

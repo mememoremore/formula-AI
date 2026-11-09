@@ -53,3 +53,11 @@ test('a warning uses the provided heading and explanation without claiming succe
   expect(wrapper.text()).toContain('请检查识别内容。')
   expect(wrapper.text()).not.toContain('结果已保存在你的账号。')
 })
+
+test('用户停止与识别失败分开显示，保留已生成结果', () => {
+  const wrapper = progress('FAILED', { errorMessage: '已停止任务。' })
+  expect(wrapper.get('h2').text()).toBe('已停止')
+  expect(wrapper.classes()).not.toContain('failed')
+  expect(wrapper.find('.error-text').exists()).toBe(false)
+  expect(wrapper.text()).toContain('已经生成的结果保留')
+})

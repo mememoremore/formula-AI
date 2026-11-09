@@ -9,11 +9,14 @@ import {
 import { useAccountFetch } from './useAccountFetch'
 import { useAccountQueryOwner } from './useAccountQueryOwner'
 
-export function useAccountCategories(expected?: MaybeRefOrGetter<string | undefined>) {
+export function useAccountCategories(
+  expected?: MaybeRefOrGetter<string | undefined>,
+  favoritesOnly = false,
+) {
   const owner = useAccountQueryOwner(expected)
   const fetcher = useAccountFetch()
   const client = useNuxtApp().$queryClient
-  const options = computed(() => categoryQueryOptions(owner.value, fetcher))
+  const options = computed(() => categoryQueryOptions(owner.value, fetcher, favoritesOnly))
   const query = useQuery(options, client)
   const data = computed(() =>
     owner.value && !isAccountQueryDenied(query.error.value)

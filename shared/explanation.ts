@@ -3,6 +3,14 @@ import { formulaExplanationSchema, type FormulaExplanation } from './schemas/exp
 export type { FormulaExplanation } from './schemas/explanation'
 export const EXPLANATION_PROMPT_VERSION = 'formula-explanation-v1'
 export const EXPLANATION_QUESTION = '请结构化解释这个固定版本公式。'
+export function explanationQuestion(domain?: string) {
+  return domain
+    ? EXPLANATION_QUESTION +
+        '\n用户指定的公式所属领域：' +
+        domain +
+        '\n请结合该领域解释符号、适用条件、推导和应用；如公式与领域不符，请明确说明，不要强行套用。'
+    : EXPLANATION_QUESTION
+}
 /** The same bounded schema validates model output, stored history and SSE content. */
 export function parseExplanation(value: unknown): FormulaExplanation {
   const result = formulaExplanationSchema.safeParse(value)

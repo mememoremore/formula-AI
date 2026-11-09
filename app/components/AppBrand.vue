@@ -13,7 +13,7 @@ const avatarUser = computed(() =>
 </script>
 <template>
   <header class="app-brand">
-    <NuxtLink to="/" class="brand-name" aria-label="Formula AI 首页">
+    <NuxtLink to="/" class="brand-name" aria-label="墨析 首页">
       <svg viewBox="0 0 40 40" width="37" height="37" aria-hidden="true">
         <path
           d="M3 29 C10 39 18 8 21 7 S27 38 37 25"
@@ -24,7 +24,7 @@ const avatarUser = computed(() =>
         />
       </svg>
       <span>
-        <strong>Formula AI</strong>
+        <strong>墨析</strong>
       </span>
     </NuxtLink>
     <NuxtLink v-if="avatar" to="/profile" aria-label="查看我的资料">
@@ -50,7 +50,7 @@ const avatarUser = computed(() =>
 }
 strong {
   color: var(--color-text);
-  font-size: 22px;
+  font-size: min(22px, var(--page-title-font-size, 24px));
   letter-spacing: -0.5px;
 }
 .brand-tagline {

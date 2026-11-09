@@ -5,7 +5,7 @@ definePageMeta({
   alias: '/account/exports/:id',
   contentWidth: 'reading',
 })
-useHead({ title: 'Word 导出 · Formula AI' })
+useHead({ title: 'Word 导出 · 墨析' })
 
 const route = useRoute()
 const session = useAccountSession()

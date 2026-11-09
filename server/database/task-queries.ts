@@ -58,7 +58,7 @@ export async function readRecognitionHistory(
         WHERE v."formulaId" = f.id AND v."ownerId" = t."ownerId"
         ORDER BY v.number DESC LIMIT 1
       ) version ON true
-      WHERE t."ownerId" = ${ownerId}::uuid
+      WHERE t."ownerId" = ${ownerId}::uuid AND t."historyDeletedAt" IS NULL
         AND (position(lower(${query}) in lower(COALESCE(f.title, file.name))) > 0
           OR position(lower(${query}) in lower(COALESCE(version.latex, ''))) > 0)
         ${anchor ? Prisma.sql`AND (t."createdAt", t.id) < (${anchor.createdAt}::timestamptz, ${anchor.id}::uuid)` : Prisma.empty}
@@ -70,7 +70,7 @@ export async function readRecognitionHistory(
     }
   }
   const tasks = await db.recognitionTask.findMany({
-    where: { ownerId },
+    where: { ownerId, historyDeletedAt: null },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: 26,
     ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}),

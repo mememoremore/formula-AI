@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto'
 import type { PgBoss } from 'pg-boss'
 import { Prisma, type PrismaClient } from '../generated/prisma/client'
-import { EXPLANATION_PROMPT_VERSION, EXPLANATION_QUESTION } from '../../shared/explanation'
+import { EXPLANATION_PROMPT_VERSION, explanationQuestion } from '../../shared/explanation'
+import { explanationDomainSchema } from '../../shared/explanation-domain'
 import type { ExplanationHistoryPage } from '../../shared/types/tasks'
 import { readVersionContext } from './conversations'
 import { idempotentTask } from './idempotent-task'
@@ -10,19 +11,31 @@ import { enqueueTask } from '../queue/enqueue'
 import { bumpConversation } from './chat-revision'
 import { hasValidResourceIdentity } from './private-resources'
 import { WorkspaceError } from '../services/workspace-error'
+import { lockIdentity } from './formula-identities'
 
 export async function submitExplanation(
   db: PrismaClient,
   boss: PgBoss,
   limits: UsageLimits,
-  input: { ownerId: string; formulaId: string; versionId: string; requestKey: string },
+  input: {
+    ownerId: string
+    formulaId: string
+    versionId: string
+    requestKey: string
+    domain?: string
+  },
 ) {
+  const checkedDomain = explanationDomainSchema.optional().safeParse(input.domain)
+  if (!checkedDomain.success) throw new WorkspaceError(400, '请输入1～60字的公式所属领域。')
+  const domain = checkedDomain.data?.replace(/\s+/g, ' ')
+  const question = explanationQuestion(domain)
   const requestHash = createHash('sha256')
     .update(
       JSON.stringify({
         formulaId: input.formulaId,
         versionId: input.versionId,
         responseKind: 'FORMULA_EXPLANATION',
+        ...(domain ? { domain } : {}),
       }),
     )
     .digest('hex')
@@ -39,11 +52,27 @@ export async function submitExplanation(
       try {
         return await db.$transaction(
           async (tx) => {
+            await lockIdentity(tx, input.ownerId)
             // 与标题触发器相同的Formula→Conversation方向；事务内无外部I/O。
             const rows = await tx.$queryRaw<
               { id: string }[]
             >`SELECT f.id FROM formulas f JOIN formula_versions v ON v."formulaId"=f.id AND v."ownerId"=f."ownerId" WHERE f.id=${input.formulaId}::uuid AND v.id=${input.versionId}::uuid AND f."ownerId"=${input.ownerId}::uuid AND f."deletedAt" IS NULL FOR SHARE OF f`
             if (!rows.length) throw new WorkspaceError(404, '未找到这个公式版本。')
+            const reused = await tx.chatTurn.findFirst({
+              where: {
+                ownerId: input.ownerId,
+                responseKind: 'FORMULA_EXPLANATION',
+                question,
+                status: { in: ['QUEUED', 'PROCESSING', 'COMPLETED'] },
+                conversation: {
+                  ownerId: input.ownerId,
+                  purpose: 'EXPLANATION',
+                  formulaVersionId: input.versionId,
+                },
+              },
+              orderBy: { createdAt: 'desc' },
+            })
+            if (reused) return reused
             const context = await readVersionContext(tx, input.ownerId, input.versionId)
             const conversation = await tx.conversation.create({
               data: {
@@ -59,7 +88,7 @@ export async function submitExplanation(
                 ownerId: input.ownerId,
                 conversationId: conversation.id,
                 requestKey: input.requestKey,
-                question: EXPLANATION_QUESTION,
+                question,
                 responseKind: 'FORMULA_EXPLANATION',
                 promptVersion: EXPLANATION_PROMPT_VERSION,
                 requestHash,
@@ -72,7 +101,7 @@ export async function submitExplanation(
                 turnId: turn.id,
                 position: 1,
                 role: 'USER',
-                content: EXPLANATION_QUESTION,
+                content: question,
               },
             })
             await reserveUsage(tx, input.ownerId, 'CHAT', limits.CHAT)

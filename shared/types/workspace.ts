@@ -18,6 +18,7 @@ export interface SavedFormulaVersion {
 }
 export interface SavedFormula {
   id: string
+  identityId?: string
   title: string
   createdAt: string
   updatedAt: string

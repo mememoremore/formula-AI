@@ -8,6 +8,7 @@ import { createDatabaseClient } from '../server/database/client'
 import { createQueueClient } from '../server/queue/client'
 import { createObjectStore } from '../server/storage/object-store'
 import { registerWorkers } from '../server/worker/start'
+import { startRecognitionBatches } from '../server/worker/recognition-batches'
 import { recoveryPolicy, startTaskRecovery } from '../server/worker/recovery'
 setTraceService('formula-worker')
 process.env.FORMULA_SERVICE_NAME = 'formula-worker'
@@ -32,6 +33,7 @@ let metricsServer: Awaited<ReturnType<typeof startWorkerMetrics>> | undefined
 let recovery: Awaited<ReturnType<typeof startTaskRecovery>> | undefined
 let orphanCleanup: Awaited<ReturnType<typeof startOrphanCleanup>> | undefined
 let leaseRecovery: Awaited<ReturnType<typeof startLeaseRecovery>> | undefined
+let batchDispatcher: Awaited<ReturnType<typeof startRecognitionBatches>> | undefined
 function stop() {
   if (shutdown) return shutdown
   stopping = true
@@ -39,7 +41,12 @@ function stop() {
   shutdown = (async () => {
     // 启动中的核对观察signal后退出；不在异步初始化尚未结束时断开数据库。
     await startup?.catch(() => {})
-    await Promise.all([recovery?.stop(), leaseRecovery?.stop(), orphanCleanup?.stop()])
+    await Promise.all([
+      recovery?.stop(),
+      leaseRecovery?.stop(),
+      orphanCleanup?.stop(),
+      batchDispatcher?.stop(),
+    ])
     try {
       await boss.stop({ graceful: true, timeout: 25000 })
     } finally {
@@ -83,6 +90,7 @@ async function start() {
   })
   if (stopping) return
   await registerWorkers(db, boss, store)
+  if (!stopping) batchDispatcher = await startRecognitionBatches(db, boss, shutdownSignal.signal)
   if (!stopping)
     console.log(
       `Worker 已启动：识别（${process.env.NUXT_RECOGNITION_PROVIDER === 'python' ? 'Python' : '模拟'}）、对话（${process.env.NUXT_AI_PROVIDER === 'deepseek' ? 'DeepSeek' : '模拟'}）与 Word 导出；后台任务核对${recoveryOptions.enabled ? '开启' : '关闭'}；独立租约核对${leaseOptions.enabled ? '开启' : '关闭'}；遗留图片核对模式${orphanOptions.mode}。`,

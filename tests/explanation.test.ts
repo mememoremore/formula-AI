@@ -5,6 +5,8 @@ import {
   decodeExplanation,
   explanationText,
   EXPLANATION_PROMPT_VERSION,
+  EXPLANATION_QUESTION,
+  explanationQuestion,
 } from '../shared/explanation'
 import { explanationFixture as value } from './fixtures/explanation'
 import { buildChatMessages } from '../server/chat/prompt'
@@ -125,6 +127,27 @@ test('账号回执拒绝损坏内容及其他账号/公式', () => {
   assert.equal(parseExplanationIntent(raw, other, id), null)
   assert.equal(parseExplanationIntent(raw, id, other), null)
   assert.equal(parseExplanationIntent('{', id, id), null)
+  const intent = JSON.parse(raw)
+  assert.equal(
+    parseExplanationIntent(JSON.stringify({ ...intent, domain: '物理' }), id, id)?.domain,
+    '物理',
+  )
+  for (const domain of ['', '物理 ', 'x'.repeat(61), 3, 'a\0b'])
+    assert.equal(parseExplanationIntent(JSON.stringify({ ...intent, domain }), id, id), null)
+})
+
+test('所属领域随解释问题传入模型，原有无领域提问保持兼容', () => {
+  assert.equal(explanationQuestion(), EXPLANATION_QUESTION)
+  const question = explanationQuestion('物理')
+  const messages = buildChatMessages({
+    formula: { versionId: 'version', latex: 'F=ma' },
+    responseKind: 'FORMULA_EXPLANATION',
+    promptVersion: EXPLANATION_PROMPT_VERSION,
+    messages: [{ role: 'user', content: question }],
+  })
+  assert.equal(messages.at(-1)?.content, question)
+  assert.ok(question.includes('所属领域：物理'))
+  assert.ok(messages[0]!.content.includes('所属领域'))
 })
 test('完整解释复制以确定顺序保留LaTeX，不含协议或内部元数据', () => {
   const output = explanationCopyText(value)

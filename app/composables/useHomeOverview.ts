@@ -1,4 +1,4 @@
-import { emptyHomeRecent, loadHomeRecent, homeDemoConversation } from '~/utils/home-overview'
+import { emptyHomeRecent, loadHomeRecent } from '~/utils/home-overview'
 
 /** 只编排首页，不承担全站缓存失效、认证或任务状态机。 */
 export function useHomeOverview(session: ReturnType<typeof useWorkspace>) {
@@ -23,7 +23,6 @@ export function useHomeOverview(session: ReturnType<typeof useWorkspace>) {
       : emptyHomeRecent(),
   )
   const demoFormula = computed(() => store.value.formulas[0])
-  const demoConversation = computed(() => homeDemoConversation(store.value))
   const loading = computed(
     () =>
       session.status.value === 'pending' || (!!ownerId.value && request.status.value === 'pending'),
@@ -32,7 +31,6 @@ export function useHomeOverview(session: ReturnType<typeof useWorkspace>) {
   const cameraTo = computed(
     () => uploadTo.value + (uploadTo.value.includes('?') ? '&' : '?') + 'source=camera',
   )
-  const libraryTo = computed(() => (session.demo.value ? '/library?space=demo' : '/library'))
 
   return {
     session,
@@ -40,12 +38,10 @@ export function useHomeOverview(session: ReturnType<typeof useWorkspace>) {
     recent,
     demo: session.demo,
     demoFormula,
-    demoConversation,
     preview,
     loading,
     uploadTo,
     cameraTo,
-    libraryTo,
     retrySession: () => session.refresh(),
     retryRecent: () => request.refresh(),
   }

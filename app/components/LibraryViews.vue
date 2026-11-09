@@ -7,9 +7,9 @@ defineProps<{ filterable?: boolean; filtered?: boolean }>()
 defineEmits<{ filter: [] }>()
 
 const options = [
-  { id: 'all', label: '全部' },
+  { id: 'all', label: '保存' },
   { id: 'favorites', label: '收藏' },
-  { id: 'recent', label: '最近识别' },
+  { id: 'recent', label: '识别记录' },
 ] as const
 </script>
 <template>

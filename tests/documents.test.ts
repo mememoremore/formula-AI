@@ -40,7 +40,11 @@ for (const [index, sample] of samples.entries())
       false,
     )
     assert.doesNotMatch(xml, /公式版本 v[0-9]+/)
-    assert.ok(xml.includes('固定模拟识别'))
+    assert.doesNotMatch(
+      xml,
+      /固定模拟识别|LaTeX 源码|<w:t[ >]/,
+      '文档正文只能有公式，不附带标题或说明',
+    )
     await mkdir('tmp/r1-test/documents', { recursive: true })
     await writeFile(`tmp/r1-test/documents/${sample.name}.docx`, bytes)
   })

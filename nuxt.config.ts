@@ -30,18 +30,18 @@ export default defineNuxtConfig({
     recognitionDailyLimit: 50,
     chatDailyLimit: 30,
     exportDailyLimit: 20,
-    public: { appName: 'Formula AI', observabilityEnabled: false },
+    public: { appName: '墨析', observabilityEnabled: false },
   },
   app: {
     head: {
-      title: 'Formula AI · 让每一个手写公式都能被理解',
+      title: '墨析 · 让每一个手写公式都能被理解',
       htmlAttrs: { lang: 'zh-CN' },
       meta: [
         { name: 'viewport', content: 'width=device-width, initial-scale=1, viewport-fit=cover' },
-        { name: 'description', content: '识别、整理与理解你的数学公式。Formula AI 开发预览。' },
+        { name: 'description', content: '识别、整理与理解你的数学公式。墨析 开发预览。' },
         { name: 'theme-color', content: '#f6f7fc' },
       ],
-      link: [{ rel: 'icon', type: 'image/svg+xml', href: '/favicon.svg' }],
+      link: [{ rel: 'icon', type: 'image/png', href: '/images/moxi-icon.png?v=20261108' }],
     },
   },
 })

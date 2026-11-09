@@ -5,6 +5,7 @@ import {
   formulaQueryKeys,
   libraryQueryOptions,
   invalidateFormulaQueries,
+  categoryQueryOptions,
 } from '../app/queries/formula-queries'
 const clients: ReturnType<typeof createAccountQueryClient>[] = []
 afterEach(() => {
@@ -23,9 +24,11 @@ test('keys separate owner, kind and every submitted filter', () => {
     formulaQueryKeys.library('a', 'favorites', {}),
     formulaQueryKeys.library('a', 'library', { q: 'x' }),
     formulaQueryKeys.library('a', 'library', { category: 'c' }),
+    formulaQueryKeys.library('a', 'library', { saved: 'true' }),
   ])
     expect(key).not.toEqual(base)
   expect(formulaQueryKeys.categories('a')).not.toEqual(base)
+  expect(formulaQueryKeys.categories('a', true)).not.toEqual(formulaQueryKeys.categories('a'))
 })
 
 test('independent SSR clients never share user data and browser hydration reuses fresh results', async () => {
@@ -56,12 +59,34 @@ test('write invalidation is limited to the original owner and includes categorie
   const cache = client()
   const own = formulaQueryKeys.library('a', 'library', {}),
     category = formulaQueryKeys.categories('a'),
+    favoritesCategory = formulaQueryKeys.categories('a', true),
     other = formulaQueryKeys.categories('b')
-  for (const key of [own, category, other]) cache.setQueryData(key, { marker: true })
+  for (const key of [own, category, favoritesCategory, other])
+    cache.setQueryData(key, { marker: true })
   await invalidateFormulaQueries(cache, 'a')
   expect(cache.getQueryState(own)?.isInvalidated).toBe(true)
   expect(cache.getQueryState(category)?.isInvalidated).toBe(true)
+  expect(cache.getQueryState(favoritesCategory)?.isInvalidated).toBe(true)
   expect(cache.getQueryState(other)?.isInvalidated).toBe(false)
   await invalidateFormulaQueries(cache, undefined)
   expect(cache.getQueryState(other)?.isInvalidated).toBe(false)
+})
+
+test('全部分类和收藏分类使用独立缓存，收藏请求携带筛选', async () => {
+  const cache = client(),
+    requests: (boolean | undefined)[] = []
+  const fetcher = async <T>(
+    _url: string,
+    options: { query?: Record<string, string | undefined> },
+  ) => {
+    const favorites = options.query?.favorites === 'true'
+    requests.push(favorites)
+    return { items: [], totalCount: favorites ? 0 : 6, uncategorizedCount: favorites ? 0 : 6 } as T
+  }
+  const all = await cache.fetchQuery(categoryQueryOptions('a', fetcher))
+  const favorites = await cache.fetchQuery(categoryQueryOptions('a', fetcher, true))
+  expect(all.totalCount).toBe(6)
+  expect(favorites.totalCount).toBe(0)
+  expect(requests).toEqual([false, true])
+  expect(cache.getQueryData(formulaQueryKeys.categories('a'))).toEqual(all)
 })

@@ -2,11 +2,12 @@
 import { libraryView } from '#shared/navigation'
 
 definePageMeta({
+  compactTop: true,
   contentWidth: 'workspace',
   middleware: 'workspace',
   alias: ['/account/library', '/account/favorites', '/account/history', '/favorites', '/history'],
 })
-useHead({ title: '我的公式库 · Formula AI' })
+useHead({ title: '我的公式库 · 墨析' })
 
 const route = useRoute()
 const { query, search } = useLibraryFilters()
@@ -15,7 +16,6 @@ const { data: account, error, refresh, demo, status } = useWorkspace()
 await useAccountSession()
 </script>
 <template>
-  <div class="library-brand"><AppBrand :account-user="account?.user ?? null" /></div>
   <header class="library-hero">
     <h1>我的公式库</h1>
     <NuxtLink class="text-button library-create-link" to="/formulas/new">
@@ -53,21 +53,13 @@ await useAccountSession()
   <p v-if="demo && !error" class="library-demo-note">本机演示 · 数据仅保存在当前浏览器</p>
 </template>
 <style scoped>
-.library-brand :deep(a) {
-  min-height: var(--control-hit-area);
-}
-.library-brand :deep(a[aria-label='查看我的资料']) {
-  min-width: var(--control-hit-area);
-  display: grid;
-  place-items: center;
-}
 .library-hero {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
-  margin: 4px 0 10px;
-  min-height: 56px;
+  margin: 0 0 10px;
+  min-height: 48px;
 }
 .library-create-link {
   display: inline-flex;
@@ -79,7 +71,7 @@ await useAccountSession()
   margin-bottom: 8px;
 }
 h1 {
-  font-size: 26px;
+  font-size: min(24px, var(--page-title-font-size, 24px));
   letter-spacing: -1px;
   line-height: 1.5;
 }
@@ -110,9 +102,6 @@ h1 {
 @media (min-width: 390px) {
   .library-hero {
     grid-template-columns: minmax(0, 1fr) auto;
-  }
-  h1 {
-    font-size: 28px;
   }
 }
 </style>

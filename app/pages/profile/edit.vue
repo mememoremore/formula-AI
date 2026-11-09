@@ -2,7 +2,7 @@
 import type { AccountUser } from '#shared/types/account'
 
 definePageMeta({ middleware: 'auth', bottomNav: false, contentWidth: 'reading' })
-useHead({ title: '编辑资料 · Formula AI' })
+useHead({ title: '编辑资料 · 墨析' })
 
 const session = useAccountSession()
 
@@ -60,7 +60,7 @@ async function reload() {
       <p>
         {{
           saved
-            ? '保存已经确认，但资料刷新失败，请重新读取。'
+            ? '保存已经确认，但资料刷新失败，请重新读取；'
             : '私有表单已隐藏，重新确认原账号后可继续本页草稿。'
         }}
       </p>

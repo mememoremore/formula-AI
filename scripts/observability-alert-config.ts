@@ -36,9 +36,9 @@ receivers:
         force_implicit_tls: true
         send_resolved: true
         headers:
-          Subject: '[Formula AI] {{ .Status }} {{ .CommonLabels.alertname }}'
+          Subject: '[墨析] {{ .Status }} {{ .CommonLabels.alertname }}'
         text: >-
-          Formula AI 监控告警。状态：{{ .Status }}。
+          墨析 监控告警。状态：{{ .Status }}。
           {{ range .Alerts }}{{ .Annotations.summary }} {{ end }}
           查看平台：http://127.0.0.1:3300/d/formula-overview
 inhibit_rules:

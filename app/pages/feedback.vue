@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ bottomNav: false, contentWidth: 'reading' })
-useHead({ title: '意见反馈 · Formula AI' })
+useHead({ title: '意见反馈 · 墨析' })
 
 const feedback = ref('')
 const kind = ref('问题反馈')
@@ -9,7 +9,7 @@ const copying = ref(false),
   copied = ref(false),
   manual = ref(false),
   copyError = ref('')
-const prepared = computed(() => `Formula AI ${kind.value}\n\n${feedback.value.trim()}`)
+const prepared = computed(() => `墨析 ${kind.value}\n\n${feedback.value.trim()}`)
 const manualText = ref<HTMLTextAreaElement>()
 
 function selectFeedback() {
@@ -44,7 +44,7 @@ async function copyFeedback() {
   } catch {
     if (disposed || prepared.value !== text) return
     manual.value = true
-    copyError.value = '浏览器未允许自动复制。请在下方选择全部内容，长按或使用 Ctrl/Cmd+C 复制。'
+    copyError.value = '浏览器未允许自动复制；请在下方选择全部内容，长按或使用 Ctrl/Cmd+C 复制。'
     showToast('复制不可用，请手动选择并复制反馈内容。')
   } finally {
     if (!disposed) copying.value = false
@@ -100,12 +100,12 @@ async function copyFeedback() {
       <AppIcon name="arrowRight" :size="16" />
     </a>
     <p class="feedback-destination">
-      复制内容后，到 GitHub 粘贴并提交公开 Issue。需要登录 GitHub，提交前可继续编辑。
+      复制内容后，到 GitHub 粘贴并提交公开 Issue；需要登录 GitHub，提交前可继续编辑。
     </p>
   </form>
   <div v-if="copied" class="card copy-result section stack" role="status">
     <h2>已复制，尚未发送</h2>
-    <p>点击「打开 GitHub 反馈页」，粘贴内容后提交。复制本身不会发送反馈。</p>
+    <p>点击「打开 GitHub 反馈页」，粘贴内容后提交；复制本身不会发送反馈。</p>
   </div>
   <div v-if="manual" class="card copy-result section stack">
     <p class="error-text" role="alert">{{ copyError }}</p>

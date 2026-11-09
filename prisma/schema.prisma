@@ -69,26 +69,30 @@ enum UsageKind {
 }
 
 model User {
-  id            String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email         String   @unique @db.VarChar(320)
-  displayName   String   @db.VarChar(100)
-  emailVerified Boolean  @default(false)
-  image         String?
-  createdAt     DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email           String   @unique @db.VarChar(320)
+  displayName     String   @db.VarChar(100)
+  emailVerified   Boolean  @default(false)
+  image           String?
+  grade           String?  @db.VarChar(80)
+  learningPurpose String?  @db.VarChar(300)
+  createdAt       DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt       DateTime @updatedAt @db.Timestamptz(3)
 
-  files          StoredFile[]
-  tasks          RecognitionTask[]
-  formulas       Formula[]
-  categories     Category[]
-  favorites      Favorite[]
-  conversations  Conversation[]
-  sessions       AuthSession[]
-  accounts       AuthAccount[]
-  exports        ExportTask[]
-  chatTurns      ChatTurn[]
-  usage          DailyUsage[]
-  resourceLeases ResourceLease[]
+  files              StoredFile[]
+  tasks              RecognitionTask[]
+  formulas           Formula[]
+  categories         Category[]
+  favorites          Favorite[]
+  conversations      Conversation[]
+  sessions           AuthSession[]
+  accounts           AuthAccount[]
+  exports            ExportTask[]
+  chatTurns          ChatTurn[]
+  usage              DailyUsage[]
+  resourceLeases     ResourceLease[]
+  recognitionBatches RecognitionBatch[]
+  recommendations RecommendationCache[]
 
   @@map("users")
 }
@@ -171,10 +175,12 @@ model StoredFile {
   createdAt   DateTime   @default(now()) @db.Timestamptz(3)
   updatedAt   DateTime   @updatedAt @db.Timestamptz(3)
 
-  owner   User              @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  tasks   RecognitionTask[]
-  exports ExportTask[]
-  leases  ResourceLease[]
+  owner       User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tasks       RecognitionTask[]
+  exports     ExportTask[]
+  leases      ResourceLease[]
+  batchImages RecognitionBatchImage[]
+  batchParts  RecognitionBatchPart[]
 
   @@unique([id, ownerId])
   @@unique([bucket, objectKey])
@@ -225,26 +231,28 @@ model StorageCleanupAudit {
 }
 
 model RecognitionTask {
-  id             String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerId        String            @db.Uuid
-  inputFileId    String            @db.Uuid
-  requestKey     String            @db.VarChar(100)
-  requestedTitle String?           @db.VarChar(100)
-  mode           RecognitionMode
-  status         RecognitionStatus @default(QUEUED)
-  attemptCount   Int               @default(0)
-  maxAttempts    Int               @default(3)
-  errorCode      String?           @db.VarChar(100)
-  errorMessage   String?           @db.VarChar(1000)
-  startedAt      DateTime?         @db.Timestamptz(3)
-  finishedAt     DateTime?         @db.Timestamptz(3)
-  createdAt      DateTime          @default(now()) @db.Timestamptz(3)
-  updatedAt      DateTime          @updatedAt @db.Timestamptz(3)
-  queueJobId     String?           @unique @db.Uuid
+  historyDeletedAt DateTime?         @db.Timestamptz(3)
+  id               String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId          String            @db.Uuid
+  inputFileId      String            @db.Uuid
+  requestKey       String            @db.VarChar(100)
+  requestedTitle   String?           @db.VarChar(100)
+  mode             RecognitionMode
+  status           RecognitionStatus @default(QUEUED)
+  attemptCount     Int               @default(0)
+  maxAttempts      Int               @default(3)
+  errorCode        String?           @db.VarChar(100)
+  errorMessage     String?           @db.VarChar(1000)
+  startedAt        DateTime?         @db.Timestamptz(3)
+  finishedAt       DateTime?         @db.Timestamptz(3)
+  createdAt        DateTime          @default(now()) @db.Timestamptz(3)
+  updatedAt        DateTime          @updatedAt @db.Timestamptz(3)
+  queueJobId       String?           @unique @db.Uuid
 
-  owner     User       @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  inputFile StoredFile @relation(fields: [inputFileId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
-  formula   Formula?
+  owner      User                   @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  inputFile  StoredFile             @relation(fields: [inputFileId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+  formula    Formula?
+  batchParts RecognitionBatchPart[]
 
   @@unique([id, ownerId])
   @@unique([ownerId, requestKey])
@@ -252,6 +260,64 @@ model RecognitionTask {
   @@index([inputFileId, ownerId])
   @@index([status, createdAt])
   @@map("recognition_tasks")
+}
+
+model RecognitionBatch {
+  id           String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId      String                  @db.Uuid
+  requestKey   String                  @db.Uuid
+  requestHash  String                  @db.Char(64)
+  mode         String                  @db.VarChar(8)
+  status       String                  @default("RUNNING") @db.VarChar(12)
+  errorMessage String?                 @db.VarChar(1000)
+  historyDeletedAt DateTime?           @db.Timestamptz(3)
+  leaseToken   String?                 @db.Uuid
+  leaseUntil   DateTime?               @db.Timestamptz(3)
+  createdAt    DateTime                @default(now()) @db.Timestamptz(3)
+  updatedAt    DateTime                @updatedAt @db.Timestamptz(3)
+  owner        User                    @relation(fields: [ownerId], references: [id], onDelete: Cascade, map: "recognition_batches_ownerid_fkey")
+  images       RecognitionBatchImage[]
+
+  @@unique([id, ownerId])
+  @@unique([ownerId, requestKey])
+  @@index([ownerId, createdAt(sort: Desc), id])
+  @@index([status, updatedAt, id])
+  @@map("recognition_batches")
+}
+
+model RecognitionBatchImage {
+  id       String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  batchId  String                 @db.Uuid
+  ownerId  String                 @db.Uuid
+  fileId   String                 @db.Uuid
+  position Int
+  batch    RecognitionBatch       @relation(fields: [batchId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict, map: "recognition_batch_images_batchid_ownerid_fkey")
+  file     StoredFile             @relation(fields: [fileId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict, map: "recognition_batch_images_fileid_ownerid_fkey")
+  parts    RecognitionBatchPart[]
+
+  @@unique([id, ownerId])
+  @@unique([batchId, position])
+  @@index([fileId, ownerId])
+  @@map("recognition_batch_images")
+}
+
+model RecognitionBatchPart {
+  id           String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  imageId      String                @db.Uuid
+  ownerId      String                @db.Uuid
+  fileId       String                @db.Uuid
+  position     Int
+  requestKey   String                @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  taskId       String?               @db.Uuid
+  errorMessage String?               @db.VarChar(1000)
+  image        RecognitionBatchImage @relation(fields: [imageId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict, map: "recognition_batch_parts_imageid_ownerid_fkey")
+  file         StoredFile            @relation(fields: [fileId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict, map: "recognition_batch_parts_fileid_ownerid_fkey")
+  task         RecognitionTask?      @relation(fields: [taskId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict, map: "recognition_batch_parts_taskid_ownerid_fkey")
+
+  @@unique([imageId, position])
+  @@unique([taskId, ownerId])
+  @@index([fileId, ownerId])
+  @@map("recognition_batch_parts")
 }
 
 model Category {
@@ -270,22 +336,31 @@ model Category {
 }
 
 model Formula {
-  creationKey       String?   @db.VarChar(100)
-  creationHash      String?   @db.Char(64)
-  id                String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  ownerId           String    @db.Uuid
-  title             String    @db.VarChar(100)
-  categoryId        String?   @db.Uuid
-  recognitionTaskId String?   @db.Uuid
-  createdAt         DateTime  @default(now()) @db.Timestamptz(3)
-  updatedAt         DateTime  @updatedAt @db.Timestamptz(3)
-  deletedAt         DateTime? @db.Timestamptz(3)
+  canonicalId       String?         @db.Uuid
+  duplicateDecision String?         @db.VarChar(8)
+  duplicateCheck    Json?
+  canonical         Formula?        @relation("FormulaIdentity", fields: [canonicalId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
+  linked            Formula[]       @relation("FormulaIdentity")
+  repairs           FormulaRepair[]
+  creationKey       String?         @db.VarChar(100)
+  creationHash      String?         @db.Char(64)
+  id                String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId           String          @db.Uuid
+  title             String          @db.VarChar(100)
+  categoryId        String?         @db.Uuid
+  recognitionTaskId String?         @db.Uuid
+  createdAt         DateTime        @default(now()) @db.Timestamptz(3)
+  updatedAt         DateTime        @updatedAt @db.Timestamptz(3)
+  deletedAt         DateTime?       @db.Timestamptz(3)
 
   owner           User             @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   category        Category?        @relation(fields: [categoryId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
   recognitionTask RecognitionTask? @relation(fields: [recognitionTaskId, ownerId], references: [id, ownerId], onDelete: NoAction, onUpdate: Restrict)
   versions        FormulaVersion[]
   favorites       Favorite[]
+  learning        FormulaLearning?
+  learningGenerations LearningQuestionGeneration[]
+  recycleEntry    FormulaRecycleEntry?
 
   @@unique([id, ownerId])
   @@unique([recognitionTaskId, ownerId])
@@ -294,7 +369,28 @@ model Formula {
   @@index([ownerId, updatedAt(sort: Desc), id])
   @@index([ownerId, deletedAt, createdAt(sort: Desc), id(sort: Desc)])
   @@index([categoryId, ownerId])
+  @@index([canonicalId, ownerId])
   @@map("formulas")
+}
+
+model FormulaRepair {
+  id                String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId           String   @db.Uuid
+  formulaId         String   @db.Uuid
+  expectedVersionId String   @db.Uuid
+  requestKey        String   @db.Uuid
+  domain            String   @db.VarChar(60)
+  status            String   @db.VarChar(12)
+  originalLatex     String   @db.Text
+  candidateLatex    String?  @db.Text
+  reason            String?  @db.VarChar(1000)
+  expiresAt         DateTime @db.Timestamptz(3)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+  formula           Formula  @relation(fields: [formulaId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([ownerId, requestKey])
+  @@index([formulaId, ownerId])
+  @@map("formula_repairs")
 }
 
 model FormulaVersion {
@@ -344,6 +440,7 @@ enum ChatResponseKind {
 }
 
 model Conversation {
+  customTitle      String?             @db.VarChar(40)
   purpose          ConversationPurpose @default(CHAT)
   revision         BigInt              @default(0)
   id               String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -508,4 +605,77 @@ model ChatCallAttempt {
   @@index([ownerId, createdAt(sort: Desc), id])
   @@index([status, updatedAt, id])
   @@map("chat_call_attempts")
+}
+
+model FormulaLearning {
+  formulaId     String    @id @db.Uuid
+  ownerId       String    @db.Uuid
+  notes         String    @default("") @db.VarChar(6000)
+  conditions    String    @default("") @db.VarChar(2000)
+  question      String    @default("") @db.VarChar(600)
+  questions     Json      @default("[]")
+  questionsInitialized Boolean @default(false)
+  conditionsCustomized Boolean @default(false)
+  mastery       String    @default("UNFAMILIAR") @db.VarChar(12)
+  masteryNotes  String    @default("") @db.VarChar(2000)
+  tags          String[]  @default([])
+  revision      Int       @default(0)
+  reviewEnabled Boolean   @default(false)
+  nextReviewAt  DateTime? @db.Timestamptz(3)
+  intervalDays  Int       @default(0)
+  updatedAt     DateTime  @updatedAt @db.Timestamptz(3)
+  formula       Formula   @relation(fields: [formulaId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([formulaId, ownerId])
+  @@index([ownerId, reviewEnabled, nextReviewAt])
+  @@map("formula_learning")
+}
+
+model LearningQuestionGeneration {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId     String   @db.Uuid
+  formulaId   String   @db.Uuid
+  versionId   String   @db.Uuid
+  profileHash String   @db.Char(64)
+  status      String   @db.VarChar(12)
+  questions   Json     @default("[]")
+  error       String?  @db.VarChar(300)
+  token       String   @db.Uuid
+  expiresAt   DateTime @db.Timestamptz(3)
+  updatedAt   DateTime @updatedAt @db.Timestamptz(3)
+  formula     Formula  @relation(fields: [formulaId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([ownerId, formulaId, versionId, profileHash], map: "learning_question_generations_context_key")
+  @@index([ownerId, status, expiresAt])
+  @@map("learning_question_generations")
+}
+
+model FormulaRecycleEntry {
+  formulaId String @id @db.Uuid
+  ownerId String @db.Uuid
+  deletedAt DateTime @db.Timestamptz(3)
+  expiresAt DateTime @db.Timestamptz(3)
+  formula Formula @relation(fields: [formulaId, ownerId], references: [id, ownerId], onDelete: Cascade, onUpdate: Restrict)
+
+  @@unique([formulaId, ownerId])
+  @@index([ownerId, deletedAt(sort: Desc)])
+  @@index([expiresAt, formulaId])
+  @@map("formula_recycle_entries")
+}
+
+
+model RecommendationCache {
+  id String @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  ownerId String @db.Uuid
+  fingerprint String @db.Char(64)
+  status String @db.VarChar(12)
+  items Json @default("[]")
+  error String? @db.VarChar(500)
+  token String @db.Uuid
+  expiresAt DateTime @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  @@unique([ownerId, fingerprint])
+  @@index([ownerId, status, expiresAt])
+  @@map("recommendation_caches")
 }

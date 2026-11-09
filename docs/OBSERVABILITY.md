@@ -21,7 +21,7 @@ docker compose -f compose.yaml -f compose.recognition-observability.yaml up -d -
 
 仅在没有正在执行的识别任务时重载 Python。镜像中的 telemetry.py 随正常镜像构建打包；以上挂载用于当前本机免重建接入。
 
-打开 http://127.0.0.1:3300 ，首页为 Formula AI 运行总览；业务日志在 /d/formula-runtime。当前启用登录并仅绑定回环地址。用户名 admin，密码保存在本机 tmp/observability-secrets/grafana-admin-password；请在本机打开该文件查看，不要提交或转发。已有 Grafana 数据库也通过标准输入重置了管理员密码。匿名数据源查询返回 401。
+打开 http://127.0.0.1:3300 ，首页为 墨析 运行总览；业务日志在 /d/formula-runtime。当前启用登录并仅绑定回环地址。用户名 admin，密码保存在本机 tmp/observability-secrets/grafana-admin-password；请在本机打开该文件查看，不要提交或转发。已有 Grafana 数据库也通过标准输入重置了管理员密码。匿名数据源查询返回 401。
 
 ## 查一次问题
 

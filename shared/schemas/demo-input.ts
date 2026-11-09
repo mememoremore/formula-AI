@@ -7,7 +7,7 @@ const imageError = '请提供图片信息。'
 export const demoImageMetadataSchema = z.object(
   {
     name: text(255, '图片名称无效。'),
-    mimeType: z.enum(['image/jpeg', 'image/png'], { error: '仅支持 JPEG 和 PNG。' }),
+    mimeType: z.enum(['image/jpeg', 'image/png'], { error: '仅支持 JPG/JPEG、PNG。' }),
     size: z
       .number({ error: '图片大小必须在 0～10MB 之间。' })
       .refine((value) => Number.isInteger(value) && value > 0 && value <= 10 * 1024 * 1024, {

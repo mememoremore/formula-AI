@@ -20,10 +20,10 @@ export async function readLimitedBody(event: H3Event, maxBytes: number) {
     throw createError({ statusCode: 400, message: '上传内容不能为空。' })
   }
 }
-export async function readWorkspaceJson(event: H3Event) {
+export async function readWorkspaceJson(event: H3Event, maxBytes = 32 * 1024) {
   if (getHeader(event, 'content-type')?.split(';')[0] !== 'application/json')
     throw createError({ statusCode: 415, message: '请求需要使用 JSON 格式。' })
-  const body = await readLimitedBody(event, 32 * 1024)
+  const body = await readLimitedBody(event, maxBytes)
   try {
     return JSON.parse(body.toString('utf8')) as unknown
   } catch {

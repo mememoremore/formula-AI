@@ -374,3 +374,129 @@ test('删除公式使用软删除，重复请求幂等且其他账号无权删�
   const categories = (await (await api('/categories')).json()) as CategoryCollection
   assert.equal(categories.totalCount, 24)
 })
+
+test('批量移除识别历史校验全部归属、重复幂等，保留任务和公式关联', async () => {
+  async function record(ownerId: string) {
+    const file = await db.storedFile.create({
+      data: {
+        ownerId,
+        kind: 'IMAGE',
+        status: 'DELETED',
+        bucket: 'test-history',
+        objectKey: randomUUID(),
+        name: '历史样本.png',
+        mimeType: 'image/png',
+        sizeBytes: 1,
+      },
+    })
+    const task = await db.recognitionTask.create({
+      data: {
+        ownerId,
+        inputFileId: file.id,
+        requestKey: randomUUID(),
+        mode: 'PRINTED',
+        status: 'COMPLETED',
+        attemptCount: 1,
+        createdAt: new Date(Date.now() - 1000),
+        startedAt: new Date(),
+        finishedAt: new Date(),
+      },
+    })
+    const { formula } = await createFormula(db, {
+      ownerId,
+      title: '历史删除样本',
+      latex: 'x=1',
+      origin: 'RECOGNITION',
+      recognitionTaskId: task.id,
+    })
+    return { task, formula, file }
+  }
+  const own = await record(owners[0]!),
+    foreign = await record(owners[1]!)
+  assert.equal(
+    (await api('/recognitions/batch-delete', 'POST', { ids: [own.task.id, foreign.task.id] }))
+      .status,
+    404,
+  )
+  assert.equal(
+    (await db.recognitionTask.findUniqueOrThrow({ where: { id: own.task.id } })).historyDeletedAt,
+    null,
+  )
+  assert.equal(
+    (
+      await api(
+        '/recognitions/batch-delete',
+        'POST',
+        { ids: [own.task.id] },
+        0,
+        'https://invalid.example',
+      )
+    ).status,
+    403,
+  )
+  const removed = await api('/recognitions/batch-delete', 'POST', {
+    ids: [own.task.id, own.task.id],
+  })
+  assert.equal(removed.status, 200)
+  assert.equal((await removed.json()).deletedCount, 1)
+  assert.equal(
+    (await (await api('/recognitions/batch-delete', 'POST', { ids: [own.task.id] })).json())
+      .deletedCount,
+    0,
+  )
+  for (const suffix of ['', '?q=' + encodeURIComponent('历史删除样本')]) {
+    const page = await (await api('/recognitions' + suffix)).json()
+    assert.ok(!page.items.some((item: { id: string }) => item.id === own.task.id))
+  }
+  const kept = await db.formula.findUniqueOrThrow({ where: { id: own.formula.id } })
+  assert.equal(kept.deletedAt, null)
+  assert.equal(kept.recognitionTaskId, own.task.id)
+  assert.ok(
+    (await db.recognitionTask.findUniqueOrThrow({ where: { id: own.task.id } })).historyDeletedAt,
+  )
+  assert.equal(
+    (await db.recognitionTask.findUniqueOrThrow({ where: { id: foreign.task.id } }))
+      .historyDeletedAt,
+    null,
+  )
+  assert.equal((await api('/formulas/' + own.formula.id)).status, 200)
+})
+
+test('批量删除公式同时移除保存和收藏，拒绝混合归属并保留版本', async () => {
+  const first = await createFormula(db, {
+    ownerId: owners[0]!,
+    title: '批量删除甲',
+    latex: 'a=1',
+    origin: 'MANUAL',
+  })
+  const second = await createFormula(db, {
+    ownerId: owners[0]!,
+    title: '批量删除乙',
+    latex: 'b=2',
+    origin: 'MANUAL',
+  })
+  const ids = [first.formula.id, second.formula.id]
+  await db.favorite.createMany({
+    data: ids.map((formulaId) => ({ ownerId: owners[0]!, formulaId })),
+  })
+  assert.equal(
+    (await api('/formulas/batch-delete', 'POST', { ids: [...ids, foreignId] })).status,
+    404,
+  )
+  assert.equal(await db.formula.count({ where: { id: { in: ids }, deletedAt: null } }), 2)
+  assert.equal(
+    (await api('/formulas/batch-delete', 'POST', { ids }, 0, 'https://invalid.example')).status,
+    403,
+  )
+  assert.equal((await api('/formulas/batch-delete', 'POST', { ids })).status, 200)
+  assert.equal(await db.formula.count({ where: { id: { in: ids }, deletedAt: null } }), 0)
+  assert.equal(
+    await db.favorite.count({ where: { ownerId: owners[0]!, formulaId: { in: ids } } }),
+    0,
+  )
+  assert.equal(await db.formulaVersion.count({ where: { formulaId: { in: ids } } }), 2)
+  assert.equal(
+    (await (await api('/formulas/batch-delete', 'POST', { ids })).json()).deletedCount,
+    0,
+  )
+})

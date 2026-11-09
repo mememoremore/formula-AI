@@ -1,17 +1,15 @@
 <script setup lang="ts">
+import { displayFormulaTitle } from '#shared/formula-title'
 import { formulaDraftChanged, formulaDraftFeedback } from '~/utils/formula-editor'
 
 definePageMeta({ bottomNav: false, contentWidth: 'reading' })
-useHead({ title: '演示公式 · Formula AI' })
+useHead({ title: '演示公式 · 墨析' })
 
 const route = useRoute()
 const { formulas, categories, toggleFavorite, updateFormula } = useDemoLibrary()
 const { preview } = useUploadPreview()
 const { showToast } = useToast()
 const formula = computed(() => formulas.value.find((item) => item.id === route.params.id))
-const categoryName = computed(
-  () => categories.value.find((item) => item.id === formula.value?.categoryId)?.name ?? '未分类',
-)
 const image = computed(() =>
   preview.value?.formulaId === formula.value?.id ? preview.value?.url : undefined,
 )
@@ -43,7 +41,7 @@ watch(
 
 function edit() {
   if (!formula.value) return
-  title.value = formula.value.title
+  title.value = displayFormulaTitle(formula.value.title)
   latex.value = formula.value.latex
   categoryId.value = formula.value.categoryId ?? ''
   original.value = { title: title.value, latex: latex.value, categoryId: categoryId.value }
@@ -95,19 +93,17 @@ function saveCategory() {
       badge="本机演示"
       @edit="edit"
     >
-      <template #organization>
-        <div class="organization-row">
-          <button class="text-button" @click="categorize">
-            <AppIcon name="book" :size="15" />
-            {{ categoryName }}
-            <AppIcon name="pencil" :size="12" />
-          </button>
-          <FavoriteButton
-            :active="formula.favorite"
-            :label="formula.favorite ? '取消收藏' : '收藏公式'"
-            @toggle="toggleFavorite(formula.id)"
-          />
-        </div>
+      <template #title-actions>
+        <FavoriteButton
+          :active="formula.favorite"
+          :label="formula.favorite ? '取消收藏' : '收藏公式'"
+          @toggle="toggleFavorite(formula.id)"
+        />
+      </template>
+      <template #footer>
+        <button class="button button-primary button-block section" @click="categorize">
+          添加到公式库
+        </button>
       </template>
       <template #actions>
         <NuxtLink
@@ -123,7 +119,7 @@ function saveCategory() {
         </button>
       </template>
       <template #note>
-        本机示例与修改只保存于当前浏览器，不会自动导入账号。{{
+        本机示例与修改只保存于当前浏览器，不会自动导入账号；{{
           formula.source === 'mock-recognition' ? '模拟结果不代表所选图片内容。' : ''
         }}
       </template>
@@ -188,7 +184,7 @@ function saveCategory() {
     </AppModal>
     <AppModal :open="showExport" title="使用账号公式导出 Word" @close="showExport = false">
       <p class="prose">
-        本机演示公式不能直接生成账号文档。登录后上传公式图片，即可在账号公式详情中导出；演示数据不会自动导入。
+        本机演示公式不能直接生成账号文档；登录后上传公式图片，即可在账号公式详情中导出；演示数据不会自动导入。
       </p>
       <NuxtLink to="/login?redirect=/upload" class="button button-primary button-block section">
         登录并上传公式
@@ -205,20 +201,8 @@ function saveCategory() {
   />
 </template>
 <style scoped>
-.organization-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  margin-top: 12px;
-}
 .export-button {
   margin-top: 12px;
-}
-.organization-row > .text-button {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  text-align: left;
 }
 .editor-preview {
   min-width: 0;

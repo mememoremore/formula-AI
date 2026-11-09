@@ -19,7 +19,7 @@ async function toggle() {
     :to="'/formulas/' + formula.id"
     :category="formula.category?.name"
     :favorite="formula.favorite"
-    :created-at="formula.createdAt"
+    :created-at="formula.savedAt ?? formula.createdAt"
     :image-src="formula.imageId ? '/api/account/files/' + formula.imageId + '/content' : undefined"
     :source-label="formula.isMock ? '模拟识别结果' : ''"
     :busy="busy"

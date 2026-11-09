@@ -41,7 +41,7 @@ const lines = computed(() =>
 </template>
 <style scoped>
 .text-heading {
-  font-size: 1.04em;
+  font-size: min(1.04em, var(--page-title-font-size, 24px));
   font-weight: 650;
 }
 code {

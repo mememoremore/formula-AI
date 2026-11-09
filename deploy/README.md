@@ -1,4 +1,4 @@
-# Formula AI：4核4GB 单机试运行
+# 墨析：4核4GB 单机试运行
 
 环境：Ubuntu24.04 x86_64、Docker29.1.3，已有宿主Nginx、域名及证书（公网域名访问前须确认备案与接入状态）。公网入口为 `https://www.ideal-formula.top`，根域名重定向到www。既有证书继续使用 `/etc/nginx/ssl/ideal-formula.top/fullchain.crt` 和 `private.key`，不复制进镜像或部署包。
 

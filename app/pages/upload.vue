@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import type { RegionDraft } from '~/utils/preparation-storage'
 import type { RecognitionRequest, RecognitionResult } from '#shared/types/api'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 import { recognitionInvalidates } from '~/utils/recognition-state'
-import { normalizeOptionalFormulaTitle, optionalFormulaTitleFeedback } from '#shared/formula-title'
 
 definePageMeta({ bottomNav: false, middleware: 'workspace', contentWidth: 'reading' })
-useHead({ title: '公式识别 · Formula AI' })
+useHead({ title: '公式识别 · 墨析' })
 
 const route = useRoute(),
   fileInput = ref<HTMLInputElement>(),
@@ -30,19 +30,42 @@ const ownerId = computed(() =>
     : undefined,
 )
 const flow = useAccountRecognition(ownerId)
+const batch = useRecognitionBatchDraft(ownerId)
 const draft = useNuxtApp().$uploadDraft,
   { mode } = draft
 const source = ref<'camera' | 'image'>(route.query.source === 'camera' ? 'camera' : 'image')
-const requestedTitle = ref('')
-const titleFeedback = computed(() => optionalFormulaTitleFeedback(requestedTitle.value))
+const recognitionMode = ref<'single' | 'multiple'>('single')
+const multiBusy = ref(false)
+const regionDrafts = ref<RegionDraft[]>([])
+const localPreparation = useUploadPreparation(
+  ownerId,
+  file,
+  originalFile,
+  recognitionMode,
+  regionDrafts,
+)
 const { addRecognition } = useDemoLibrary()
 const cropping = ref(false)
 const recropping = ref(false)
 
 watch(originalFile, (value) => {
   recropping.value = false
-  cropping.value = !!value
+  cropping.value = !!value && !localPreparation.restoring.value
 })
+
+async function restorePreparation() {
+  await localPreparation.restore()
+
+  const current = file.value
+
+  if (current)
+    replacePreview({
+      url: URL.createObjectURL(current),
+      name: current.name,
+      size: current.size,
+      mimeType: current.type as 'image/jpeg' | 'image/png',
+    })
+}
 
 function cropped(value: File) {
   applyCrop(value)
@@ -63,16 +86,18 @@ function recrop() {
 
 const pending = ref(false),
   error = ref('')
-const feedback = computed(() => selectionError.value || error.value)
+const feedback = computed(() => selectionError.value || error.value || batch.feedback.value)
 const blocked = computed(
   () =>
     pending.value ||
+    multiBusy.value ||
+    batch.busy.value ||
+    !!batch.pending.value ||
     cropping.value ||
     checking.value ||
     sessionStatus.value !== 'success' ||
     !!sessionError.value ||
-    (accountFlow.value && !flow.recoveryReady.value) ||
-    !!titleFeedback.value,
+    (accountFlow.value && !flow.recoveryReady.value),
 )
 const selectionLocked = computed(() => blocked.value || (accountFlow.value && flow.uncertain.value))
 let sequence = 0,
@@ -119,15 +144,15 @@ watch(
   () => {
     cancel()
     error.value = ''
+    if (!localPreparation.restoring.value) regionDrafts.value = []
   },
   { flush: 'sync' },
 )
 watch(
   flow.receipt,
   (value) => {
-    if (value) {
+    if (value && recognitionMode.value === 'single') {
       mode.value = value.mode
-      requestedTitle.value = value.requestedTitle ?? ''
     }
   },
   { immediate: true },
@@ -151,13 +176,10 @@ async function recognize() {
   error.value = ''
   try {
     if (accountFlow.value) {
-      const task = await flow.recognize(
-        original,
-        mode.value,
-        normalizeOptionalFormulaTitle(requestedTitle.value) ?? undefined,
-      )
+      const task = await flow.recognize(original, mode.value)
 
       if (disposed || token !== sequence || identity.value !== space) return
+      await localPreparation.clear()
       clearNuxtData((key) => recognitionInvalidates(key, 'submitted'))
       file.value = null
       replacePreview(null)
@@ -183,11 +205,7 @@ async function recognize() {
 
       if (disposed || token !== sequence || identity.value !== space) return
 
-      const formula = addRecognition(
-        result,
-        original.name,
-        normalizeOptionalFormulaTitle(requestedTitle.value) ?? undefined,
-      )
+      const formula = addRecognition(result, original.name)
 
       attachFormula(formula.id)
       file.value = null
@@ -206,8 +224,29 @@ async function recognize() {
   }
 }
 
+async function confirmBatch() {
+  const original = file.value
+  const id = await batch.start()
+
+  if (id) {
+    await localPreparation.clear()
+    if (file.value === original) removeImage()
+  }
+}
+
+async function recognizeMultiple(parts: File[]) {
+  if (blocked.value || !file.value) return
+  error.value = ''
+  if (batch.prepareImage(file.value, parts)) await confirmBatch()
+}
+
 function beforeUnload(event: BeforeUnloadEvent) {
-  if (pending.value || file.value || flow.receipt.value) {
+  if (
+    pending.value ||
+    flow.receipt.value ||
+    (file.value &&
+      !['已自动保存本机草稿', '已恢复本机草稿'].includes(localPreparation.status.value))
+  ) {
     event.preventDefault()
     event.returnValue = ''
   }
@@ -237,17 +276,32 @@ const buttonLabel = computed(() =>
 )
 </script>
 <template>
-  <PageHeader title="公式识别" back-to="/" />
+  <PageHeader class="upload-page-header" title="公式识别" back-to="/" />
   <FormulaImageCropper
     v-if="cropping && originalFile"
     :file="originalFile"
     @close="cancelCrop"
     @selected="cropped"
   />
+  <div
+    v-if="
+      localPreparation.recoverable.value && !file && !flow.uncertain.value && !batch.pending.value
+    "
+    class="card status-panel"
+  >
+    <p>有一份未开始识别的本机草稿。</p>
+    <div class="row">
+      <button class="button button-secondary" @click="restorePreparation">继续上次准备</button>
+      <button class="text-button" @click="localPreparation.discard">丢弃草稿</button>
+    </div>
+  </div>
+  <p v-if="localPreparation.status.value" class="info-note" role="status">
+    {{ localPreparation.status.value }}
+  </p>
   <header class="upload-intro">
     <div>
       <h2>让公式清晰起来</h2>
-      <p>拍照或选择图片，整理成可编辑的数学公式。</p>
+      <p>整理成可编辑的数学公式。</p>
     </div>
     <img src="/images/home-paper.svg" alt="" width="100" height="120" />
   </header>
@@ -292,6 +346,7 @@ const buttonLabel = computed(() =>
         @choose="choose(source)"
         @remove="removeImage"
       />
+      <ImageQualityNote :file="originalFile" />
       <button
         v-if="preview && originalFile"
         class="button button-white button-block alternate-source"
@@ -300,65 +355,31 @@ const buttonLabel = computed(() =>
       >
         重新裁剪图片
       </button>
-      <div class="source-actions">
-        <button
-          type="button"
-          class="button button-white"
-          :disabled="selectionLocked"
-          @click="choose('image')"
-        >
-          <AppIcon name="image" :size="18" />
-          从相册或文件选择
-        </button>
-        <button
-          type="button"
-          class="button button-white"
-          :disabled="selectionLocked"
-          @click="choose('camera')"
-        >
-          <AppIcon name="camera" :size="18" />
-          拍照
-        </button>
-      </div>
     </div>
     <section class="upload-controls" aria-label="识别设置与提交">
       <div class="card upload-settings">
-        <label class="name-field">
-          <span class="field-label">
-            公式名称
-            <small>选填</small>
-          </span>
-          <input
-            v-model="requestedTitle"
-            class="input"
-            maxlength="100"
-            placeholder="例如：三角恒等式"
-            :disabled="selectionLocked"
-          />
-          <span v-if="titleFeedback" class="error-text">{{ titleFeedback }}</span>
-        </label>
         <section class="mode-card" aria-labelledby="recognition-mode-title">
           <h2 id="recognition-mode-title">识别模式</h2>
           <div class="mode-options">
-            <label :class="{ selected: mode === 'handwritten' }">
+            <label :class="{ selected: recognitionMode === 'single' }">
               <input
-                v-model="mode"
+                v-model="recognitionMode"
                 class="sr-only"
                 type="radio"
-                value="handwritten"
+                value="single"
                 :disabled="selectionLocked"
               />
-              手写公式
+              单公式
             </label>
-            <label :class="{ selected: mode === 'printed' }">
+            <label :class="{ selected: recognitionMode === 'multiple' }">
               <input
-                v-model="mode"
+                v-model="recognitionMode"
                 class="sr-only"
                 type="radio"
-                value="printed"
+                value="multiple"
                 :disabled="selectionLocked"
               />
-              印刷公式
+              多公式
             </label>
           </div>
         </section>
@@ -369,13 +390,13 @@ const buttonLabel = computed(() =>
         <p>
           {{
             flow.stage.value === 'uploading'
-              ? '上传完成后才会提交后台任务。'
+              ? '上传完成后才会提交后台任务；'
               : '请勿重复操作，任务提交后可离开等待页。'
           }}
         </p>
       </div>
       <p v-if="flow.uncertain.value && accountFlow && !pending" class="info-note recovery-note">
-        上次提交结果尚未确认，将沿用原图片和请求继续确认。为避免重复任务，暂时不能更换图片或模式。
+        上次提交结果尚未确认，将沿用原图片和请求继续确认；为避免重复任务，暂时不能更换图片或模式。
       </p>
       <p
         v-if="draft.recoveryWarning.value && draft.recoveryWarning.value !== feedback"
@@ -385,7 +406,36 @@ const buttonLabel = computed(() =>
         {{ draft.recoveryWarning.value }}
       </p>
       <p v-if="feedback" class="error-text upload-error" role="alert">{{ feedback }}</p>
-      <div class="recognize-action" :class="{ 'crop-active': cropping }">
+      <MultiFormulaSelection
+        v-if="recognitionMode === 'multiple' && ownerId && accountFlow && !batch.pending.value"
+        :file="file"
+        :initial-regions="regionDrafts"
+        :owner-id="ownerId"
+        :disabled="
+          cropping || checking || batch.busy.value || flow.uncertain.value || !!sessionError
+        "
+        @regions="(rows) => (regionDrafts = rows)"
+        @busy="multiBusy = $event"
+        @prepared="recognizeMultiple"
+      />
+      <div v-else-if="batch.pending.value" class="card status-panel">
+        <p>多公式批次的提交结果尚未确认，请继续核对；已上传的区域不会重复提交。</p>
+        <button class="button button-primary" :disabled="batch.busy.value" @click="confirmBatch">
+          继续确认原批次
+        </button>
+      </div>
+      <p v-else-if="recognitionMode === 'multiple'" class="info-note">
+        多公式使用真实图片，请登录账号后使用。
+      </p>
+      <p v-if="batch.busy.value" class="info-note" role="status">{{ batch.progress.value }}</p>
+      <p v-if="recognitionMode === 'multiple' && accountFlow" class="info-note">
+        全部勾选区域上传并创建批次后自动进入结果页，后台会继续识别；上传完成前请勿离开。
+      </p>
+      <div
+        v-if="recognitionMode === 'single' && !batch.pending.value"
+        class="recognize-action"
+        :class="{ 'crop-active': cropping }"
+      >
         <button
           class="button button-primary button-block recognize-button"
           :disabled="blocked || (!file && !flow.receipt.value)"
@@ -396,14 +446,7 @@ const buttonLabel = computed(() =>
         </button>
       </div>
       <NuxtLink
-        v-if="accountFlow"
-        to="/library?space=account&view=recent"
-        class="text-button recent-link"
-      >
-        查看最近识别
-      </NuxtLink>
-      <NuxtLink
-        v-else-if="sessionStatus === 'success' && !sessionError"
+        v-if="!accountFlow && sessionStatus === 'success' && !sessionError"
         :to="{ path: '/login', query: { redirect: route.fullPath } }"
         class="text-button recent-link"
       >
@@ -421,15 +464,18 @@ const buttonLabel = computed(() =>
   <div class="mobile-action-spacer" aria-hidden="true" />
 </template>
 <style scoped>
+.upload-page-header {
+  margin-bottom: 10px;
+}
 .upload-intro {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 82px;
-  align-items: center;
+  align-items: start;
   gap: 10px;
   margin-bottom: 16px;
 }
 .upload-intro h2 {
-  font-size: 24px;
+  font-size: min(24px, var(--page-title-font-size, 24px));
   line-height: 1.5;
   letter-spacing: -0.7px;
   overflow-wrap: anywhere;
@@ -478,28 +524,12 @@ const buttonLabel = computed(() =>
   min-width: 0;
   padding-inline: 8px;
 }
-.name-field,
 .mode-card {
   display: block;
   min-width: 0;
   margin: 0;
   padding: 0;
   border: 0;
-}
-.name-field small {
-  color: var(--color-text-secondary);
-  font-size: 11px;
-  font-weight: 400;
-}
-.name-field .input {
-  margin-top: 8px;
-}
-.name-field .error-text {
-  display: block;
-  margin-top: 8px;
-}
-.mode-card {
-  margin-top: 14px;
 }
 .mode-card h2 {
   font-size: 14px;
@@ -593,11 +623,6 @@ const buttonLabel = computed(() =>
 .upload-settings {
   padding: 16px;
   border: 1px solid var(--color-border);
-}
-.mode-card {
-  margin-top: 16px;
-  padding-top: 14px;
-  border-top: 1px solid var(--color-border);
 }
 .mode-options {
   margin-top: 8px;

@@ -7,8 +7,10 @@ export default defineEventHandler((event) =>
     const db = getDatabase()
     const [formulas, favorites, conversations] = await db.$transaction(
       [
-        db.formula.count({ where: { ownerId: user.id, deletedAt: null } }),
-        db.favorite.count({ where: { ownerId: user.id, formula: { deletedAt: null } } }),
+        db.formula.count({ where: { ownerId: user.id, deletedAt: null, canonicalId: null } }),
+        db.favorite.count({
+          where: { ownerId: user.id, formula: { deletedAt: null, canonicalId: null } },
+        }),
         db.conversation.count({ where: { ownerId: user.id } }),
       ],
       { isolationLevel: 'RepeatableRead' },

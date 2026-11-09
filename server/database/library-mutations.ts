@@ -3,6 +3,7 @@ import { hasValidResourceIdentity } from './private-resources'
 import { checkedCategoryName } from '../services/library-input'
 import { WorkspaceError } from '../services/workspace-error'
 import type { AccountCategory } from '../../shared/types/library'
+import { identityMembers, lockIdentity } from './formula-identities'
 
 async function categoryTransaction<T>(
   db: PrismaClient,
@@ -89,9 +90,14 @@ export async function assignFormulaCategory(
   categoryId: string | null,
 ) {
   return categoryTransaction(db, async (tx) => {
+    await lockIdentity(tx, ownerId)
     await ownedFormula(tx, ownerId, id)
     if (categoryId !== null) await ownedCategory(tx, ownerId, categoryId)
-    await tx.formula.update({ where: { id_ownerId: { id, ownerId } }, data: { categoryId } })
+    const members = await identityMembers(tx, ownerId, id)
+    await tx.formula.updateMany({
+      where: { ownerId, id: { in: members.map((x) => x.id) } },
+      data: { categoryId },
+    })
   })
 }
 export async function setFormulaFavorite(
@@ -102,10 +108,15 @@ export async function setFormulaFavorite(
 ) {
   // 显式设置目标状态，重复请求不会反向切换；唯一主键保证并发收藏也只有一条。
   await db.$transaction(async (tx) => {
+    await lockIdentity(tx, ownerId)
     await ownedFormula(tx, ownerId, id)
+    const ids = (await identityMembers(tx, ownerId, id)).map((x) => x.id)
     if (favorite)
-      await tx.favorite.createMany({ data: [{ ownerId, formulaId: id }], skipDuplicates: true })
-    else await tx.favorite.deleteMany({ where: { ownerId, formulaId: id } })
+      await tx.favorite.createMany({
+        data: ids.map((formulaId) => ({ ownerId, formulaId })),
+        skipDuplicates: true,
+      })
+    else await tx.favorite.deleteMany({ where: { ownerId, formulaId: { in: ids } } })
   })
   return { favorite }
 }

@@ -7,6 +7,7 @@ export function usageInvalidated(key: string) {
 export function formulaViewsInvalidated(key: string) {
   return (
     key.startsWith('account-library-') ||
+    key.startsWith('personalized-recommendations-') ||
     key === 'account-history' ||
     key.startsWith('account-history-') ||
     key === 'account-categories' ||

@@ -1,5 +1,5 @@
 import type { JobStatus, RecognitionTaskState, RecognitionHistoryItem } from './types/tasks'
-import { isRandomFormulaName } from './formula-title'
+import { displayFormulaTitle, isRandomFormulaName } from './formula-title'
 export type RecognitionResultState = 'pending' | 'available' | 'deleted' | 'missing'
 export function recognitionResultState(
   status: JobStatus,
@@ -31,6 +31,6 @@ export function recognitionHistoryTitle(
   item: Pick<RecognitionHistoryItem, 'title' | 'status' | 'formulaId' | 'resultState'>,
 ) {
   const base = item.title.replace(/\.[^.]+$/, '')
-  if (!isRandomFormulaName(base)) return item.title
+  if (!isRandomFormulaName(base)) return displayFormulaTitle(item.title)
   return item.resultState === 'deleted' ? '已删除的识别结果' : '公式识别记录'
 }

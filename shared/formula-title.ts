@@ -4,8 +4,13 @@ export function isRandomFormulaName(title: string) {
     title.trim(),
   )
 }
-export function displayFormulaTitle(title: string, imageDerived: boolean) {
-  return imageDerived && isRandomFormulaName(title) ? '未命名公式' : title
+/** Display legacy placeholders without changing stored titles used by rename conflict checks. */
+export function displayFormulaTitle(title: string, imageDerived = false) {
+  return !title.trim() ||
+    title.trim() === '未命名公式' ||
+    (imageDerived && isRandomFormulaName(title))
+    ? '公式'
+    : title
 }
 
 export function normalizeOptionalFormulaTitle(value: string | null | undefined) {

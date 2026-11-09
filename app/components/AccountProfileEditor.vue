@@ -8,6 +8,10 @@ const props = defineProps<{ user: AccountUser }>()
 const emit = defineEmits<{ saved: []; expired: []; reload: [] }>()
 const name = ref(props.user.name),
   baseName = ref(props.user.name),
+  grade = ref(props.user.grade ?? ''),
+  learningPurpose = ref(props.user.learningPurpose ?? ''),
+  baseGrade = ref(props.user.grade ?? ''),
+  basePurpose = ref(props.user.learningPurpose ?? ''),
   avatar = ref<string | null | undefined>(),
   showOptions = ref(false),
   file = shallowRef<File>(),
@@ -18,6 +22,8 @@ const dirty = computed(
   () =>
     !!file.value ||
     name.value.trim() !== baseName.value ||
+    grade.value.trim() !== baseGrade.value ||
+    learningPurpose.value.trim() !== basePurpose.value ||
     (avatar.value === null ? !!props.user.image : avatar.value !== undefined),
 )
 const previewUser = computed(() =>
@@ -89,7 +95,12 @@ function reload() {
 async function save() {
   if (busy.value || file.value || !dirty.value) return
 
-  const input = profileInputSchema.safeParse({ name: name.value, avatar: avatar.value })
+  const input = profileInputSchema.safeParse({
+    name: name.value,
+    avatar: avatar.value,
+    grade: grade.value,
+    learningPurpose: learningPurpose.value,
+  })
 
   if (!input.success) {
     feedback.value = input.error.issues[0]?.message ?? '资料格式无效。'
@@ -106,6 +117,7 @@ async function save() {
   try {
     await accountFetch('/api/account/profile', {
       method: 'PATCH',
+      headers: { 'x-account-id': props.user.id },
       body: input.data,
       signal: active.signal,
       retry: 0,
@@ -114,6 +126,8 @@ async function save() {
     if (disposed || current !== sequence) return
     baseName.value = submitted
     name.value = submitted
+    grade.value = baseGrade.value = input.data.grade ?? ''
+    learningPurpose.value = basePurpose.value = input.data.learningPurpose ?? ''
     avatar.value = undefined
     emit('saved')
   } catch (error) {
@@ -163,6 +177,28 @@ async function save() {
           <span class="field-label">邮箱</span>
           <input class="input readonly" :value="user.email" readonly />
           <span class="info-note">邮箱用于登录，在此不可修改。</span>
+        </label>
+        <label>
+          <span class="field-label">年级（选填）</span>
+          <input
+            v-model="grade"
+            class="input"
+            maxlength="80"
+            aria-label="年级"
+            placeholder="例如：高一、大学一年级"
+            :disabled="busy"
+          />
+        </label>
+        <label>
+          <span class="field-label">学习目的（选填）</span>
+          <textarea
+            v-model="learningPurpose"
+            class="input"
+            maxlength="300"
+            aria-label="学习目的"
+            placeholder="例如：备考、巩固基础、理解实际应用"
+            :disabled="busy"
+          />
         </label>
       </section>
       <p v-if="feedback" class="error-text" role="alert">{{ feedback }}</p>

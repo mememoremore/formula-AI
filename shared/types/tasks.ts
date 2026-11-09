@@ -98,7 +98,14 @@ export interface SavedConversation {
   hasEarlierMessages: boolean
 }
 export interface ConversationPage {
-  items: { id: string; title: string; createdAt: string; preview?: string; latex?: string | null }[]
+  items: {
+    id: string
+    title: string
+    createdAt: string
+    updatedAt?: string
+    preview?: string
+    latex?: string | null
+  }[]
   nextCursor: string | null
 }
 export interface UsageOverview {

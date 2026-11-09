@@ -9,6 +9,7 @@ import type { CategoryCollection, FormulaLibraryPage } from '../../shared/types/
 
 export type LibraryKind = 'library' | 'favorites'
 export interface LibraryFilters {
+  saved?: 'true'
   q?: string
   category?: string
 }
@@ -27,14 +28,22 @@ export type AccountQueryFetch = <T>(
 export const formulaQueryKeys = {
   all: ['account-formula-views'] as const,
   owner: (owner: string | undefined) => ['account-formula-views', owner ?? null] as const,
-  categories: (owner: string | undefined) =>
-    [...formulaQueryKeys.owner(owner), 'categories'] as const,
+  categories: (owner: string | undefined, favoritesOnly = false) =>
+    [
+      ...formulaQueryKeys.owner(owner),
+      'categories',
+      ...(favoritesOnly ? (['favorites'] as const) : []),
+    ] as const,
   library: (owner: string | undefined, kind: LibraryKind, filters: LibraryFilters) =>
     [
       ...formulaQueryKeys.owner(owner),
       'library',
       kind,
-      { q: filters.q ?? '', category: filters.category ?? '' },
+      {
+        q: filters.q ?? '',
+        category: filters.category ?? '',
+        ...(filters.saved ? { saved: filters.saved } : {}),
+      },
     ] as const,
 }
 
@@ -82,14 +91,19 @@ export function libraryQueryOptions(
   })
 }
 
-export function categoryQueryOptions(owner: string | undefined, fetcher: AccountQueryFetch) {
+export function categoryQueryOptions(
+  owner: string | undefined,
+  fetcher: AccountQueryFetch,
+  favoritesOnly = false,
+) {
   return queryOptions({
-    queryKey: formulaQueryKeys.categories(owner),
+    queryKey: formulaQueryKeys.categories(owner, favoritesOnly),
     enabled: !!owner,
     queryFn: async ({ signal }) => {
       if (!owner) throw new Error('账号尚未确认')
 
       const result = await fetcher<CategoryCollection>('/api/account/categories', {
+        ...(favoritesOnly ? { query: { favorites: 'true' } } : {}),
         headers: { 'x-account-id': owner },
         signal,
         retry: 0,

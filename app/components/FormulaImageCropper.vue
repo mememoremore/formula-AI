@@ -36,8 +36,11 @@ const cropperTemplate = `
 </cropper-selection>
 </cropper-canvas>
 `
-const props = defineProps<{ file: File }>()
-const emit = defineEmits<{ close: []; selected: [file: File] }>()
+const props = withDefaults(
+  defineProps<{ file: File; initialBox?: number[]; allowRotate?: boolean }>(),
+  { allowRotate: true },
+)
+const emit = defineEmits<{ close: []; selected: [file: File, box?: number[]] }>()
 const host = ref<HTMLDivElement>(),
   ready = ref(false),
   exporting = ref(false),
@@ -78,6 +81,16 @@ function reset() {
     parent = canvas.getBoundingClientRect()
 
   selection.$change(rect.left - parent.left, rect.top - parent.top, rect.width, rect.height)
+  if (props.initialBox?.length === 4 && sourceImage) {
+    const [left, top, right, bottom] = props.initialBox as [number, number, number, number]
+
+    selection.$change(
+      rect.left - parent.left + (left / sourceImage.naturalWidth) * rect.width,
+      rect.top - parent.top + (top / sourceImage.naturalHeight) * rect.height,
+      ((right - left) / sourceImage.naturalWidth) * rect.width,
+      ((bottom - top) / sourceImage.naturalHeight) * rect.height,
+    )
+  }
   guard = true
 }
 
@@ -131,6 +144,40 @@ async function complete() {
           type: blob.type,
           lastModified: props.file.lastModified,
         }),
+        [
+          Math.max(
+            0,
+            Math.round(
+              ((bounds.left - image.getBoundingClientRect().left) /
+                image.getBoundingClientRect().width) *
+                sourceImage.naturalWidth,
+            ),
+          ),
+          Math.max(
+            0,
+            Math.round(
+              ((bounds.top - image.getBoundingClientRect().top) /
+                image.getBoundingClientRect().height) *
+                sourceImage.naturalHeight,
+            ),
+          ),
+          Math.min(
+            sourceImage.naturalWidth,
+            Math.round(
+              ((bounds.left + bounds.width - image.getBoundingClientRect().left) /
+                image.getBoundingClientRect().width) *
+                sourceImage.naturalWidth,
+            ),
+          ),
+          Math.min(
+            sourceImage.naturalHeight,
+            Math.round(
+              ((bounds.top + bounds.height - image.getBoundingClientRect().top) /
+                image.getBoundingClientRect().height) *
+                sourceImage.naturalHeight,
+            ),
+          ),
+        ],
       )
   } catch (cause) {
     if (!disposed) error.value = cause instanceof Error ? cause.message : '裁剪失败，请重试。'
@@ -149,7 +196,9 @@ async function mountCropper(imageSource: HTMLImageElement) {
   if (disposed || !host.value) return
   cropper = new CropperClass(imageSource, {
     container: host.value,
-    template: cropperTemplate,
+    template: props.allowRotate
+      ? cropperTemplate
+      : cropperTemplate.replace('rotatable scalable translatable', 'scalable translatable'),
   })
 
   const image = cropper.getCropperImage()!,
@@ -241,7 +290,7 @@ onMounted(async () => {
       !props.file.size ||
       props.file.size > 10 * 1024 * 1024
     )
-      throw new Error('请选择不超过 10MB 的 JPEG 或 PNG。')
+      throw new Error('请选择不超过 10MB 的 JPG/JPEG、PNG。')
     bitmap = await createImageBitmap(props.file, { imageOrientation: 'from-image' })
     if (disposed) return
     if (bitmap.width * bitmap.height > 20_000_000) throw new Error('图片不能超过 2000 万像素。')
@@ -302,6 +351,7 @@ onScopeDispose(() => {
     <p v-if="error" role="alert" class="error-text">{{ error }}</p>
     <div class="crop-tools">
       <button
+        v-if="allowRotate"
         type="button"
         class="text-button rotate-image"
         :disabled="!ready || exporting"

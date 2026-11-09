@@ -44,10 +44,10 @@ const rendered = computed(() => {
   margin: 0.5em 0;
 }
 .math-formula :deep(.katex) {
-  font-size: 1.25em;
+  font-size: min(1.25em, var(--page-title-font-size, 24px));
 }
 .math-inline :deep(.katex) {
-  font-size: 1.08em;
+  font-size: min(1.08em, var(--page-title-font-size, 24px));
 }
 code {
   overflow-wrap: anywhere;

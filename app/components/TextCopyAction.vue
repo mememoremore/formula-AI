@@ -63,7 +63,7 @@ function select() {
       {{ busy ? '正在复制…' : label }}
     </button>
     <div v-if="fallback !== null" class="copy-fallback">
-      <p role="status" class="info-note">自动复制失败。请选择以下内容，使用系统的复制操作。</p>
+      <p role="status" class="info-note">自动复制失败；请选择以下内容，使用系统的复制操作。</p>
       <textarea
         ref="field"
         class="input"

@@ -51,6 +51,28 @@ export function useFormulaDeleteMutation() {
     },
   )
 }
+export function useFormulaBatchDeleteMutation() {
+  const fetcher = useAccountFetch(),
+    invalidate = useFormulaViewsInvalidation(),
+    client = useNuxtApp().$queryClient
+
+  return useAccountMutation(
+    'batch-delete',
+    (ids: string[], { owner, signal }) =>
+      fetcher<{ ids: string[]; deletedCount: number }>('/api/account/formulas/batch-delete', {
+        method: 'POST',
+        body: { ids },
+        headers: { 'x-account-id': owner },
+        signal,
+        retry: 0,
+        timeout: 20_000,
+      }),
+    (result, _input, owner) => {
+      for (const id of result.ids) updateLibraryRecords(client, owner, id, { kind: 'remove' })
+      void invalidate(owner)
+    },
+  )
+}
 export function useFormulaFavoriteMutation() {
   const fetcher = useAccountFetch(),
     invalidate = useFormulaViewsInvalidation(),

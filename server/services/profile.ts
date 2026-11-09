@@ -27,7 +27,12 @@ export async function saveProfile(
   const update = async (tx: ResourceTransaction, image: string | null) => {
     const updated = await tx.user.updateMany({
       where: { id: ownerId, updatedAt: previous.updatedAt },
-      data: { displayName: input.name, image },
+      data: {
+        displayName: input.name,
+        image,
+        ...(input.grade === undefined ? {} : { grade: input.grade }),
+        ...(input.learningPurpose === undefined ? {} : { learningPurpose: input.learningPurpose }),
+      },
     })
     if (!updated.count) throw new WorkspaceError(409, '资料已在其他窗口更新，请重新读取后保存。')
     return { saved: true }

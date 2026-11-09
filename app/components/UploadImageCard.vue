@@ -22,7 +22,7 @@ defineEmits<{ choose: []; remove: [] }>()
             checking ? '正在检查图片…' : source === 'camera' ? '拍摄你的公式' : '选择一张公式图片'
           }}
         </strong>
-        <span>JPG / PNG · 最大 10MB · 2000 万像素</span>
+        <span>JPG/JPEG、PNG · 最大 10MB · 2000 万像素</span>
       </template>
     </button>
     <div v-if="preview" class="preview-meta">
@@ -31,7 +31,7 @@ defineEmits<{ choose: []; remove: [] }>()
         <button class="text-button" :disabled="disabled" @click="$emit('remove')">删除图片</button>
       </div>
     </div>
-    <p v-else class="image-tip">让公式位于画面中间，保持光线均匀、文字清晰。</p>
+    <p v-else class="image-tip">让公式打横位于画面中间，保持光线均匀、文字清晰。</p>
   </section>
 </template>
 <style scoped>

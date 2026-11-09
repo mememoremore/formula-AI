@@ -1,4 +1,6 @@
 <script setup lang="ts">
+defineOptions({ inheritAttrs: false })
+
 const props = defineProps<{
   open: boolean
   title: string
@@ -24,27 +26,38 @@ onMounted(() => {
 </script>
 
 <template>
-  <dialog
-    ref="dialog"
-    class="app-modal"
-    :class="{ 'app-sheet': sheet, 'app-fullscreen': fullScreen, 'app-contained': containedScroll }"
-    :aria-labelledby="titleId"
-    @cancel.prevent="emit('close')"
-    @click="$event.target === dialog && emit('close')"
-  >
-    <div class="modal-heading">
-      <h2 :id="titleId">{{ title }}</h2>
-      <button type="button" class="icon-button" aria-label="关闭弹窗" @click="emit('close')">
-        <AppIcon name="close" />
-      </button>
-    </div>
-    <div v-if="containedScroll" class="modal-body"><slot /></div>
-    <slot v-else />
-  </dialog>
+  <Teleport to="#teleports">
+    <dialog
+      ref="dialog"
+      v-bind="$attrs"
+      class="app-modal"
+      :class="{
+        'app-sheet': sheet,
+        'app-fullscreen': fullScreen,
+        'app-contained': containedScroll,
+      }"
+      :aria-labelledby="titleId"
+      @cancel.prevent="emit('close')"
+      @click="$event.target === dialog && emit('close')"
+    >
+      <div class="modal-heading">
+        <h2 :id="titleId">{{ title }}</h2>
+        <button type="button" class="icon-button" aria-label="关闭弹窗" @click="emit('close')">
+          <AppIcon name="close" />
+        </button>
+      </div>
+      <div v-if="containedScroll" class="modal-body"><slot /></div>
+      <slot v-else />
+    </dialog>
+  </Teleport>
 </template>
 
 <style scoped>
 .app-modal {
+  position: fixed;
+  inset: 0;
+  margin: auto;
+  height: fit-content;
   overflow: auto;
   overscroll-behavior: contain;
   width: min(calc(100% - 24px), 456px);
@@ -60,10 +73,8 @@ onMounted(() => {
   backdrop-filter: blur(3px);
 }
 .app-sheet {
-  inset: auto 0 0;
-  width: min(100%, 480px);
-  margin: 0 auto;
-  border-radius: 26px 26px 0 0;
+  width: min(calc(100% - 24px), 480px);
+  border-radius: var(--radius-dialog);
   padding-bottom: calc(28px + env(safe-area-inset-bottom));
 }
 .modal-heading {
@@ -73,13 +84,11 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 .app-fullscreen {
-  inset: 0;
-  width: min(100%, 480px);
-  height: 100dvh;
-  max-height: 100dvh;
-  margin: 0 auto;
-  border-radius: 0;
-  padding: calc(20px + env(safe-area-inset-top)) 24px calc(24px + env(safe-area-inset-bottom));
+  width: min(calc(100% - 24px), 480px);
+  height: min(88dvh, 800px);
+  max-height: 88dvh;
+  border-radius: var(--radius-dialog);
+  padding: 20px 24px 24px;
 }
 .app-contained.app-sheet {
   max-width: 100%;
@@ -96,13 +105,5 @@ onMounted(() => {
 .modal-body {
   flex: 1;
   min-height: 0;
-}
-@media (min-width: 900px) {
-  .app-contained.app-sheet {
-    inset: 0;
-    margin: auto;
-    width: 456px;
-    border-radius: var(--radius-dialog);
-  }
 }
 </style>

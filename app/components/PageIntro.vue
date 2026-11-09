@@ -28,7 +28,7 @@ withDefaults(
   margin-bottom: 24px;
 }
 .intro-title {
-  font-size: 28px;
+  font-size: min(28px, var(--page-title-font-size, 24px));
   letter-spacing: -1px;
 }
 p {

@@ -5,7 +5,7 @@ definePageMeta({
   contentWidth: 'reading',
   alias: '/account/tasks/:id',
 })
-useHead({ title: '识别任务 · Formula AI' })
+useHead({ title: '识别任务 · 墨析' })
 
 const route = useRoute(),
   session = useAccountSession()

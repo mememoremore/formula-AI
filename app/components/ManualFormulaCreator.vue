@@ -162,7 +162,7 @@ function discard() {
     </section>
     <div class="manual-submit">
       <p v-if="receipt" class="info-note" role="status">
-        上次保存结果待确认。内容与请求编号已保留，重试不会重复创建。
+        上次保存结果待确认；内容与请求编号已保留，重试不会重复创建。
       </p>
       <p v-if="recoveryError || feedback" role="alert" class="error-text">
         {{ recoveryError || feedback }}
@@ -189,7 +189,7 @@ function discard() {
       <p class="leave-message">
         {{
           receipt
-            ? '上次保存结果尚未确认，回执会保留。离开后可回到此页继续核对。'
+            ? '上次保存结果尚未确认，回执会保留；离开后可回到此页继续核对；'
             : '离开后，当前输入的内容将丢失。'
         }}
       </p>

@@ -3,64 +3,57 @@ import assert from 'node:assert/strict'
 import { loadHomeRecent, homeDemoConversation } from '../app/utils/home-overview'
 import { demoFormulas, demoCategories } from '../shared/demo/formulas'
 import type { DemoState } from '../shared/types/demo'
-import type { FormulaLibraryPage } from '../shared/types/library'
-import type { ConversationPage } from '../shared/types/tasks'
+import type { RecognitionHistoryPage } from '../shared/types/tasks'
 
-const library: FormulaLibraryPage = {
-  items: [
-    {
-      id: 'f',
-      title: '公式',
-      latex: 'x=1',
-      createdAt: '2026-10-26',
-      versionNumber: 1,
-      isMock: false,
-      category: null,
-      favorite: false,
+const history: RecognitionHistoryPage = {
+  items: Array.from({ length: 12 }, (_, i) => ({
+    id: 'recognition-' + i,
+    status: 'COMPLETED',
+    title: '公式',
+    formulaId: 'formula-' + i,
+    latex: 'x=' + i,
+    createdAt: '2026-11-08',
+    errorMessage: null,
+  })),
+  nextCursor: 'next',
+}
+
+test('首页只读取识别历史并截取最新10条，不请求公式库或 AI 会话', async () => {
+  const controller = new AbortController()
+  const calls: string[] = []
+  const result = await loadHomeRecent(
+    'owner',
+    async <T>(path: string, options: { signal: AbortSignal; retry: 0; timeout: number }) => {
+      calls.push(path)
+      assert.equal(options.signal, controller.signal)
+      assert.equal(options.retry, 0)
+      assert.equal(options.timeout, 10_000)
+      return history as T
     },
-  ],
-  nextCursor: null,
-}
-const conversations: ConversationPage = {
-  items: [{ id: 'c', title: '对话', createdAt: '2026-10-26' }],
-  nextCursor: null,
-}
-for (const failure of ['', 'library', 'conversations', 'both']) {
-  test('首页部分失败隔离：' + (failure || '成功'), async () => {
-    const controller = new AbortController()
-    const calls: string[] = []
-    const result = await loadHomeRecent(
-      'owner',
-      async <T>(path: string, options: { signal: AbortSignal; retry: 0; timeout: number }) => {
-        calls.push(path)
-        assert.equal(options.signal, controller.signal)
-        assert.equal(options.retry, 0)
-        assert.equal(options.timeout, 10_000)
-        if (failure === 'both' || (failure && path.endsWith(failure))) throw new Error('受控故障')
-        // 此替身只实现两个已声明 DTO；断言不进入生产代码。
-        return (path.endsWith('library') ? library : conversations) as T
-      },
-      controller.signal,
-    )
-    assert.equal(result.ownerId, 'owner')
-    assert.equal(calls.length, 2)
-    assert.equal(result.formulas.length, failure === 'library' || failure === 'both' ? 0 : 1)
-    assert.equal(
-      result.conversation?.id,
-      failure === 'conversations' || failure === 'both' ? undefined : 'c',
-    )
-    assert.equal(result.failed.length, failure === 'both' ? 2 : failure ? 1 : 0)
-  })
-}
+    controller.signal,
+  )
+  assert.deepEqual(calls, ['/api/account/recognitions'])
+  assert.equal(result.ownerId, 'owner')
+  assert.deepEqual(result.recognitions, history.items.slice(0, 10))
+  assert.equal(result.failed, false)
+})
+
+test('最近识别加载失败保留所属账号并明确失败，不替换为演示数据', async () => {
+  const result = await loadHomeRecent(
+    'owner',
+    async () => {
+      throw new Error('受控故障')
+    },
+    new AbortController().signal,
+  )
+  assert.deepEqual(result, { ownerId: 'owner', recognitions: [], failed: true })
+})
+
 test('取消后的旧结果不能作为首页成功结果提交', async () => {
   const controller = new AbortController()
   controller.abort()
   await assert.rejects(
-    loadHomeRecent(
-      'old-owner',
-      async <T>(path: string) => (path.endsWith('library') ? library : conversations) as T,
-      controller.signal,
-    ),
+    loadHomeRecent('old-owner', async <T>() => history as T, controller.signal),
     { name: 'AbortError' },
   )
 })

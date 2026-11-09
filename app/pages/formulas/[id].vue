@@ -8,7 +8,7 @@ definePageMeta({
   contentWidth: 'reading',
   alias: '/account/formulas/:id',
 })
-useHead({ title: '公式详情 · Formula AI' })
+useHead({ title: '公式详情 · 墨析' })
 
 const route = useRoute()
 const id = computed(() => String(route.params.id))
@@ -31,6 +31,7 @@ const showEditor = ref(false),
   deleting = deletion.busy,
   deleteError = ref('')
 const identity = computed(() => id.value + ':' + (ownerId.value ?? 'unconfirmed'))
+const intelligence = ref<{ openRepair: () => void }>()
 
 watch(identity, () => {
   showEditor.value = false
@@ -102,18 +103,39 @@ const errorCode = computed(
       @edit="showEditor = true"
       @remove="showDelete = true"
     >
-      <template #organization>
-        <AccountFormulaOrganization :formula="formula" @saved="update" />
+      <template #title-actions>
+        <AccountFormulaOrganization :formula="formula" placement="favorite" @saved="update" />
       </template>
       <template #primary>
+        <AccountFormulaIntelligence
+          ref="intelligence"
+          :key="identity + ':intelligence'"
+          :formula="formula"
+          :owner-id="ownerId"
+          @saved="update"
+        />
         <AccountFormulaExplanations
-          :key="identity + ':explanations'"
+          :key="identity + ':explanations:' + (formula.identityId ?? formula.id)"
           :formula="formula"
           :owner-id="ownerId"
         />
       </template>
+      <template #reading-actions>
+        <button class="text-button" @click="intelligence?.openRepair()">
+          <AppIcon name="rotate" :size="16" />
+          重新生成
+        </button>
+      </template>
       <template #actions>
         <AccountExport :formula="formula" />
+      </template>
+      <template #footer>
+        <FormulaLearningPanel
+          :key="formula.id + ':' + (formula.identityId ?? formula.id) + ':' + current.id"
+          :formula-id="formula.id"
+          :owner-id="ownerId"
+        />
+        <AccountFormulaOrganization :formula="formula" @saved="update" />
       </template>
     </FormulaDetailContent>
     <AccountFormulaEditor
@@ -126,7 +148,9 @@ const errorCode = computed(
     />
     <AppModal :open="showDelete" title="删除公式" @close="!deleting && (showDelete = false)">
       <div class="stack">
-        <p>删除后，这条公式将从公式库中隐藏。已有对话和导出记录会保留。</p>
+        <p>
+          删除后，这条公式将从公式库中隐藏；已有对话和导出记录会保留，可在“我的—回收站”恢复公式。
+        </p>
         <p v-if="deleteError" class="error-text" role="alert">{{ deleteError }}</p>
         <div class="delete-actions">
           <button class="button button-white" :disabled="deleting" @click="showDelete = false">
@@ -144,10 +168,10 @@ const errorCode = computed(
     <p>
       {{
         errorCode === 404
-          ? '记录不存在，或当前账号无权访问。'
+          ? '记录不存在，或当前账号无权访问；'
           : errorCode === 401
-            ? '登录已过期，请重新登录。'
-            : '连接暂时失败，请重试。不会影响已保存的内容。'
+            ? '登录已过期，请重新登录；'
+            : '连接暂时失败，请重试；不会影响已保存的内容。'
       }}
     </p>
     <button v-if="errorCode !== 404" class="text-button" @click="request.refresh()">

@@ -24,9 +24,20 @@ test('草稿与打开时快照比较，归一化首尾空白不制造无效修�
 
 test('仅隐藏识别图片产生的随机文件名，保留用户命名', () => {
   const random = '09033e7edee9b9f1866cdf6ae8de538'
-  assert.equal(displayFormulaTitle(random, true), '未命名公式')
-  assert.equal(displayFormulaTitle('b6874f00-a198-41cb-8000-dde37cd991ca', true), '未命名公式')
+  assert.equal(displayFormulaTitle(random, true), '公式')
+  assert.equal(displayFormulaTitle('b6874f00-a198-41cb-8000-dde37cd991ca', true), '公式')
   assert.equal(displayFormulaTitle(random, false), random)
   assert.equal(displayFormulaTitle('我的三角函数', true), '我的三角函数')
-  assert.equal(displayFormulaTitle('未命名公式', true), '未命名公式')
+  assert.equal(displayFormulaTitle('未命名公式', true), '公式')
+})
+
+test('历史默认名统一显示公式，手动或图片公式的自定义名称保持原样', () => {
+  for (const imageDerived of [true, false]) {
+    assert.equal(displayFormulaTitle('未命名公式', imageDerived), '公式')
+    assert.equal(displayFormulaTitle(' 未命名公式 ', imageDerived), '公式')
+    assert.equal(displayFormulaTitle('公式', imageDerived), '公式')
+    assert.equal(displayFormulaTitle('', imageDerived), '公式')
+    for (const title of ['牛顿第二定律', '未命名公式的笔记', '我的三角函数'])
+      assert.equal(displayFormulaTitle(title, imageDerived), title)
+  }
 })

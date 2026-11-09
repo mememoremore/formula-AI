@@ -1,9 +1,12 @@
+import { explanationDomainSchema } from '#shared/explanation-domain'
+
 export const EXPLANATION_RECOVERY_KEY = 'formula-explanation-request-v1'
 export interface ExplanationIntent {
   ownerId: string
   formulaId: string
   versionId: string
   requestKey: string
+  domain?: string
 }
 export function parseExplanationIntent(
   raw: string | null,
@@ -27,6 +30,11 @@ export function parseExplanationIntent(
       )
     )
       return null
+    if (row.domain !== undefined) {
+      const domain = explanationDomainSchema.safeParse(row.domain)
+
+      if (!domain.success || domain.data !== row.domain) return null
+    }
     return row as unknown as ExplanationIntent
   } catch {
     return null

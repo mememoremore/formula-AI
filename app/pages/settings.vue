@@ -2,7 +2,7 @@
 import { authClient } from '~/utils/auth-client'
 
 definePageMeta({ bottomNav: false, contentWidth: 'reading' })
-useHead({ title: '设置 · Formula AI' })
+useHead({ title: '设置 · 墨析' })
 
 const session = useAccountSession()
 
@@ -129,7 +129,7 @@ async function logout() {
   margin-bottom: 8px;
 }
 .settings-intro h1 {
-  font-size: 28px;
+  font-size: min(28px, var(--page-title-font-size, 24px));
 }
 .settings-copy {
   padding: 10px 18px;

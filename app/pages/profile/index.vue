@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ middleware: 'workspace', contentWidth: 'reading', alias: '/account' })
-useHead({ title: '我的 · Formula AI' })
+useHead({ title: '我的 · 墨析' })
 
 const session = useAccountSession()
 
@@ -8,6 +8,9 @@ await session
 
 const { data: account, error, status, refresh } = session
 const menus = [
+  { to: '/tasks', label: '任务中心', icon: 'clock' },
+  { to: '/review', label: '公式复习', icon: 'book' },
+  { to: '/recycle-bin', label: '回收站', icon: 'trash' },
   { to: '/settings', label: '设置', icon: 'settings' },
   { to: '/help', label: '使用帮助', icon: 'help' },
   { to: '/feedback', label: '意见反馈', icon: 'message' },
@@ -56,7 +59,6 @@ const personal = [
       <section class="profile-hero">
         <span class="profile-decoration" aria-hidden="true">✧</span>
         <UserAvatar :user="account?.user" :size="96" />
-        <p class="eyebrow">你的公式空间</p>
         <h1>{{ account?.user?.name || '保持好奇，探索公式' }}</h1>
         <p class="profile-email">
           {{ account?.user?.email || '' }}
@@ -96,7 +98,7 @@ const personal = [
   margin-bottom: 14px;
 }
 .profile-hero h1 {
-  font-size: 26px;
+  font-size: min(26px, var(--page-title-font-size, 24px));
   line-height: 1.4;
   overflow-wrap: anywhere;
   margin-top: 8px;
@@ -119,7 +121,7 @@ const personal = [
   top: 12px;
   color: var(--color-primary);
   opacity: 0.4;
-  font-size: 42px;
+  font-size: min(42px, var(--page-title-font-size, 24px));
 }
 .profile-shortcuts {
   display: grid;
@@ -171,7 +173,7 @@ const personal = [
   margin-top: 6px;
 }
 .status-panel h1 {
-  font-size: 22px;
+  font-size: min(22px, var(--page-title-font-size, 24px));
 }
 .status-panel p {
   line-height: 1.8;

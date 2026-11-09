@@ -11,7 +11,7 @@ const { privateKey, publicKey } = generateKeyPairSync('rsa', {
   privateKeyEncoding: { type: 'pkcs1', format: 'pem' },
   publicKeyEncoding: { type: 'spki', format: 'pem' },
 })
-const message = 'Formula AI offline RSA compatibility regression'
+const message = '墨析 offline RSA compatibility regression'
 const digest = createHash('sha256').update(message).digest('binary')
 const publicRsa = forge.pki.publicKeyFromPem(publicKey)
 const privateRsa = forge.pki.privateKeyFromPem(privateKey)

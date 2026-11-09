@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { displayFormulaTitle } from '#shared/formula-title'
 import { usageInvalidated } from '~/utils/account-cache'
 import type { ExportTaskState } from '#shared/types/tasks'
 import {
@@ -64,7 +65,7 @@ onMounted(() => {
       (row) => row.ownerId === props.ownerId && row.taskId === props.id,
     )
   } catch {
-    feedback.value = '无法读取上次提交记录。为避免重复导出，暂不提交；请先在原会话确认任务。'
+    feedback.value = '无法读取上次提交记录；为避免重复导出，暂不提交；请先在原会话确认任务。'
   }
 })
 
@@ -121,7 +122,7 @@ async function retry() {
   } catch (cause) {
     if (current())
       feedback.value = !sent
-        ? '无法安全读取或保存提交记录，本次未发送新请求。请先确认原任务；不要清除记录后盲目重试。'
+        ? '无法安全读取或保存提交记录，本次未发送新请求；请先确认原任务；不要清除记录后盲目重试。'
         : workspaceFeedback(cause, '提交结果尚未确认，请使用原请求再次确认，不要另开页面重复提交。')
   } finally {
     if (current()) busy.value = false
@@ -201,8 +202,8 @@ await request
     <p>
       {{
         errorCode === 404
-          ? '任务不存在，或当前账号无权访问。'
-          : '已暂停查询。重新读取不会创建任务，也不会使用新额度。'
+          ? '任务不存在，或当前账号无权访问；'
+          : '已暂停查询；重新读取不会创建任务，也不会使用新额度。'
       }}
     </p>
     <button
@@ -238,8 +239,8 @@ await request
       文件暂时不可下载，请重新读取任务；不要重复提交导出。
     </p>
     <div class="card export-details section">
-      <h2>{{ task.title }}</h2>
-      <p>之后编辑公式，不会改变这份文档。下载已生成的文件不使用新额度。</p>
+      <h2>{{ displayFormulaTitle(task.title) }}</h2>
+      <p>之后编辑公式，不会改变这份文档；下载已生成的文件不使用新额度。</p>
       <NuxtLink :to="'/formulas/' + encodeURIComponent(task.formulaId)" class="text-button">
         返回公式详情
         <AppIcon name="arrowRight" :size="16" />
@@ -257,8 +258,8 @@ await request
     <p v-if="task.status === 'FAILED'" class="info-note section">
       {{
         uncertain
-          ? '将沿用上次请求确认结果，不创建另一个请求。'
-          : '已确认本次失败。重新提交仍使用本次提交的内容，并使用 1 次新的导出额度。'
+          ? '将沿用上次请求确认结果，不创建另一个请求；'
+          : '已确认本次失败；重新提交仍使用本次提交的内容，并使用 1 次新的导出额度。'
       }}
     </p>
     <button class="text-button section" :disabled="busy || status === 'pending'" @click="refresh()">

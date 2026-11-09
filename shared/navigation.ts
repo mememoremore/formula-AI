@@ -17,7 +17,7 @@ export function mainTabDestination(
   return target + (space === 'demo' || space === 'account' ? '?space=' + space : '')
 }
 const knownPath =
-  /^(?:\/|\/library|\/ai(?:\/new|\/[a-zA-Z0-9-]+)?|\/profile(?:\/edit)?|\/upload|\/settings|\/help|\/feedback|\/about|\/(?:formulas|recognitions|exports|result)\/[a-zA-Z0-9-]+)$/
+  /^(?:\/|\/library|\/tasks|\/review|\/recycle-bin|\/batches(?:\/[a-zA-Z0-9-]+)?|\/ai(?:\/new|\/[a-zA-Z0-9-]+)?|\/profile(?:\/edit)?|\/upload|\/settings|\/help|\/feedback|\/about|\/(?:formulas|recognitions|exports|result)\/[a-zA-Z0-9-]+)$/
 export function safeReturnPath(value: unknown, fallback = '/profile'): string {
   if (typeof value !== 'string' || value.length > 2048 || /[\\\x00-\x20]/.test(value))
     return fallback
@@ -42,9 +42,18 @@ export function navigationSection(path: string) {
     return '/library'
   if (path === '/ai' || path.startsWith('/ai/')) return '/ai'
   if (
-    ['/profile', '/profile/edit', '/settings', '/help', '/feedback', '/about', '/login'].includes(
-      path,
-    )
+    [
+      '/tasks',
+      '/review',
+      '/recycle-bin',
+      '/profile',
+      '/profile/edit',
+      '/settings',
+      '/help',
+      '/feedback',
+      '/about',
+      '/login',
+    ].includes(path)
   )
     return '/profile'
   return '/'

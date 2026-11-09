@@ -9,7 +9,12 @@ const width = computed(() => contentWidth(route.meta.contentWidth))
 <template>
   <div class="app-shell" :class="[{ 'has-bottom-nav': showNav }, 'layout-' + width]">
     <a class="skip-link" href="#main-content">跳到主要内容</a>
-    <main id="main-content" class="page-content" tabindex="-1">
+    <main
+      id="main-content"
+      class="page-content"
+      :class="{ 'compact-top': route.meta.compactTop }"
+      tabindex="-1"
+    >
       <slot />
       <DiagnosticCopy />
     </main>

@@ -27,7 +27,7 @@ export function pandocExecutable() {
   const portable = resolve('.tools/pandoc-3.12.1/pandoc-3.12.1/pandoc.exe')
   return existsSync(portable) ? portable : 'pandoc'
 }
-async function pandoc(args: string[], input: string): Promise<Buffer> {
+export async function pandoc(args: string[], input: string): Promise<Buffer> {
   return new Promise((resolveOutput, reject) => {
     const child = execFile(
       pandocExecutable(),
@@ -56,7 +56,7 @@ async function pandoc(args: string[], input: string): Promise<Buffer> {
   })
 }
 let apiVersion: Promise<number[]> | undefined
-async function readApiVersion() {
+export async function readApiVersion() {
   apiVersion ??= pandoc(['--from=markdown', '--to=json', '--sandbox'], '')
     .then(
       (data) =>
@@ -86,18 +86,10 @@ export const convertFormulaDocument: FormulaDocumentConverter = async (input) =>
   } catch {
     throw new DocumentConversionError('公式语法或命令暂不支持，请修正 LaTeX 后再导出。')
   }
-  const text = (value: string) => ({ t: 'Para', c: [{ t: 'Str', c: value }] })
   const document = {
     'pandoc-api-version': await readApiVersion(),
-    meta: {
-      title: { t: 'MetaString', c: input.title },
-    },
-    blocks: [
-      ...(input.isMock ? [text('此公式源于固定模拟识别，请核对内容后使用。')] : []),
-      { t: 'Para', c: [{ t: 'Math', c: [{ t: 'DisplayMath' }, latex] }] },
-      text('LaTeX 源码'),
-      { t: 'CodeBlock', c: [['', [], []], latex] },
-    ],
+    meta: {},
+    blocks: [{ t: 'Para', c: [{ t: 'Math', c: [{ t: 'DisplayMath' }, latex] }] }],
   }
   const output = await pandoc(
     ['--from=json', '--to=docx', '--output=-', '--standalone', '--sandbox', '--fail-if-warnings'],

@@ -7,7 +7,7 @@ definePageMeta({
     to.meta.bottomNav = to.query.nav !== 'off'
   },
 })
-useHead({ title: 'Formula AI · R3 布局验收样板' })
+useHead({ title: '墨析 · R3 布局验收样板' })
 const route = useRoute()
 const modal = ref(false)
 const draft = ref('')

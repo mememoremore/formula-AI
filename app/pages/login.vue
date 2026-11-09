@@ -3,7 +3,7 @@ import { authClient } from '~/utils/auth-client'
 import { authenticationError, accountRedirect } from '~/utils/auth-feedback'
 
 definePageMeta({ bottomNav: false })
-useHead({ title: '登录 · Formula AI' })
+useHead({ title: '登录 · 墨析' })
 
 const route = useRoute(),
   session = useAccountSession(),
@@ -70,7 +70,7 @@ async function confirmSession(navigate = false) {
   if (disposed || sequence !== expected) return false
   if (session.error.value) {
     feedback.value = acknowledged.value
-      ? '认证请求已成功，但账号状态暂时无法读取。请重新确认账号，不要重复注册。'
+      ? '认证请求已成功，但账号状态暂时无法读取；请重新确认账号，不要重复注册。'
       : '暂时无法读取账号状态，请重新连接。'
     return false
   }
@@ -81,7 +81,7 @@ async function confirmSession(navigate = false) {
   }
   if (acknowledged.value) {
     feedback.value =
-      '认证请求已完成，但还未确认登录状态。请确认浏览器允许本站 Cookie 后重新读取账号。'
+      '认证请求已完成，但还未确认登录状态；请确认浏览器允许本站 Cookie 后重新读取账号。'
     return false
   }
   return false
@@ -97,7 +97,7 @@ async function retrySession() {
   }
 }
 
-async function submit() {
+async function submit(event?: Event) {
   if (
     busy.value ||
     composing.value ||
@@ -106,6 +106,18 @@ async function submit() {
     sessionStatus.value !== 'success'
   )
     return
+  // Password managers may update the DOM without emitting an input event.
+  // Read the submitted form before disabling fields so it matches what the user sees.
+  if (event?.currentTarget instanceof HTMLFormElement) {
+    const values = new FormData(event.currentTarget)
+    const enteredEmail = values.get('email'),
+      enteredPassword = values.get('password'),
+      enteredName = values.get('nickname')
+
+    if (typeof enteredEmail === 'string') email.value = enteredEmail
+    if (typeof enteredPassword === 'string') password.value = enteredPassword
+    if (isRegister.value && typeof enteredName === 'string') name.value = enteredName
+  }
   if (!email.value.trim() || !password.value || (isRegister.value && !name.value.trim())) {
     feedback.value = '请填写邮箱、密码和有效昵称。'
     return
@@ -136,7 +148,7 @@ async function submit() {
         (!result.error.status || result.error.status >= 500)
       ) {
         registrationPending.value = true
-        feedback.value = '注册结果或邮件发送状态未确认。若没有收到验证码，请稍后重发。'
+        feedback.value = '注册结果或邮件发送状态未确认；若没有收到验证码，请稍后重发。'
       } else if (!result.error.status || result.error.status >= 500) await confirmSession(true)
       return
     }
@@ -157,7 +169,7 @@ async function submit() {
     const confirmed = await confirmSession(true)
 
     if (!confirmed && !session.error.value && !acknowledged.value)
-      feedback.value = '尚未确认登录，请核对网络后重试。若注册已完成，可切换到登录。'
+      feedback.value = '尚未确认登录，请核对网络后重试；若注册已完成，可切换到登录。'
   } finally {
     if (!disposed && current === sequence) busy.value = false
   }
@@ -245,7 +257,7 @@ async function verifyRegistration() {
     <section v-else class="card login-card">
       <h2>{{ isRegister ? '创建公式空间' : '欢迎回来' }}</h2>
       <p class="info-note">
-        {{ isRegister ? '创建账号，开始积累你的数学灵感。' : '登录后继续你的公式与学习记录。' }}
+        {{ isRegister ? '创建账号，开始积累你的数学灵感；' : '登录后继续你的公式与学习记录。' }}
       </p>
       <div v-if="sessionError || acknowledged" class="status-panel section" role="alert">
         <p>{{ feedback || '账号服务暂时不可用，请重新读取账号状态。' }}</p>
@@ -266,6 +278,7 @@ async function verifyRegistration() {
           <span class="field-label">昵称</span>
           <input
             v-model="name"
+            name="nickname"
             class="input"
             required
             minlength="1"
@@ -279,6 +292,7 @@ async function verifyRegistration() {
           <span class="field-label">邮箱</span>
           <input
             v-model="email"
+            name="email"
             class="input"
             type="email"
             required
@@ -295,6 +309,7 @@ async function verifyRegistration() {
           <div class="password-field">
             <input
               v-model="password"
+              name="password"
               class="input"
               :type="showPassword ? 'text' : 'password'"
               required
@@ -381,7 +396,7 @@ async function verifyRegistration() {
   padding: 4px 0 28px;
 }
 .login-intro h1 {
-  font-size: clamp(22px, 5vw, 28px);
+  font-size: min(clamp(22px, 5vw, 28px), var(--page-title-font-size, 24px));
   line-height: 1.4;
   margin: 16px 0 10px;
 }

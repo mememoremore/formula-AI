@@ -38,6 +38,12 @@ test('私有缓存清理保留 Session、公开数据和独立本机演示', () 
     'draft-context-a',
     'chat-formula-picker-a',
     'home-recent',
+    'recognition-batch-owner-id',
+    'recognition-batches-owner',
+    'learning:owner:formula',
+    'tasks:owner',
+    'review:owner',
+    'recycle:owner',
   ])
     assert.equal(privateAccountKey(key), true, key)
   for (const key of ['account-session', 'demo-store', 'public-formulas', 'page-origins'])

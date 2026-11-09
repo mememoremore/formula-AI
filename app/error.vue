@@ -43,7 +43,7 @@ function retryPage() {
   <div class="error-page">
     <PaperArtwork kind="idea" />
     <span class="error-code">
-      {{ code === 404 ? '404 · 页面未找到' : 'Formula AI · 访问遇到问题' }}
+      {{ code === 404 ? '404 · 页面未找到' : '墨析 · 访问遇到问题' }}
     </span>
     <h1>{{ heading }}</h1>
     <p>{{ description }}</p>
@@ -80,7 +80,7 @@ function retryPage() {
   text-align: center;
 }
 h1 {
-  font-size: clamp(23px, 6vw, 30px);
+  font-size: min(clamp(23px, 6vw, 30px), var(--page-title-font-size, 24px));
 }
 .error-code {
   color: var(--color-primary);

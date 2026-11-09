@@ -4,6 +4,8 @@ export interface AccountUser {
   email: string
   emailVerified: boolean
   image?: string | null
+  grade?: string | null
+  learningPurpose?: string | null
 }
 
 export interface AccountOverview {

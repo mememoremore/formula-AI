@@ -9,7 +9,7 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
         <br />
         <em>读懂公式。</em>
       </h1>
-      <p class="hero-description">拍照识别、输入公式，继续你的学习。</p>
+      <p class="hero-description">拍照/图片识别、输入公式，让每个公式都能被读懂</p>
     </div>
     <img
       class="hero-art"
@@ -22,10 +22,10 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
     />
   </section>
   <div class="stack home-actions" aria-label="创建公式">
-    <NuxtLink :to="cameraTo" class="button button-primary home-action">
+    <NuxtLink :to="cameraTo" class="button button-white home-action">
       <AppIcon name="camera" :size="26" />
       <span>
-        <strong>识别公式</strong>
+        <strong>拍照上传</strong>
         <small>拍下公式，开始理解</small>
       </span>
       <AppIcon name="chevron" :size="18" class="action-arrow" />
@@ -33,7 +33,7 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
     <NuxtLink :to="uploadTo" class="button button-white home-action">
       <AppIcon name="image" :size="25" />
       <span>
-        <strong>上传图片</strong>
+        <strong>图片上传</strong>
         <small>从相册选一张清晰图片</small>
       </span>
       <AppIcon name="chevron" :size="18" class="action-arrow" />
@@ -43,6 +43,14 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
       <span>
         <strong>输入 LaTeX</strong>
         <small>实时预览，保存到账号公式库</small>
+      </span>
+      <AppIcon name="chevron" :size="18" class="action-arrow" />
+    </NuxtLink>
+    <NuxtLink to="/batches" class="button button-white home-action">
+      <AppIcon name="imagePlus" :size="25" />
+      <span>
+        <strong>批量处理</strong>
+        <small>多张单公式或多张多公式，分批识别</small>
       </span>
       <AppIcon name="chevron" :size="18" class="action-arrow" />
     </NuxtLink>
@@ -69,7 +77,7 @@ defineProps<{ cameraTo: string; uploadTo: string }>()
   margin-bottom: 14px;
 }
 h1 {
-  font-size: clamp(30px, 8.5vw, 38px);
+  font-size: min(clamp(30px, 8.5vw, 38px), var(--page-title-font-size, 24px));
   line-height: 1.5;
   letter-spacing: -1.5px;
 }
@@ -122,11 +130,30 @@ em {
   font-size: 11px;
   line-height: 1.8;
 }
-.button-primary {
-  background: linear-gradient(115deg, var(--color-primary), var(--color-primary-hover));
-}
 .button-white small {
   color: var(--color-text-secondary);
+}
+.home-action {
+  transition:
+    background 150ms ease,
+    color 150ms ease;
+}
+@media (hover: hover) {
+  .home-action:hover {
+    background: var(--gradient-primary);
+    color: white;
+    border-color: transparent;
+  }
+  .home-action:hover small {
+    color: inherit;
+  }
+}
+.home-action:focus-visible {
+  background: var(--gradient-primary);
+  color: white;
+}
+.home-action:focus-visible small {
+  color: inherit;
 }
 .action-arrow {
   margin-left: auto;

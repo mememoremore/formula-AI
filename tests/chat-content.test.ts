@@ -51,3 +51,25 @@ test('裸公式兼容不猜测代码、英文、路径、货币或半截流式�
   const value = String.raw`中文 $\frac{1}{2}$ 与 \(\sin x\) 和 $$x=1$$`
   assert.equal(chatSegments(value).filter((p) => p.kind === 'math').length, 3)
 })
+
+test('公式图片仅接受账号私有文件路径，保留公式文本并拒绝外部或脚本图片', async () => {
+  const {
+    chatFormulaAttachment,
+    chatFormulaImages,
+    withoutChatFormulaImages,
+    chatQuestionForModel,
+  } = await import('../shared/chat-formula')
+  const id = '11111111-1111-4111-8111-111111111111'
+  const value = chatFormulaAttachment(id, String.raw`h=\frac{1}{2}gt^2`)
+  assert.equal(chatFormulaImages(value)[0]?.src, '/api/account/files/' + id + '/content')
+  assert.equal(withoutChatFormulaImages(value), String.raw`$$h=\frac{1}{2}gt^2$$`)
+  assert.ok(chatQuestionForModel(value).includes(String.raw`h=\frac{1}{2}gt^2`))
+  assert.ok(!chatQuestionForModel(value).includes('/api/account/files/'))
+  for (const value of [
+    '![公式图片](https://evil.test/a.png)',
+    '![公式图片](javascript:alert(1))',
+    '![公式图片](/api/account/files/not-an-id/content)',
+  ])
+    assert.equal(chatFormulaImages(value).length, 0)
+  assert.throws(() => chatFormulaAttachment('../private', 'a=b'))
+})

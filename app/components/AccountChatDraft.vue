@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { displayFormulaTitle } from '#shared/formula-title'
 import { chatSubmissionInvalidated } from '~/utils/account-cache'
 import type { SavedConversation, VersionContext } from '#shared/types/tasks'
 import type { SavedFormula } from '#shared/types/workspace'
@@ -6,7 +7,13 @@ import type { FormulaLibraryItem } from '#shared/types/library'
 import { workspaceFeedback } from '~/utils/workspace-feedback'
 
 const accountFetch = useAccountFetch()
-const props = defineProps<{ ownerId: string; versionId: string; formulaId?: string }>()
+const props = defineProps<{
+  ownerId: string
+  versionId: string
+  formulaId?: string
+  tab?: boolean
+  greetingName?: string
+}>()
 const fetcher = useAccountFetch(),
   intents = useNuxtApp().$chatDraft
 const {
@@ -54,6 +61,14 @@ const pending = computed(() =>
   intents.items.value.find((row) => row.ownerId === props.ownerId && row.slot === 'new'),
 )
 
+function newChat() {
+  if (pending.value || busy.value || selecting.value || preparingImage.value) return
+  if (draft.value.trim() && !window.confirm('问题尚未发送，确定新建聊天并放弃草稿吗？')) return
+  draft.value = ''
+  feedback.value = ''
+  showPicker.value = false
+}
+
 async function reload() {
   await Promise.all([reloadContext(), reloadSettings()])
 }
@@ -73,7 +88,8 @@ const draft = intents.question,
   busy = ref(false),
   feedback = ref(''),
   showPicker = ref(false),
-  selecting = ref(false)
+  selecting = ref(false),
+  preparingImage = ref(false)
 let disposed = false,
   sequence = 0,
   controller: AbortController | undefined
@@ -87,7 +103,7 @@ watch(
 )
 
 function beforeUnload(event: BeforeUnloadEvent) {
-  if (draft.value.trim() && (!pending.value || intents.warning.value)) {
+  if ((draft.value.trim() || preparingImage.value) && (!pending.value || intents.warning.value)) {
     event.preventDefault()
     event.returnValue = ''
   }
@@ -98,7 +114,7 @@ onBeforeRouteLeave((to) => {
   if (
     to.path !== '/ai/' + pending.value?.conversationId &&
     !pending.value &&
-    draft.value.trim() &&
+    (draft.value.trim() || preparingImage.value) &&
     !window.confirm('问题尚未发送，确定放弃草稿吗？')
   )
     return false
@@ -208,18 +224,41 @@ async function send() {
 </script>
 <template>
   <div class="new-chat">
-    <PageHeader title="新对话" :back-to="context ? '/formulas/' + context.formulaId : '/ai'" />
+    <header v-if="tab" class="moxi-chat-heading">
+      <h1>AI助手</h1>
+      <div class="moxi-heading-actions">
+        <button
+          class="text-button new-chat-button"
+          :disabled="!!pending || busy || selecting || preparingImage"
+          @click="newChat"
+        >
+          <AppIcon name="newChat" :size="18" />
+          新建聊天
+        </button>
+        <NuxtLink to="/ai/history" class="text-button">
+          <AppIcon name="history" :size="18" />
+          学习记录
+        </NuxtLink>
+      </div>
+    </header>
+    <PageHeader
+      v-else
+      title="AI助手"
+      :back-to="context ? '/formulas/' + context.formulaId : '/ai'"
+    />
     <div v-if="context" class="card draft-context">
-      <p class="info-note">{{ context.title }}</p>
+      <p class="info-note">{{ displayFormulaTitle(context.title) }}</p>
       <MathFormula :latex="context.latex" />
     </div>
-    <section class="new-chat-welcome">
-      <span class="soft-icon"><AppIcon name="sparkles" :size="25" /></span>
-      <h1>把公式，一步步读懂</h1>
-      <p>解释符号、梳理推导，也可以直接提出你的问题。</p>
+    <section class="new-chat-welcome" :class="{ 'moxi-greeting': tab }">
+      <h1 v-if="tab">嗨 {{ greetingName || '朋友' }}，今天要和墨析聊点什么</h1>
+      <template v-else>
+        <h1>和墨析一起，把公式读懂</h1>
+        <p>解释变量含义、推导步骤，或直接提出你的问题。</p>
+      </template>
     </section>
     <button
-      v-if="!context"
+      v-if="!context && !tab"
       class="button button-secondary button-block"
       :disabled="!!pending || busy || selecting"
       @click="showPicker = true"
@@ -246,7 +285,7 @@ async function send() {
       确认原提问
     </button>
     <div class="new-chat-controls">
-      <div class="chip-list chat-suggestions" aria-label="建议提问">
+      <div v-if="!tab" class="chip-list chat-suggestions" aria-label="建议提问">
         <button
           v-for="suggestion in suggestions"
           :key="suggestion.label"
@@ -259,11 +298,13 @@ async function send() {
       </div>
       <ChatComposer
         v-model="draft"
+        :owner-id="ownerId"
         :readonly="!!pending"
         :disabled="
           busy || !intents.ready.value || !!contextError || !!settingsError || !settings?.ready
         "
-        :placeholder="busy ? '正在创建并发送…' : '输入你的问题…'"
+        :placeholder="busy ? '正在创建并发送…' : '输入提问...'"
+        @image-pending="preparingImage = $event"
         @send="send"
       />
     </div>
@@ -276,6 +317,58 @@ async function send() {
   </div>
 </template>
 <style scoped>
+.moxi-chat-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 48px;
+  padding: 0;
+}
+.moxi-chat-heading h1 {
+  font-size: min(24px, var(--page-title-font-size, 24px));
+  line-height: 1.5;
+}
+.moxi-heading-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.moxi-heading-actions .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--color-primary);
+  white-space: nowrap;
+}
+.new-chat-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+@media (max-width: 360px) {
+  .moxi-heading-actions {
+    gap: 8px;
+  }
+  .moxi-heading-actions .text-button {
+    font-size: 12px;
+  }
+}
+.new-chat-welcome.moxi-greeting {
+  flex: 1;
+  min-height: 40dvh;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 32px 16px;
+}
+.new-chat-welcome.moxi-greeting h1 {
+  font-size: var(--chat-input-font-size, 16px);
+  font-weight: 400;
+  margin: 0;
+}
 .new-chat {
   min-width: 0;
   display: flex;
@@ -294,7 +387,7 @@ async function send() {
   padding: 20px 0;
 }
 .new-chat-welcome h1 {
-  font-size: clamp(22px, 5vw, 28px);
+  font-size: min(clamp(22px, 5vw, 28px), var(--page-title-font-size, 24px));
   margin: 18px 0 12px;
   line-height: 1.4;
 }

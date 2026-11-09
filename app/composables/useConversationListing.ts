@@ -11,7 +11,7 @@ export function useConversationListing(ownerId: string) {
     `account-conversations-${ownerId}`,
     async (_app, { signal }) => {
       const q = query.value
-      const page = await fetcher<ConversationPage>('/api/account/conversations', {
+      const page = await fetcher<ConversationPage>('/api/account/conversations/history', {
         query: { q },
         signal,
         retry: 0,
@@ -64,7 +64,7 @@ export function useConversationListing(ownerId: string) {
     loading.value = true
     feedback.value = ''
     try {
-      const page = await accountFetch<ConversationPage>('/api/account/conversations', {
+      const page = await accountFetch<ConversationPage>('/api/account/conversations/history', {
         query: { q, cursor: after },
         signal: active.signal,
         retry: 0,

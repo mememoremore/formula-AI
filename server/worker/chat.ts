@@ -71,6 +71,12 @@ export async function processChat(
     const messages = structuredTurn
       ? []
       : await readPromptHistory(db, turn.ownerId, turn.conversationId, base?.turnId)
+    const baseQuestion = base
+      ? await db.chatTurn.findFirst({
+          where: { id: base.turnId, ownerId: turn.ownerId, conversationId: turn.conversationId },
+          select: { question: true },
+        })
+      : null
     const context = turn.conversation.formulaVersion
     const controller = new AbortController()
     const parent = job.signal ? AbortSignal.any([job.signal, controller.signal]) : controller.signal
@@ -158,7 +164,12 @@ export async function processChat(
                 responseKind: turn.responseKind,
                 promptVersion: turn.promptVersion,
                 ...(base
-                  ? { baseExplanation: { question: EXPLANATION_QUESTION, answer: base.content } }
+                  ? {
+                      baseExplanation: {
+                        question: baseQuestion?.question ?? EXPLANATION_QUESTION,
+                        answer: base.content,
+                      },
+                    }
                   : {}),
                 formula: context ? { versionId: context.id, latex: context.latex } : undefined,
                 messages: [...messages, { role: 'user', content: turn.question }],

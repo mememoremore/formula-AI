@@ -41,6 +41,15 @@ export async function requireAccountUser(event: H3Event) {
   return session.user
 }
 
+/** 读取账号集合时核对页面预期身份，避免账号切换后的响应写入旧缓存。 */
+export async function requireAccountReader(event: H3Event) {
+  const user = await requireAccountUser(event)
+  const expected = getHeader(event, 'x-account-id')
+  if (expected && expected !== user.id)
+    throw createError({ statusCode: 403, message: '账号已变化，请刷新页面后再读取。' })
+  return user
+}
+
 /** 业务写接口独立校验来源，Cookie 身份验证不能替代 CSRF 检查。 */
 export async function requireAccountWriter(event: H3Event) {
   const user = await requireAccountUser(event)

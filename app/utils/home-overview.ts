@@ -1,46 +1,37 @@
-import type { FormulaLibraryPage } from '../../shared/types/library'
-import type { ConversationPage } from '../../shared/types/tasks'
+import type { RecognitionHistoryPage } from '../../shared/types/tasks'
 import type { DemoState } from '../../shared/types/demo'
 
 export interface HomeRecent {
   ownerId: string | null
-  formulas: FormulaLibraryPage['items']
-  conversation: ConversationPage['items'][number] | null
-  failed: ('formulas' | 'conversations')[]
+  recognitions: RecognitionHistoryPage['items']
+  failed: boolean
 }
 export const emptyHomeRecent = (): HomeRecent => ({
   ownerId: null,
-  formulas: [],
-  conversation: null,
-  failed: [],
+  recognitions: [],
+  failed: false,
 })
 type HomeRequest = <T>(
   path: string,
   options: { signal: AbortSignal; retry: 0; timeout: number },
 ) => Promise<T>
 
-/** 部分失败不能遮住另一组成功记录。 */
+/** 首页只取识别历史，手动输入和 AI 会话不进入最近识别。 */
 export async function loadHomeRecent(
   ownerId: string,
   request: HomeRequest,
   signal: AbortSignal,
 ): Promise<HomeRecent> {
   const options = { signal, retry: 0 as const, timeout: 10_000 }
-  const [formulas, conversations] = await Promise.allSettled([
-    request<FormulaLibraryPage>('/api/account/library', options),
-    request<ConversationPage>('/api/account/conversations', options),
-  ])
 
-  signal.throwIfAborted()
-  return {
-    ownerId,
-    formulas: formulas.status === 'fulfilled' ? formulas.value.items.slice(0, 1) : [],
-    conversation:
-      conversations.status === 'fulfilled' ? (conversations.value.items[0] ?? null) : null,
-    failed: [
-      ...(formulas.status === 'rejected' ? ['formulas' as const] : []),
-      ...(conversations.status === 'rejected' ? ['conversations' as const] : []),
-    ],
+  try {
+    const page = await request<RecognitionHistoryPage>('/api/account/recognitions', options)
+
+    signal.throwIfAborted()
+    return { ownerId, recognitions: page.items.slice(0, 10), failed: false }
+  } catch {
+    signal.throwIfAborted()
+    return { ownerId, recognitions: [], failed: true }
   }
 }
 

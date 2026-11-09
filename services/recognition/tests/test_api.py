@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 from fastapi.testclient import TestClient
-from PIL import Image
+from PIL import Image, ImageDraw, ImageFont
 
 from app.main import create_app
 from app.settings import MAX_IMAGE_BYTES, Settings
@@ -58,6 +58,25 @@ class RecognitionAPITest(unittest.TestCase):
         result = self.recognize()
         self.assertEqual(result.status_code, 200)
         self.assertEqual(result.json(), {"requestId": "fixture-task", "latex": r"x^{2}+1", "modelVersion": self.engine.model_version})
+
+    def test_regions_auth_blank_and_sorted_crops(self):
+        self.assertEqual(self.client.post('/regions', files={'image': ('blank.png', self.image, 'image/png')}).status_code, 401)
+        headers = {'Authorization': f'Bearer {self.settings.api_key}'}
+        blank = self.client.post('/regions', headers=headers, files={'image': ('blank.png', self.image, 'image/png')})
+        self.assertEqual(blank.status_code, 422)
+        image = Image.new('RGB', (1000, 650), 'white')
+        draw = ImageDraw.Draw(image)
+        font = ImageFont.load_default(size=64)
+        draw.text((100, 100), 'x + 1 = 2', fill='black', font=font)
+        draw.text((100, 400), 'y + 2 = 5', fill='black', font=font)
+        output = io.BytesIO()
+        image.save(output, 'PNG')
+        result = self.client.post('/regions', headers=headers, files={'image': ('multiple.png', output.getvalue(), 'image/png')})
+        self.assertEqual(result.status_code, 200)
+        regions = result.json()['regions']
+        self.assertEqual(len(regions), 2)
+        self.assertEqual([r['index'] for r in regions], [0, 1])
+        self.assertLess(regions[0]['bbox'][3], regions[1]['bbox'][1])
 
     def test_unauthorized(self):
         result = self.client.post("/recognize", files={"image": ("f.png", self.image, "image/png")}, data={"mode": "printed"})

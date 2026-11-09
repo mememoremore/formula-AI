@@ -178,6 +178,46 @@ test('原子创建会话首轮额度队列；同键并发仅生成一个任务',
     (e) => e instanceof Error && 'statusCode' in e && e.statusCode === 409,
   )
 })
+test('领域随问题持久化、改变领域冲突而不重复扣额，追问保留原领域', async () => {
+  const value = { ...input(), domain: ' 物理 ' }
+  const turn = await submitExplanation(db, boss, limits, value)
+  assert.ok(turn.question.includes('所属领域：物理'))
+  const before = await db.dailyUsage.findFirstOrThrow({ where: { ownerId, kind: 'CHAT' } })
+  assert.equal(
+    (await submitExplanation(db, boss, limits, { ...value, domain: '物理' })).id,
+    turn.id,
+  )
+  await assert.rejects(
+    submitExplanation(db, boss, limits, { ...value, domain: '化学' }),
+    (error) => error instanceof Error && 'statusCode' in error && error.statusCode === 409,
+  )
+  assert.equal(
+    (await db.dailyUsage.findFirstOrThrow({ where: { ownerId, kind: 'CHAT' } })).used,
+    before.used,
+  )
+  await consume(turn.id, {
+    ...good,
+    async *stream(request) {
+      assert.equal(request.messages.at(-1)?.content, turn.question)
+      yield { text: JSON.stringify(explanationFixture), finishReason: 'stop' }
+    },
+  })
+  const follow = await submitChatTurn(db, boss, limits, {
+    ownerId,
+    conversationId: turn.conversationId,
+    requestKey: randomUUID(),
+    question: '继续解释',
+  })
+  await consume(follow.id, {
+    ...good,
+    async *stream(request) {
+      assert.equal(request.baseExplanation?.question, turn.question)
+      assert.ok(request.baseExplanation?.question.includes('物理'))
+      yield { text: '这是领域追问测试。', finishReason: 'stop' }
+    },
+  })
+})
+
 test('额度失败完整回滚，不遗留会话或轮次', async () => {
   const value = input(),
     before = await db.conversation.count({ where: { ownerId } })

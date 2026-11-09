@@ -1,4 +1,9 @@
 import { test, expect } from 'vitest'
+import { recognitionHistoryDeleteSchema } from '../shared/schemas/recognition-history'
+import {
+  recognitionBatchInputSchema,
+  recognitionBatchCategorySchema,
+} from '../shared/schemas/recognition-batch'
 import {
   parseRecognitionTaskInput,
   parseConversationInput,
@@ -10,6 +15,51 @@ import {
 } from '../server/services/task-input'
 import { WorkspaceError } from '../server/services/workspace-error'
 const id = 'ABCDEFAB-0000-0000-0000-000000000000'
+
+test('同一批次统一单公式或多公式，每批最多10张、每图最多20个区域', () => {
+  const image = (count: number) => ({
+    fileId: id,
+    parts: Array.from({ length: count }, () => ({ fileId: id })),
+  })
+  const input = (mode: string, counts: number[]) => ({
+    requestKey: id,
+    mode,
+    images: counts.map(image),
+  })
+  expect(recognitionBatchInputSchema.parse(input('single', [1, 1])).images[0]?.fileId).toBe(
+    id.toLowerCase(),
+  )
+  expect(recognitionBatchInputSchema.safeParse(input('multiple', [2, 20])).success).toBe(true)
+  for (const body of [
+    input('single', [1, 2]),
+    input('multiple', [2, 1]),
+    input('multiple', [0]),
+    input('multiple', [21]),
+    input('single', []),
+    input('single', Array(11).fill(1)),
+    input('mixed', [1]),
+  ])
+    expect(recognitionBatchInputSchema.safeParse(body).success).toBe(false)
+})
+
+test('批量分类规范化并去重公式编号，拒绝非法分类', () => {
+  expect(
+    recognitionBatchCategorySchema.parse({ ids: [id, id.toLowerCase()], categoryId: null }),
+  ).toEqual({ ids: [id.toLowerCase()], categoryId: null })
+  expect(recognitionBatchCategorySchema.safeParse({ ids: [], categoryId: null }).success).toBe(
+    false,
+  )
+  expect(recognitionBatchCategorySchema.safeParse({ ids: [id], categoryId: 'bad' }).success).toBe(
+    false,
+  )
+})
+test('识别记录批量删除限制规模并规范化、去重编号', () => {
+  expect(
+    recognitionHistoryDeleteSchema.parse({ ids: [id, id.toLowerCase()], ownerId: 'ignored' }),
+  ).toEqual({ ids: [id.toLowerCase()] })
+  for (const ids of [[], Array(101).fill(id), ['bad'], [null], id, null])
+    expect(recognitionHistoryDeleteSchema.safeParse({ ids }).success).toBe(false)
+})
 function rejected(run: () => unknown, message: string) {
   let failure: unknown
   try {
@@ -85,6 +135,19 @@ test('explanation and export share ID syntax but retain different field names an
     '请提供有效的公式版本和请求编号。',
   )
 })
+test('explanation domain is optional for legacy callers, but supplied domains must be meaningful and bounded', () => {
+  expect(parseExplanationInput({ requestKey: id, versionId: id, domain: ' 物理 ' })).toEqual({
+    requestKey: id,
+    versionId: id,
+    domain: '物理',
+  })
+  for (const domain of ['', ' ', 'x'.repeat(61), '数学\n物理', 'x\0y', 'x\u007fy', null, 1])
+    rejected(
+      () => parseExplanationInput({ requestKey: id, versionId: id, domain }),
+      '请输入1～60字的公式所属领域。',
+    )
+})
+
 test('history query contracts deliberately differ in lengths, NUL and missing search value', () => {
   expect(parseRecognitionHistoryInput({})).toEqual({ cursor: undefined, q: '' })
   expect(parseConversationListInput({})).toEqual({ cursor: undefined, q: undefined })

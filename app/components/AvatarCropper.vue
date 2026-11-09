@@ -83,7 +83,7 @@ onMounted(async () => {
       !props.file.size ||
       props.file.size > 10 * 1024 * 1024
     )
-      throw new Error('请选择不超过 10MB 的 JPG 或 PNG。')
+      throw new Error('请选择不超过 10MB 的 JPG/JPEG、PNG。')
 
     const loaded = await createImageBitmap(props.file, { imageOrientation: 'from-image' })
 
@@ -101,7 +101,7 @@ onMounted(async () => {
     ready.value = false
     error.value =
       cause instanceof DOMException
-        ? '图片无法读取，请重新选择完整的 JPG 或 PNG。'
+        ? '图片无法读取，请重新选择完整的 JPG/JPEG、PNG。'
         : cause instanceof Error
           ? cause.message
           : '图片无法读取，请重新选择。'
@@ -114,7 +114,7 @@ onScopeDispose(() => {
 </script>
 <template>
   <AppModal :open="true" title="裁剪头像" full-screen @close="emit('close')">
-    <p class="info-note">拖动调整位置，滑动缩放。保存时保留方形图片，头像以圆形展示。</p>
+    <p class="info-note">拖动调整位置，滑动缩放；保存时保留方形图片，头像以圆形展示。</p>
     <div class="crop-preview">
       <canvas
         ref="canvas"

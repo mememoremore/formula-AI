@@ -1,6 +1,9 @@
 import { Prisma, type PrismaClient } from '../generated/prisma/client'
 import { DatabaseOperationError } from './errors'
 import { hasValidResourceIdentity } from './private-resources'
+import { deleteFormulaBatch } from './formula-batch-mutations'
+import { WorkspaceError } from '../services/workspace-error'
+import { identityMembers, lockIdentity } from './formula-identities'
 
 interface CreateFormulaInput {
   ownerId: string
@@ -101,6 +104,7 @@ export async function appendFormulaVersion(db: PrismaClient, input: AppendVersio
     try {
       return await db.$transaction(
         async (tx) => {
+          await lockIdentity(tx, input.ownerId)
           const formula = await tx.formula.findFirst({
             where: { id: input.formulaId, ownerId: input.ownerId, deletedAt: null },
           })
@@ -122,12 +126,28 @@ export async function appendFormulaVersion(db: PrismaClient, input: AppendVersio
           }
           if (latex === latest.latex) {
             if (title !== undefined && title !== formula.title)
-              await tx.formula.update({
-                where: { id: formula.id },
+              await tx.formula.updateMany({
+                where: {
+                  ownerId: input.ownerId,
+                  id: {
+                    in: (await identityMembers(tx, input.ownerId, formula.id)).map((x) => x.id),
+                  },
+                },
                 data: { title, updatedAt: new Date() },
               })
             return latest
           }
+
+          const members = await identityMembers(tx, input.ownerId, formula.id)
+          const split = formula.canonicalId ? [formula.id] : members.map((x) => x.id)
+          await tx.formula.updateMany({
+            where: { ownerId: input.ownerId, id: { in: split } },
+            data: {
+              canonicalId: null,
+              duplicateDecision: null,
+              duplicateCheck: { status: 'none' },
+            },
+          })
 
           const version = await tx.formulaVersion.create({
             data: {
@@ -161,17 +181,11 @@ export async function appendFormulaVersion(db: PrismaClient, input: AppendVersio
 /** Soft deletion hides a formula while preserving immutable versions and their historical links. */
 export async function softDeleteFormula(db: PrismaClient, ownerId: string, formulaId: string) {
   if (!hasValidResourceIdentity(ownerId, formulaId)) return false
-  return db.$transaction(async (tx) => {
-    const formula = await tx.formula.findFirst({
-      where: { id: formulaId, ownerId },
-      select: { id: true, deletedAt: true },
-    })
-    if (!formula) return false
-    if (formula.deletedAt) return true
-    const result = await tx.formula.updateMany({
-      where: { id: formulaId, ownerId, deletedAt: null },
-      data: { deletedAt: new Date() },
-    })
-    return result.count === 1
-  })
+  try {
+    await deleteFormulaBatch(db, ownerId, [formulaId])
+    return true
+  } catch (error) {
+    if (error instanceof WorkspaceError && error.statusCode === 404) return false
+    throw error
+  }
 }

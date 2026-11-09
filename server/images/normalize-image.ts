@@ -11,12 +11,12 @@ export async function normalizeImage(input: Buffer, declaredMime: string) {
   const png = input.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
   const mimeType = jpeg ? 'image/jpeg' : png ? 'image/png' : ''
   if (!mimeType || declaredMime !== mimeType)
-    throw new WorkspaceError(415, '图片内容与格式不符，请选择真实的 JPEG 或 PNG 图片。')
+    throw new WorkspaceError(415, '图片内容与格式不符，请选择真实的 JPG/JPEG、PNG 图片。')
   try {
     const image = sharp(input, { limitInputPixels: MAX_IMAGE_PIXELS, failOn: 'warning' })
     const metadata = await image.metadata()
     if ((metadata.pages ?? 1) !== 1)
-      throw new WorkspaceError(400, '暂不支持多帧图片，请使用静态 JPEG 或 PNG。')
+      throw new WorkspaceError(400, '暂不支持多帧图片，请使用静态 JPG/JPEG、PNG。')
     if (!metadata.width || !metadata.height || metadata.width * metadata.height > MAX_IMAGE_PIXELS)
       throw new WorkspaceError(413, '图片不能超过 2000 万像素。')
     const oriented = image.autoOrient()

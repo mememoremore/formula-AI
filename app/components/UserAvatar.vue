@@ -21,7 +21,11 @@ watch(src, () => {
 <template>
   <span
     class="user-avatar"
-    :style="{ width: size + 'px', height: size + 'px', fontSize: size * 0.34 + 'px' }"
+    :style="{
+      width: size + 'px',
+      height: size + 'px',
+      fontSize: 'min(' + size * 0.34 + 'px, var(--page-title-font-size, 24px))',
+    }"
   >
     <img v-if="src && !failed" :key="src" ref="image" :src="src" alt="头像" @error="failedImage" />
     <img v-else src="/images/default-avatar.svg" alt="默认头像" />

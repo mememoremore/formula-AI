@@ -102,7 +102,7 @@ withDefaults(defineProps<{ kind?: 'formula' | 'book' | 'idea'; compact?: boolean
   top: 0;
   left: 5px;
   color: #a896e8;
-  font-size: 30px;
+  font-size: min(30px, var(--page-title-font-size, 24px));
 }
 .compact {
   /* 保留完整画布再缩放，纸张和铅笔的定位不会溢出缩略图容器。 */

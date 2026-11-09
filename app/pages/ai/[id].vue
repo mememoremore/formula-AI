@@ -1,11 +1,11 @@
 <script setup lang="ts">
 definePageMeta({
   middleware: 'auth',
-  bottomNav: false,
+  bottomNav: true,
   contentWidth: 'reading',
   alias: '/account/conversations/:id',
 })
-useHead({ title: 'AI 对话 · Formula AI' })
+useHead({ title: 'AI 对话 · 墨析' })
 
 const route = useRoute(),
   session = useAccountSession()

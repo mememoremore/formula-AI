@@ -1,5 +1,7 @@
 <script setup lang="ts">
-withDefaults(
+import { displayFormulaTitle } from '#shared/formula-title'
+
+const props = withDefaults(
   defineProps<{
     title: string
     latex: string
@@ -19,6 +21,29 @@ withDefaults(
 
 const emit = defineEmits<{ favorite: []; category: [] }>()
 
+let pointerStart: { x: number; y: number } | undefined
+
+function pointerDown(event: PointerEvent) {
+  pointerStart = { x: event.clientX, y: event.clientY }
+}
+
+function openDetails(event: MouseEvent | KeyboardEvent) {
+  if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.shiftKey || event.altKey)
+    return
+
+  const target = event.target as Element | null
+
+  if (target?.closest('a, button, .category-tag')) return
+  if (
+    'clientX' in event &&
+    pointerStart &&
+    Math.hypot(event.clientX - pointerStart.x, event.clientY - pointerStart.y) > 8
+  )
+    return
+  if (window.getSelection()?.toString()) return
+  void navigateTo(props.to)
+}
+
 function date(value: string) {
   return new Intl.DateTimeFormat('zh-CN', {
     timeZone: 'Asia/Shanghai',
@@ -29,12 +54,18 @@ function date(value: string) {
 }
 </script>
 <template>
-  <article class="card formula-list-card" :class="{ compact }">
+  <article
+    class="card formula-list-card"
+    :class="{ compact }"
+    @pointerdown="pointerDown"
+    @click="openDetails"
+    @keydown.enter="openDetails"
+  >
     <div class="formula-card-heading">
       <button
         v-if="editableCategory"
         class="category-tag"
-        :aria-label="'修改' + title + '的分类'"
+        :aria-label="'修改' + displayFormulaTitle(title) + '的分类'"
         @click="emit('category')"
       >
         <span class="category-badge">
@@ -47,14 +78,14 @@ function date(value: string) {
       </span>
       <FavoriteButton
         :active="favorite"
-        :label="(favorite ? '取消收藏' : '收藏') + title"
+        :label="(favorite ? '取消收藏' : '收藏') + displayFormulaTitle(title)"
         :disabled="busy"
         @toggle="emit('favorite')"
       />
     </div>
-    <NuxtLink :to="to" :aria-label="'查看' + title" class="formula-card-body">
+    <NuxtLink :to="to" :aria-label="'查看' + displayFormulaTitle(title)" class="formula-card-body">
       <div class="formula-card-title">
-        <h3>{{ title }}</h3>
+        <h3>{{ displayFormulaTitle(title) }}</h3>
         <time :datetime="createdAt">{{ date(createdAt) }}</time>
       </div>
       <div class="formula-card-meta">
@@ -68,12 +99,13 @@ function date(value: string) {
       :latex="latex"
       tabindex="0"
       role="group"
-      :aria-label="title + '，公式可横向滚动'"
+      :aria-label="displayFormulaTitle(title) + '，公式可横向滚动'"
     />
   </article>
 </template>
 <style scoped>
 .formula-list-card {
+  cursor: pointer;
   min-width: 0;
   padding: 8px 16px 12px;
   border: 1px solid #eeebf4;

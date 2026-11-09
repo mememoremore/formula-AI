@@ -1,6 +1,6 @@
 <script setup lang="ts">
 definePageMeta({ bottomNav: false, contentWidth: 'reading' })
-useHead({ title: '关于项目 · Formula AI' })
+useHead({ title: '关于项目 · 墨析' })
 </script>
 <template>
   <PageHeader title="关于项目" back-to="/profile" />
@@ -60,7 +60,7 @@ useHead({ title: '关于项目 · Formula AI' })
   margin-bottom: 22px;
 }
 .about-title {
-  font-size: clamp(26px, 6vw, 34px);
+  font-size: min(clamp(26px, 6vw, 34px), var(--page-title-font-size, 24px));
   margin: 12px 0;
 }
 .eyebrow {

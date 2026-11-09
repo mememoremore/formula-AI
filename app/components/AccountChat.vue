@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { displayFormulaTitle } from '#shared/formula-title'
 import { explanationLayout } from '~/utils/explanation-layout'
 import { explanationCopyText } from '~/utils/explanation-copy'
 
@@ -12,17 +13,19 @@ const layout = computed(() =>
   conversation.value ? explanationLayout(conversation.value) : { question: null, messages: [] },
 )
 const turn = computed(() => conversation.value?.currentTurn)
-const draft = ref('')
+const draft = ref(''),
+  preparingImage = ref(false)
+const accountSession = useAccountSession()
 
 onBeforeRouteLeave(
   () =>
-    !draft.value.trim() ||
+    (!draft.value.trim() && !preparingImage.value) ||
     !!pendingIntent.value ||
     window.confirm('提问尚未发送，确定放弃草稿吗？'),
 )
 
 function beforeUnload(event: BeforeUnloadEvent) {
-  if (draft.value.trim() && !pendingIntent.value) {
+  if ((draft.value.trim() || preparingImage.value) && !pendingIntent.value) {
     event.preventDefault()
     event.returnValue = ''
   }
@@ -57,7 +60,10 @@ await chat.request
 <template>
   <div class="account-chat">
     <div class="chat-header">
-      <PageHeader :title="conversation?.context?.title || 'AI 对话'" back-to="/ai" />
+      <PageHeader
+        :title="displayFormulaTitle(conversation?.context?.title || 'AI助手')"
+        back-to="/ai/history"
+      />
       <details v-if="conversation?.context" class="chat-context">
         <summary>
           <AppIcon name="book" :size="15" />
@@ -78,7 +84,7 @@ await chat.request
         class="chat-message user explanation-question"
         aria-label="解释提问"
       >
-        <p>{{ layout.question }}</p>
+        <ChatQuestionContent :content="layout.question" />
       </article>
       <section v-if="conversation.purpose === 'EXPLANATION'" class="card explanation-base">
         <template v-if="conversation.baseExplanation">
@@ -128,6 +134,15 @@ await chat.request
           class="chat-message"
           :class="message.role.toLowerCase()"
         >
+          <span v-if="message.role === 'ASSISTANT'" class="moxi-message-avatar">
+            <img src="/images/moxi-icon.png" alt="墨析" width="36" height="36" />
+          </span>
+          <UserAvatar
+            v-else
+            class="moxi-message-avatar"
+            :user="accountSession.data.value?.user"
+            :size="36"
+          />
           <template v-if="message.role === 'ASSISTANT'">
             <div class="message-source">
               <AppIcon name="sparkles" :size="14" />
@@ -143,7 +158,7 @@ await chat.request
               success-message="回答已复制。"
             />
           </template>
-          <p v-else>{{ message.content }}</p>
+          <ChatQuestionContent v-else :content="message.content" />
         </article>
         <article
           v-if="turn?.status === 'PROCESSING' && turn.partialContent"
@@ -189,7 +204,7 @@ await chat.request
       <p>
         {{
           [401, 403, 404].includes(error.statusCode ?? 0)
-            ? '对话不存在或当前账号无法访问，请返回会话列表。'
+            ? '对话不存在或当前账号无法访问，请返回会话列表；'
             : '对话暂时无法读取，已显示的内容会保留。'
         }}
       </p>
@@ -214,6 +229,7 @@ await chat.request
     </button>
     <ChatComposer
       v-model="draft"
+      :owner-id="ownerId"
       :busy="generating"
       :stopping="stopping"
       :readonly="!!pendingIntent"
@@ -224,12 +240,28 @@ await chat.request
         (!recoveryReady && !generating) ||
         (conversation.purpose === 'EXPLANATION' && !conversation.baseExplanation && !generating)
       "
+      @image-pending="preparingImage = $event"
       @send="submit"
       @stop="chat.stop"
     />
   </div>
 </template>
 <style scoped>
+.chat-heading-actions {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 14px;
+}
+.chat-heading-actions .text-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.5;
+  color: var(--color-primary);
+}
 .regenerate-answer {
   min-height: 44px;
   margin-top: 4px;
@@ -302,6 +334,8 @@ summary::-webkit-details-marker {
   margin-top: 12px;
 }
 .chat-message {
+  position: relative;
+  margin-inline: 44px;
   min-width: 0;
   font-size: 16px;
   line-height: 1.75;
@@ -310,8 +344,8 @@ summary::-webkit-details-marker {
   align-self: flex-end;
   max-width: 90%;
   padding: 12px 16px;
-  background: #eae5fa;
-  color: #51416f;
+  background: #5b5ce2;
+  color: #ffffff;
   border-radius: 18px 18px 4px 18px;
 }
 .chat-message.user p {
@@ -319,8 +353,26 @@ summary::-webkit-details-marker {
   overflow-wrap: anywhere;
 }
 .chat-message.assistant {
-  padding: 0 2px;
-  background: transparent;
+  padding: 14px 16px;
+  background: #ffffff;
+  border-radius: 4px 18px 18px;
+  box-shadow: 0 4px 12px #40458c10;
+}
+.moxi-message-avatar {
+  position: absolute;
+  left: -44px;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  background: #eef0ff;
+  color: #5b5ce2;
+  border-radius: 50%;
+}
+.user .moxi-message-avatar {
+  left: auto;
+  right: -44px;
 }
 .message-source {
   display: flex;

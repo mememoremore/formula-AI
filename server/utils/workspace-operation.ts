@@ -18,7 +18,7 @@ export function workspaceRequest<T>(event: H3Event, operation: () => Promise<T>)
   const path = event.path.split('?')[0] ?? ''
   const kind = path.includes('/conversations')
     ? 'chat'
-    : path.includes('/recognitions')
+    : path.includes('/recognitions') || path.includes('/recognition-batches')
       ? 'recognition'
       : path.includes('/exports')
         ? 'export'
